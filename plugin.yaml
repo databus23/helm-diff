@@ -1,0 +1,8 @@
+name: "diff"
+# Version is the version of Helm plus the number of official builds for this
+# plugin
+version: "2.2.1+1"
+usage: "Show a diff explaing what a helm upgrade would change"
+description: "Show a diff explaing what a helm upgrade would change"
+useTunnel: true
+command: "$HELM_PLUGIN_DIR/diff"

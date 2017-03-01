@@ -1,0 +1,123 @@
+hash: e501e79b7d25167d96db739b79b7f6a56a34eca2ba52e1436458f96c2b8240ee
+updated: 2017-03-01T21:27:53.179246049+01:00
+imports:
+- name: github.com/aryann/difflib
+  version: a1a4dd44eb11820695fbe83e00fb2301ee6eb54c
+- name: github.com/blang/semver
+  version: 31b736133b98f26d5e078ec9eb591666edfd091f
+- name: github.com/ghodss/yaml
+  version: 73d445a93680fa1a78ae23a5839bad48f32ba1ee
+- name: github.com/gobwas/glob
+  version: bea32b9cd2d6f55753d94a28e959b13f0244797a
+  subpackages:
+  - compiler
+  - match
+  - syntax
+  - syntax/ast
+  - syntax/lexer
+  - util/runes
+  - util/strings
+- name: github.com/golang/glog
+  version: 44145f04b68cf362d9c4df2182967c2275eaefed
+- name: github.com/golang/protobuf
+  version: df1d3ca07d2d07bba352d5b73c4313b4e2a6203e
+  subpackages:
+  - proto
+  - ptypes/any
+  - ptypes/timestamp
+- name: github.com/inconshreveable/mousetrap
+  version: 76626ae9c91c4f2a10f34cad8ce83ea42c93bb75
+- name: github.com/Masterminds/semver
+  version: 59c29afe1a994eacb71c833025ca7acf874bb1da
+- name: github.com/mgutz/ansi
+  version: 9520e82c474b0a04dd04f8a40959027271bab992
+- name: github.com/spf13/cobra
+  version: f62e98d28ab7ad31d707ba837a966378465c7b57
+- name: github.com/spf13/pflag
+  version: 5ccb023bc27df288a957c5e994cd44fd19619465
+- name: golang.org/x/crypto
+  version: 1f22c0103821b9390939b6776727195525381532
+  subpackages:
+  - cast5
+  - openpgp
+  - openpgp/armor
+  - openpgp/clearsign
+  - openpgp/elgamal
+  - openpgp/errors
+  - openpgp/packet
+  - openpgp/s2k
+- name: golang.org/x/net
+  version: e90d6d0afc4c315a0d87a568ae68577cc15149a0
+  subpackages:
+  - context
+  - http2
+  - http2/hpack
+  - internal/timeseries
+  - lex/httplex
+  - trace
+- name: google.golang.org/grpc
+  version: b7f1379d3cbbbeb2ca3405852012e237aa05459e
+  subpackages:
+  - codes
+  - credentials
+  - grpclog
+  - internal
+  - metadata
+  - naming
+  - peer
+  - transport
+- name: gopkg.in/yaml.v2
+  version: a83829b6f1293c91addabc89d0571c246397bbf4
+- name: k8s.io/helm
+  version: db531fd75fb2a1fb0841a98d9e55c58c21f70f4c
+  subpackages:
+  - cmd/helm/helmpath
+  - cmd/helm/strvals
+  - pkg/chartutil
+  - pkg/downloader
+  - pkg/helm
+  - pkg/ignore
+  - pkg/proto/hapi/chart
+  - pkg/proto/hapi/release
+  - pkg/proto/hapi/services
+  - pkg/proto/hapi/version
+  - pkg/provenance
+  - pkg/repo
+  - pkg/resolver
+  - pkg/tlsutil
+  - pkg/urlutil
+  - pkg/version
+- name: k8s.io/kubernetes
+  version: 029c3a408176b55c30846f0faedf56aae5992e9b
+  subpackages:
+  - pkg/api
+  - pkg/api/errors
+  - pkg/api/meta
+  - pkg/api/unversioned
+  - pkg/api/v1
+  - pkg/apis/apps/v1beta1
+  - pkg/apis/batch
+  - pkg/apis/batch/v1
+  - pkg/apis/extensions
+  - pkg/apis/extensions/v1beta1
+  - pkg/client/clientset_generated/internalclientset
+  - pkg/client/clientset_generated/internalclientset/typed/core/internalversion
+  - pkg/client/clientset_generated/internalclientset/typed/extensions/internalversion
+  - pkg/client/restclient
+  - pkg/client/typed/discovery
+  - pkg/client/unversioned
+  - pkg/client/unversioned/clientcmd
+  - pkg/client/unversioned/portforward
+  - pkg/client/unversioned/remotecommand
+  - pkg/fields
+  - pkg/kubectl
+  - pkg/kubectl/cmd/util
+  - pkg/kubectl/resource
+  - pkg/labels
+  - pkg/runtime
+  - pkg/util/intstr
+  - pkg/util/strategicpatch
+  - pkg/util/wait
+  - pkg/version
+  - pkg/watch
+testImports: []

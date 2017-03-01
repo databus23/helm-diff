@@ -1,0 +1,12 @@
+package: github.com/databus23/helm-diff
+import:
+- package: github.com/spf13/cobra
+  version: f62e98d28ab7ad31d707ba837a966378465c7b57
+- package: github.com/spf13/pflag
+  version: 5ccb023bc27df288a957c5e994cd44fd19619465
+- package: github.com/aryann/difflib
+- package: github.com/mgutz/ansi
+- package: k8s.io/helm
+  version: ^v2.2.1
+  subpackages:
+  - pkg/helm
