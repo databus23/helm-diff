@@ -21,6 +21,16 @@ $ helm diff [flags] RELEASE CHART
 
 
 ## Install
+Pick a release tarball from the [releases](https://github.com/databus23/helm-diff/releases) page.
+
+Unpack the tarball in your helm plugins directory (`$(helm home)/plugins`).
+
+E.g.
+```
+curl -L $TARBALL_URL | tar -C $(helm home)/plugins -xzv
+```
+
+## Build
 
 Clone the repository into your `$GOPATH` and then build it.
 
