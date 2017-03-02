@@ -22,12 +22,15 @@ endif
 	glide install --strip-vendor
 
 .PHONY: dist
+dist: export COPYFILE_DISABLE=1 #teach OSX tar to not put ._* files in tar archive
 dist:
-	GOOS=linux GOARCH=amd64 go build -o diff -ldflags="$(LDFLAGS)"
-	tar -zcvf release/helm-template-linux.tgz diff README.md LICENSE plugin.yaml
-	GOOS=darwin GOARCH=amd64 go build -o diff -ldflags="$(LDFLAGS)"
-	tar -zcvf release/helm-template-macos.tgz diff README.md LICENSE plugin.yaml
-	rm diff
+	mkdir -p build/diff
+	rm -rf build/diff/* release/*
+	cp README.md LICENSE plugin.yaml build/diff
+	GOOS=linux GOARCH=amd64 go build -o build/diff/diff -ldflags="$(LDFLAGS)"
+	tar -C build/ -zcvf $(CURDIR)/release/helm-template-linux.tgz diff/
+	GOOS=darwin GOARCH=amd64 go build -o build/diff/diff -ldflags="$(LDFLAGS)"
+	tar -C build/ -zcvf $(CURDIR)/release/helm-template-macos.tgz diff/
 
 .PHONY: release
 release: dist
