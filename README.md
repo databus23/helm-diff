@@ -49,4 +49,3 @@ The above will install this plugin into your `$HELM_HOME/plugins` directory.
 - You need to have [Go](http://golang.org) installed. Make sure to set `$GOPATH`
 - If you don't have [Glide](http://glide.sh) installed, this will install it into
   `$GOPATH/bin` for you.
-jk
