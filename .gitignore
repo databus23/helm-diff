@@ -1,2 +1,4 @@
 diff
 vendor/
+release/
+.envrc
