@@ -28,6 +28,8 @@ This can be used visualize what changes a helm upgrade will
 perform.
 `
 
+var Version string = "HEAD"
+
 type diffCmd struct {
 	release string
 	chart   string
@@ -64,6 +66,10 @@ func main() {
 		Short: "Show manifest differences",
 		Long:  globalUsage,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if v, _ := cmd.Flags().GetBool("version"); v {
+				fmt.Println(Version)
+				return nil
+			}
 			if err := checkArgsLength(len(args), "release name", "chart path"); err != nil {
 				return err
 			}
@@ -77,6 +83,7 @@ func main() {
 		},
 	}
 	f := cmd.Flags()
+	f.BoolP("version", "v", false, "show version")
 	f.VarP(&diff.valueFiles, "values", "f", "specify values in a YAML file (can specify multiple)")
 	f.StringArrayVar(&diff.values, "set", []string{}, "set values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)")
 
