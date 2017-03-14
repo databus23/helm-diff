@@ -24,8 +24,8 @@ endif
 .PHONY: dist
 dist: export COPYFILE_DISABLE=1 #teach OSX tar to not put ._* files in tar archive
 dist:
-	mkdir -p build/diff
 	rm -rf build/diff/* release/*
+	mkdir -p build/diff release/
 	cp README.md LICENSE plugin.yaml build/diff
 	GOOS=linux GOARCH=amd64 go build -o build/diff/diff -ldflags="$(LDFLAGS)"
 	tar -C build/ -zcvf $(CURDIR)/release/helm-template-linux.tgz diff/
