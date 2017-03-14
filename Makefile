@@ -37,4 +37,5 @@ release: dist
 ifndef GITHUB_ACCESS_TOKEN
 	$(error GITHUB_ACCESS_TOKEN is undefined)
 endif
+	git push
 	gh-release create databus23/helm-diff $(VERSION) master
