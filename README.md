@@ -30,6 +30,14 @@ E.g.
 curl -L $TARBALL_URL | tar -C $(helm home)/plugins -xzv
 ```
 
+Post Downloading the desired release, do note you will need to move the binary in the helm plugins folder :
+
+```
+cp -r ~/Downloads/diff $HOME/.helm/plugins/
+```
+
+
+
 ## Build
 
 Clone the repository into your `$GOPATH` and then build it.
@@ -49,3 +57,21 @@ The above will install this plugin into your `$HELM_HOME/plugins` directory.
 - You need to have [Go](http://golang.org) installed. Make sure to set `$GOPATH`
 - If you don't have [Glide](http://glide.sh) installed, this will install it into
   `$GOPATH/bin` for you.
+
+### Troubleshooting
+
+- If the below error is generated :
+
+```
+Error: file "staging" not found
+Usage:
+  diff [flags] [RELEASE] [CHART]
+
+Flags:
+      --set stringArray     set values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)
+  -f, --values valueFiles   specify values in a YAML file (can specify multiple) (default [])
+  -v, --version             show version
+
+Error: plugin "diff" exited with error
+```
+This mean, the command is not executed in the correct repo & valid RELEASE & CHART details havent been given
