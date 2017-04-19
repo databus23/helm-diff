@@ -5,7 +5,7 @@
 PROJECT_NAME="helm-diff"
 PROJECT_GH="databus23/$PROJECT_NAME"
 
-: ${HELM_PLUGIN_PATH:="$(helm home)/plugins/helm-diff"}
+: ${HELM_PLUGIN_PATH:="$(helm home)/plugins/diff"}
 
 if [[ $SKIP_BIN_INSTALL == "1" ]]; then
   echo "Skipping binary install"
