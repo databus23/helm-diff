@@ -60,7 +60,7 @@ getDownloadURL() {
   if type "curl" > /dev/null; then
     DOWNLOAD_URL=$(curl -s $latest_url | grep $OS | awk '/\"browser_download_url\":/{gsub( /[,\"]/,"", $2); print $2}')
   elif type "wget" > /dev/null; then
-    DOWNLOAD_URL=$(wget -q -O - $latest_url | awk '/\"browser_download_url\":/{gsub( /[,\"]/,"", $2); print $2}')
+    DOWNLOAD_URL=$(wget -q -O - $latest_url | grep $OS | awk '/\"browser_download_url\":/{gsub( /[,\"]/,"", $2); print $2}')
   fi
 }
 
