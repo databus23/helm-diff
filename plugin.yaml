@@ -6,3 +6,5 @@ usage: "Preview helm upgrade changes as a diff"
 description: "Preview helm upgrade changes as a diff"
 useTunnel: true
 command: "$HELM_PLUGIN_DIR/diff"
+hooks:
+  install: "$HELM_PLUGIN_DIR/install-binary.sh"
