@@ -13,9 +13,9 @@ import (
 
 	"github.com/ghodss/yaml"
 	"google.golang.org/grpc"
-	"k8s.io/helm/cmd/helm/helmpath"
-	"k8s.io/helm/cmd/helm/strvals"
 	"k8s.io/helm/pkg/downloader"
+	"k8s.io/helm/pkg/helm/helmpath"
+	"k8s.io/helm/pkg/strvals"
 )
 
 /////////////// Source: cmd/helm/install.go /////////////////////////

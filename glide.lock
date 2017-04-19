@@ -1,10 +1,12 @@
-hash: e501e79b7d25167d96db739b79b7f6a56a34eca2ba52e1436458f96c2b8240ee
-updated: 2017-03-01T21:27:53.179246049+01:00
+hash: 1f809422b7d8e031157f4feb84ad7f11f11926de4d8a829672361c675250f26b
+updated: 2017-04-20T00:14:04.166484886+02:00
 imports:
 - name: github.com/aryann/difflib
   version: a1a4dd44eb11820695fbe83e00fb2301ee6eb54c
 - name: github.com/blang/semver
   version: 31b736133b98f26d5e078ec9eb591666edfd091f
+- name: github.com/facebookgo/symwalk
+  version: 42004b9f322246749dd73ad71008b1f3160c0052
 - name: github.com/ghodss/yaml
   version: 73d445a93680fa1a78ae23a5839bad48f32ba1ee
 - name: github.com/gobwas/glob
@@ -28,9 +30,19 @@ imports:
 - name: github.com/inconshreveable/mousetrap
   version: 76626ae9c91c4f2a10f34cad8ce83ea42c93bb75
 - name: github.com/Masterminds/semver
-  version: 59c29afe1a994eacb71c833025ca7acf874bb1da
+  version: 3f0ab6d4ab4bed1c61caf056b63a6e62190c7801
+- name: github.com/mattn/go-colorable
+  version: ded68f7a9561c023e790de24279db7ebf473ea80
+- name: github.com/mattn/go-isatty
+  version: fc9e8d8ef48496124e79ae0df75490096eccf6fe
 - name: github.com/mgutz/ansi
   version: 9520e82c474b0a04dd04f8a40959027271bab992
+- name: github.com/naoina/go-stringutil
+  version: 6b638e95a32d0c1131db0e7fe83775cbea4a0d0b
+- name: github.com/naoina/toml
+  version: 751171607256bb66e64c9f0220c00662420c38e9
+  subpackages:
+  - ast
 - name: github.com/spf13/cobra
   version: f62e98d28ab7ad31d707ba837a966378465c7b57
 - name: github.com/spf13/pflag
@@ -55,6 +67,10 @@ imports:
   - internal/timeseries
   - lex/httplex
   - trace
+- name: golang.org/x/sys
+  version: 8f0908ab3b2457e2e15403d3697c9ef5cb4b57a9
+  subpackages:
+  - unix
 - name: google.golang.org/grpc
   version: b7f1379d3cbbbeb2ca3405852012e237aa05459e
   subpackages:
@@ -69,13 +85,12 @@ imports:
 - name: gopkg.in/yaml.v2
   version: a83829b6f1293c91addabc89d0571c246397bbf4
 - name: k8s.io/helm
-  version: db531fd75fb2a1fb0841a98d9e55c58c21f70f4c
+  version: 32562a3040bb5ca690339b9840b6f60f8ce25da4
   subpackages:
-  - cmd/helm/helmpath
-  - cmd/helm/strvals
   - pkg/chartutil
   - pkg/downloader
   - pkg/helm
+  - pkg/helm/helmpath
   - pkg/ignore
   - pkg/proto/hapi/chart
   - pkg/proto/hapi/release
@@ -84,11 +99,12 @@ imports:
   - pkg/provenance
   - pkg/repo
   - pkg/resolver
+  - pkg/strvals
   - pkg/tlsutil
   - pkg/urlutil
   - pkg/version
 - name: k8s.io/kubernetes
-  version: 029c3a408176b55c30846f0faedf56aae5992e9b
+  version: ea8f6637b639246faa14a8d5c6f864100fcb77a9
   subpackages:
   - pkg/api
   - pkg/api/errors
