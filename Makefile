@@ -12,7 +12,7 @@ install: bootstrap build
 
 .PHONY: build
 build:
-	go build -o diff -ldflags="$(LDFLAGS)"
+	go build -i -v -o diff -ldflags="$(LDFLAGS)"
 
 .PHONY: bootstrap
 bootstrap:
@@ -20,6 +20,7 @@ ifndef HAS_GLIDE
 	go get -u github.com/Masterminds/glide
 endif
 	glide install --strip-vendor
+	scripts/setup-apimachinery.sh
 
 .PHONY: dist
 dist: export COPYFILE_DISABLE=1 #teach OSX tar to not put ._* files in tar archive
