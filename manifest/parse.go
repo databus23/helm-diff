@@ -43,7 +43,12 @@ func Parse(manifest string) map[string]string {
 
 	for scanner.Scan() {
 		source, content := splitSpec(scanner.Text())
-		result[source] = content
+		//Since helm 2.5.0 the '# Source:' stanze appears multiple times per template (for each yaml doc)
+		if _, ok := result[source]; ok {
+			result[source] = result[source] + "\n" + content
+		} else {
+			result[source] = content
+		}
 	}
 	return result
 
