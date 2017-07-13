@@ -3,10 +3,26 @@ package manifest
 import (
 	"bufio"
 	"bytes"
+	"fmt"
+	"log"
 	"strings"
+
+	"gopkg.in/yaml.v2"
 )
 
-var yamlSeperator = []byte("---\n# Source: ")
+var yamlSeperator = []byte("\n---\n")
+
+type metadata struct {
+	ApiVersion string `yaml:"apiVersion"`
+	Kind       string
+	Metadata   struct {
+		Name string
+	}
+}
+
+func (m metadata) String() string {
+	return fmt.Sprintf("%s, %s (%s)", m.Metadata.Name, m.Kind, m.ApiVersion)
+}
 
 func scanYamlSpecs(data []byte, atEOF bool) (advance int, token []byte, err error) {
 	if atEOF && len(data) == 0 {
@@ -42,12 +58,19 @@ func Parse(manifest string) map[string]string {
 	result := make(map[string]string)
 
 	for scanner.Scan() {
-		source, content := splitSpec(scanner.Text())
-		//Since helm 2.5.0 the '# Source:' stanze appears multiple times per template (for each yaml doc)
-		if _, ok := result[source]; ok {
-			result[source] = result[source] + "\n" + content
+		content := scanner.Text()
+		if strings.TrimSpace(content) == "" {
+			continue
+		}
+		var metadata metadata
+		if err := yaml.Unmarshal([]byte(content), &metadata); err != nil {
+			log.Fatalf("YAML unmarshal error: %s\nCan't unmarshal %s", err, content)
+		}
+		name := metadata.String()
+		if _, ok := result[name]; ok {
+			log.Println("Error: Found duplicate key %#v in manifest", name)
 		} else {
-			result[source] = content
+			result[name] = content
 		}
 	}
 	return result
