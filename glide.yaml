@@ -5,12 +5,5 @@ import:
 - package: github.com/spf13/pflag
   version: 9ff6c6923cfffbcd502984b8e0c80539a94968b7
 - package: k8s.io/helm
-  version: ^v2.4.0
-- package: k8s.io/kubernetes
-  version: 477efc3cbe6a7effca06bd1452fa356e2201e1ee 
-- package: k8s.io/kubernetes
-  version: 477efc3cbe6a7effca06bd1452fa356e2201e1ee 
-- package: k8s.io/apimachinery
-  version: fbd6803372f831e58b86c78d07421637a64ad768 
-- package: k8s.io/client-go
-  version: 5b0e11b577b35539f05523c47e94ed96a17f992b 
+  version: v2.5.0-helm-diff
+  repo: https://github.com/databus23/helm.git

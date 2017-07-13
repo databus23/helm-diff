@@ -4,6 +4,12 @@ VERSION := $(shell sed -n -e 's/version:[ "]*\([^"]*\).*/\1/p' plugin.yaml)
 
 LDFLAGS := -X main.Version=$(VERSION)
 
+PKG:= github.com/databus23/helm-diff
+
+# Clear the "unreleased" string in BuildMetadata
+LDFLAGS += -X $(PKG)/vendor/k8s.io/helm/pkg/version.BuildMetadata=
+LDFLAGS += -X $(PKG)/vendor/k8s.io/helm/pkg/version.Version=$(shell grep -A1 "package: k8s.io/helm" glide.yaml | sed -n -e 's/[ ]*version: ^\(.*\)/\1/p' )
+
 .PHONY: install
 install: bootstrap build
 	mkdir -p $(HELM_HOME)/plugins/diff
@@ -20,7 +26,6 @@ ifndef HAS_GLIDE
 	go get -u github.com/Masterminds/glide
 endif
 	glide install --strip-vendor
-	scripts/setup-apimachinery.sh
 
 .PHONY: dist
 dist: export COPYFILE_DISABLE=1 #teach OSX tar to not put ._* files in tar archive
