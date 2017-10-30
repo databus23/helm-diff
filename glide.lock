@@ -1,14 +1,10 @@
-hash: 89acf9fc60dc1afd09a19f388147d5127fd9f25a4f0d6fffd2c026e795b212e2
-updated: 2017-07-13T13:51:36.7181269+02:00
+hash: 62e7ee12d38340d57e7422e546fe3afb8d050aae8738b24a92034c7f9da26559
+updated: 2017-10-30T11:20:11.592207599+01:00
 imports:
 - name: github.com/aryann/difflib
   version: a1a4dd44eb11820695fbe83e00fb2301ee6eb54c
 - name: github.com/BurntSushi/toml
   version: b26d9c308763d68093482582cea63d69be07a0f0
-- name: github.com/facebookgo/atomicfile
-  version: 2de1f203e7d5e386a6833233882782932729f27e
-- name: github.com/facebookgo/symwalk
-  version: 42004b9f322246749dd73ad71008b1f3160c0052
 - name: github.com/ghodss/yaml
   version: 73d445a93680fa1a78ae23a5839bad48f32ba1ee
 - name: github.com/gobwas/glob
@@ -22,7 +18,7 @@ imports:
   - util/runes
   - util/strings
 - name: github.com/golang/protobuf
-  version: 2bba0603135d7d7f5cb73b2125beeda19c09f4ef
+  version: 4bd1920723d7b7c925de087aa32e2187708897f7
   subpackages:
   - proto
   - ptypes/any
@@ -30,7 +26,7 @@ imports:
 - name: github.com/inconshreveable/mousetrap
   version: 76626ae9c91c4f2a10f34cad8ce83ea42c93bb75
 - name: github.com/Masterminds/semver
-  version: 3f0ab6d4ab4bed1c61caf056b63a6e62190c7801
+  version: 517734cc7d6470c0d07130e40fd40bdeb9bcd3fd
 - name: github.com/mattn/go-colorable
   version: ded68f7a9561c023e790de24279db7ebf473ea80
 - name: github.com/mattn/go-isatty
@@ -53,18 +49,20 @@ imports:
   - openpgp/packet
   - openpgp/s2k
 - name: golang.org/x/net
-  version: e90d6d0afc4c315a0d87a568ae68577cc15149a0
+  version: f2499483f923065a842d38eb4c7f1927e6fc6e6d
   subpackages:
   - context
   - http2
   - http2/hpack
+  - idna
   - internal/timeseries
   - lex/httplex
   - trace
 - name: golang.org/x/sys
-  version: 8f0908ab3b2457e2e15403d3697c9ef5cb4b57a9
+  version: 43eea11bc92608addb41b8a406b0407495c106f6
   subpackages:
   - unix
+  - windows
 - name: google.golang.org/grpc
   version: 8050b9cbc271307e5a716a9d782803d09b0d6f2d
   subpackages:
@@ -80,14 +78,13 @@ imports:
   - tap
   - transport
 - name: gopkg.in/yaml.v2
-  version: a83829b6f1293c91addabc89d0571c246397bbf4
+  version: 53feefa2559fb8dfa8d81baad31be332c97d6c77
 - name: k8s.io/apimachinery
-  version: fbd6803372f831e58b86c78d07421637a64ad768
+  version: 917740426ad66ff818da4809990480bcc0786a77
   subpackages:
   - pkg/version
 - name: k8s.io/helm
-  version: 1f8caeaed5b9728b20adef53dcb9f1af6f7a9ee4
-  repo: https://github.com/databus23/helm.git
+  version: 08c1144f5eb3e3b636d9775617287cc26e53dba4
   subpackages:
   - pkg/chartutil
   - pkg/downloader
