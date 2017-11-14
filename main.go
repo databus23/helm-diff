@@ -27,8 +27,9 @@ type diffCmd struct {
 	//	out     io.Writer
 	client helm.Interface
 	//	version int32
-	valueFiles valueFiles
-	values     []string
+	valueFiles  valueFiles
+	values      []string
+	reuseValues bool
 }
 
 func main() {
@@ -61,6 +62,7 @@ func main() {
 	f.BoolP("version", "v", false, "show version")
 	f.VarP(&diff.valueFiles, "values", "f", "specify values in a YAML file (can specify multiple)")
 	f.StringArrayVar(&diff.values, "set", []string{}, "set values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)")
+	f.BoolVar(&diff.reuseValues, "reuse-values", false, "reuse the last release's values and merge in any new values")
 
 	if err := cmd.Execute(); err != nil {
 		os.Exit(1)
@@ -88,6 +90,7 @@ func (d *diffCmd) run() error {
 		d.release,
 		chartPath,
 		helm.UpdateValueOverrides(rawVals),
+		helm.ReuseValues(d.reuseValues),
 		helm.UpgradeDryRun(true),
 	)
 	if err != nil {
