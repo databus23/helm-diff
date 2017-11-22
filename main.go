@@ -90,7 +90,7 @@ func (d *diffCmd) run() error {
 
 	var newInstall bool
 	if err != nil && strings.Contains(err.Error(), fmt.Sprintf("release: %q not found", d.release)) {
-		fmt.Println("Release Not Found was caught...")
+		fmt.Println("Release was not present in Helm.  Diff will show entire contents as new.")
 		newInstall = true
 		err = nil
 	}
