@@ -12,9 +12,9 @@ LDFLAGS += -X $(PKG)/vendor/k8s.io/helm/pkg/version.Version=$(shell grep -A1 "pa
 
 .PHONY: install
 install: bootstrap build
-	mkdir -p $(HELM_HOME)/plugins/diff
-	cp diff $(HELM_HOME)/plugins/diff/
-	cp plugin.yaml $(HELM_HOME)/plugins/diff/
+	mkdir -p $(HELM_HOME)/plugins/helm-diff
+	cp diff $(HELM_HOME)/plugins/helm-diff/
+	cp plugin.yaml $(HELM_HOME)/plugins/helm-diff/
 
 .PHONY: build
 build:

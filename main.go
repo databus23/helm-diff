@@ -19,7 +19,8 @@ This can be used visualize what changes a helm upgrade will
 perform.
 `
 
-var Version string = "HEAD"
+// Version identifier populated via the CI/CD process.
+var Version = "HEAD"
 
 type diffCmd struct {
 	release         string
@@ -27,6 +28,7 @@ type diffCmd struct {
 	client          helm.Interface
 	valueFiles      valueFiles
 	values          []string
+	reuseValues     bool
 	suppressedKinds []string
 }
 
@@ -65,6 +67,7 @@ func main() {
 	f.BoolP("suppress-secrets", "q", false, "suppress secrets in the output")
 	f.VarP(&diff.valueFiles, "values", "f", "specify values in a YAML file (can specify multiple)")
 	f.StringArrayVar(&diff.values, "set", []string{}, "set values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)")
+	f.BoolVar(&diff.reuseValues, "reuse-values", false, "reuse the last release's values and merge in any new values")
 	f.StringArrayVar(&diff.suppressedKinds, "suppress", []string{}, "allows suppression of the values listed in the diff output")
 
 	if err := cmd.Execute(); err != nil {
@@ -93,6 +96,7 @@ func (d *diffCmd) run() error {
 		d.release,
 		chartPath,
 		helm.UpdateValueOverrides(rawVals),
+		helm.ReuseValues(d.reuseValues),
 		helm.UpgradeDryRun(true),
 	)
 	if err != nil {
