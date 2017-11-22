@@ -62,10 +62,10 @@ func main() {
 
 	f := cmd.Flags()
 	f.BoolP("version", "v", false, "show version")
-	f.BoolP("suppress-secrets", "q", false,  "suppress secrets in the output")
+	f.BoolP("suppress-secrets", "q", false, "suppress secrets in the output")
 	f.VarP(&diff.valueFiles, "values", "f", "specify values in a YAML file (can specify multiple)")
 	f.StringArrayVar(&diff.values, "set", []string{}, "set values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)")
-	f.StringArrayVar(&diff.suppressedKinds, "suppress", []string{}, "suppress secrets in the output")
+	f.StringArrayVar(&diff.suppressedKinds, "suppress", []string{}, "allows suppression of the values listed in the diff output")
 
 	if err := cmd.Execute(); err != nil {
 		os.Exit(1)
