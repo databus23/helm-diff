@@ -19,17 +19,17 @@ This can be used visualize what changes a helm upgrade will
 perform.
 `
 
-var Version string = "HEAD"
+// Version identifier populated via the CI/CD process.
+var Version = "HEAD"
 
 type diffCmd struct {
-	release string
-	chart   string
-	//	out     io.Writer
-	client helm.Interface
-	//	version int32
-	valueFiles  valueFiles
-	values      []string
-	reuseValues bool
+	release         string
+	chart           string
+	client          helm.Interface
+	valueFiles      valueFiles
+	values          []string
+	reuseValues     bool
+	suppressedKinds []string
 }
 
 func main() {
@@ -49,6 +49,10 @@ func main() {
 				return err
 			}
 
+			if q, _ := cmd.Flags().GetBool("suppress-secrets"); q {
+				diff.suppressedKinds = append(diff.suppressedKinds, "Secret")
+			}
+
 			diff.release = args[0]
 			diff.chart = args[1]
 			if diff.client == nil {
@@ -60,9 +64,11 @@ func main() {
 
 	f := cmd.Flags()
 	f.BoolP("version", "v", false, "show version")
+	f.BoolP("suppress-secrets", "q", false, "suppress secrets in the output")
 	f.VarP(&diff.valueFiles, "values", "f", "specify values in a YAML file (can specify multiple)")
 	f.StringArrayVar(&diff.values, "set", []string{}, "set values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)")
 	f.BoolVar(&diff.reuseValues, "reuse-values", false, "reuse the last release's values and merge in any new values")
+	f.StringArrayVar(&diff.suppressedKinds, "suppress", []string{}, "allows suppression of the values listed in the diff output")
 
 	if err := cmd.Execute(); err != nil {
 		os.Exit(1)
@@ -93,7 +99,7 @@ func (d *diffCmd) run() error {
 		return prettyError(err)
 	}
 
-	var currentSpecs, newSpecs map[string]string
+	var currentSpecs, newSpecs map[string]*manifest.MappingResult
 	if newInstall {
 		installResponse, err := d.client.InstallRelease(
 			chartPath,
@@ -106,7 +112,7 @@ func (d *diffCmd) run() error {
 			return prettyError(err)
 		}
 
-		currentSpecs = make(map[string]string)
+		currentSpecs = make(map[string]*manifest.MappingResult)
 		newSpecs = manifest.Parse(installResponse.Release.Manifest)
 	} else {
 		upgradeResponse, err := d.client.UpdateRelease(
@@ -124,7 +130,7 @@ func (d *diffCmd) run() error {
 		newSpecs = manifest.Parse(upgradeResponse.Release.Manifest)
 	}
 
-	diffManifests(currentSpecs, newSpecs, os.Stdout)
+	diffManifests(currentSpecs, newSpecs, d.suppressedKinds, os.Stdout)
 
 	return nil
 }

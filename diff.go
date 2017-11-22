@@ -7,20 +7,22 @@ import (
 
 	"github.com/aryann/difflib"
 	"github.com/mgutz/ansi"
+
+	"github.com/databus23/helm-diff/manifest"
 )
 
-func diffManifests(oldIndex, newIndex map[string]string, to io.Writer) {
+func diffManifests(oldIndex, newIndex map[string]*manifest.MappingResult, suppressedKinds []string, to io.Writer) {
 	for key, oldContent := range oldIndex {
 		if newContent, ok := newIndex[key]; ok {
-			if oldContent != newContent {
+			if oldContent.Content != newContent.Content {
 				// modified
 				fmt.Fprintf(to, ansi.Color("%s has changed:", "yellow")+"\n", key)
-				printDiff(oldContent, newContent, to)
+				printDiff(suppressedKinds, oldContent.Kind, oldContent.Content, newContent.Content, to)
 			}
 		} else {
 			// removed
 			fmt.Fprintf(to, ansi.Color("%s has been removed:", "yellow")+"\n", key)
-			printDiff(oldContent, "", to)
+			printDiff(suppressedKinds, oldContent.Kind, oldContent.Content, "", to)
 		}
 	}
 
@@ -28,13 +30,21 @@ func diffManifests(oldIndex, newIndex map[string]string, to io.Writer) {
 		if _, ok := oldIndex[key]; !ok {
 			// added
 			fmt.Fprintf(to, ansi.Color("%s has been added:", "yellow")+"\n", key)
-			printDiff("", newContent, to)
+			printDiff(suppressedKinds, newContent.Kind, "", newContent.Content, to)
 		}
 	}
 }
 
-func printDiff(before, after string, to io.Writer) {
+func printDiff(suppressedKinds []string, kind, before, after string, to io.Writer) {
 	diffs := difflib.Diff(strings.Split(before, "\n"), strings.Split(after, "\n"))
+
+	for _, ckind := range suppressedKinds {
+		if ckind == kind {
+			str := fmt.Sprintf("+ Changes suppressed on sensitive content of type %s\n", kind)
+			fmt.Fprintf(to, ansi.Color(str, "yellow"))
+			return
+		}
+	}
 
 	for _, diff := range diffs {
 		text := diff.Payload
@@ -48,5 +58,4 @@ func printDiff(before, after string, to io.Writer) {
 			fmt.Fprintf(to, "%s\n", "  "+text)
 		}
 	}
-
 }
