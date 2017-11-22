@@ -3,11 +3,11 @@ package main
 import (
 	"fmt"
 	"os"
-
-	"github.com/spf13/cobra"
-	"k8s.io/helm/pkg/helm"
+	"strings"
 
 	"github.com/databus23/helm-diff/manifest"
+	"github.com/spf13/cobra"
+	"k8s.io/helm/pkg/helm"
 )
 
 const globalUsage = `
@@ -33,7 +33,6 @@ type diffCmd struct {
 }
 
 func main() {
-
 	diff := diffCmd{}
 
 	cmd := &cobra.Command{
@@ -45,6 +44,7 @@ func main() {
 				fmt.Println(Version)
 				return nil
 			}
+
 			if err := checkArgsLength(len(args), "release name", "chart path"); err != nil {
 				return err
 			}
@@ -82,23 +82,47 @@ func (d *diffCmd) run() error {
 
 	releaseResponse, err := d.client.ReleaseContent(d.release)
 
+	var newInstall bool
+	if err != nil && strings.Contains(err.Error(), fmt.Sprintf("release: %q not found", d.release)) {
+		fmt.Println("Release Not Found was caught...")
+		newInstall = true
+		err = nil
+	}
+
 	if err != nil {
 		return prettyError(err)
 	}
 
-	upgradeResponse, err := d.client.UpdateRelease(
-		d.release,
-		chartPath,
-		helm.UpdateValueOverrides(rawVals),
-		helm.ReuseValues(d.reuseValues),
-		helm.UpgradeDryRun(true),
-	)
-	if err != nil {
-		return prettyError(err)
-	}
+	var currentSpecs, newSpecs map[string]string
+	if newInstall {
+		installResponse, err := d.client.InstallRelease(
+			chartPath,
+			"default",
+			helm.ReleaseName(d.release),
+			helm.ValueOverrides(rawVals),
+			helm.InstallDryRun(true),
+		)
+		if err != nil {
+			return prettyError(err)
+		}
 
-	currentSpecs := manifest.Parse(releaseResponse.Release.Manifest)
-	newSpecs := manifest.Parse(upgradeResponse.Release.Manifest)
+		currentSpecs = make(map[string]string)
+		newSpecs = manifest.Parse(installResponse.Release.Manifest)
+	} else {
+		upgradeResponse, err := d.client.UpdateRelease(
+			d.release,
+			chartPath,
+			helm.UpdateValueOverrides(rawVals),
+			helm.ReuseValues(d.reuseValues),
+			helm.UpgradeDryRun(true),
+		)
+		if err != nil {
+			return prettyError(err)
+		}
+
+		currentSpecs = manifest.Parse(releaseResponse.Release.Manifest)
+		newSpecs = manifest.Parse(upgradeResponse.Release.Manifest)
+	}
 
 	diffManifests(currentSpecs, newSpecs, os.Stdout)
 
