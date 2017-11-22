@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"k8s.io/helm/pkg/helm"
@@ -11,7 +12,7 @@ import (
 )
 
 const globalUsage = `
-Show a diff explaing what a helm upgrade would change.
+Show a diff explaining what a helm upgrade would change.
 
 This fetches the currently deployed version of a release
 and compares it to a local chart plus values.
@@ -24,6 +25,7 @@ var Version string = "HEAD"
 type diffCmd struct {
 	release string
 	chart   string
+	version string
 	//	out     io.Writer
 	client helm.Interface
 	//	version int32
@@ -37,7 +39,7 @@ func main() {
 	diff := diffCmd{}
 
 	cmd := &cobra.Command{
-		Use:   "diff [flags] [RELEASE] [CHART]",
+		Use:   "diff [flags] [RELEASE] [CHART]@[CHART VERSION]",
 		Short: "Show manifest differences",
 		Long:  globalUsage,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -51,6 +53,14 @@ func main() {
 
 			diff.release = args[0]
 			diff.chart = args[1]
+			diff.version = ""
+
+			if strings.Contains(args[1], "@") {
+				s := strings.Split(args[1], "@")
+				diff.chart = s[0]
+				diff.version = s[1]
+			}
+
 			if diff.client == nil {
 				diff.client = helm.NewClient(helm.Host(os.Getenv("TILLER_HOST")))
 			}
@@ -70,7 +80,7 @@ func main() {
 }
 
 func (d *diffCmd) run() error {
-	chartPath, err := locateChartPath(d.chart, "", false, "")
+	chartPath, err := locateChartPath(d.chart, d.version, false, "")
 	if err != nil {
 		return err
 	}
