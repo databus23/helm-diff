@@ -12,6 +12,12 @@ import (
 
 var yamlSeperator = []byte("\n---\n")
 
+type MappingResult struct {
+	Name string
+	Kind string
+	Content string
+}
+
 type metadata struct {
 	ApiVersion string `yaml:"apiVersion"`
 	Kind       string
@@ -47,7 +53,7 @@ func splitSpec(token string) (string, string) {
 	return "", ""
 }
 
-func Parse(manifest string) map[string]string {
+func Parse(manifest string) map[string]*MappingResult {
 	scanner := bufio.NewScanner(strings.NewReader(manifest))
 	scanner.Split(scanYamlSpecs)
 	//Allow for tokens (specs) up to 1M in size
@@ -55,7 +61,7 @@ func Parse(manifest string) map[string]string {
 	//Discard the first result, we only care about everything after the first seperator
 	scanner.Scan()
 
-	result := make(map[string]string)
+	result := make(map[string]*MappingResult)
 
 	for scanner.Scan() {
 		content := scanner.Text()
@@ -70,7 +76,11 @@ func Parse(manifest string) map[string]string {
 		if _, ok := result[name]; ok {
 			log.Println("Error: Found duplicate key %#v in manifest", name)
 		} else {
-			result[name] = content
+			result[name] = &MappingResult{
+				Name: name,
+				Kind: metadata.Kind,
+				Content: content,
+			}
 		}
 	}
 	return result
