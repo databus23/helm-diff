@@ -13,6 +13,8 @@ import (
 
 	"github.com/ghodss/yaml"
 	"google.golang.org/grpc"
+	"k8s.io/helm/pkg/getter"
+	"k8s.io/helm/pkg/helm/environment"
 	"k8s.io/helm/pkg/downloader"
 	"k8s.io/helm/pkg/helm/helmpath"
 	"k8s.io/helm/pkg/strvals"
@@ -68,6 +70,7 @@ func locateChartPath(name, version string, verify bool, keyring string) (string,
 		HelmHome: helmpath.Home(homePath()),
 		Out:      os.Stdout,
 		Keyring:  keyring,
+		Getters:  getter.All(environment.EnvSettings{}),
 	}
 	if verify {
 		dl.Verify = downloader.VerifyAlways
@@ -82,7 +85,7 @@ func locateChartPath(name, version string, verify bool, keyring string) (string,
 		return lname, nil
 	}
 
-	return filename, fmt.Errorf("file %q not found", name)
+	return filename, err
 }
 
 // Merges source and destination map, preferring values from the source map
