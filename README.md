@@ -2,23 +2,79 @@
 
 This is a Helm plugin giving your a preview of what a `helm upgrade` would change.
 It basically generates a diff between the latest deployed version of a release
-and a `helm upgrade --debug --dry-run`
+and a `helm upgrade --debug --dry-run`. This can also be used to compare two 
+revisions/versions of your helm release.
 
 <a href="https://asciinema.org/a/105326" target="_blank"><img src="https://asciinema.org/a/105326.png" /></a>
 
 ## Usage
 
 ```
-$ helm diff [flags] RELEASE CHART
+The Helm Diff Plugin
+
+* Shows a diff explaing what a helm upgrade would change:
+    This fetches the currently deployed version of a release
+  and compares it to a local chart plus values. This can be 
+  used visualize what changes a helm upgrade will perform.
+
+* Shows a diff explaing what had changed between two revisions:
+    This fetches previously deployed versions of a release
+  and compares them. This can be used visualize what changes 
+  were made during revision change.
+
+Usage:
+  diff [command]
+
+Available Commands:
+  revision    Shows diff between revision's manifests
+  upgrade     visualize changes, that a helm upgrade could perform
+  version     print the version information
+
+Flags:
+  -h, --help   help for diff
+
+Use "diff [command] --help" for more information about a command.
 ```
 
-### Flags:
+## Commands:
+
+### upgrade:
 
 ```
-      --set string          set values on the command line. See 'helm install -h'
-  -f, --values valueFiles   specify one or more YAML files of values (default [])
+$ helm diff upgrade -h
+This command compares the manifests details of a named release 
+with values generated form charts.
+
+It forecasts/visualizes changes, that a helm upgrade could perform.
+
+Usage:
+  diff upgrade [flags] [RELEASE] [CHART]
+
+Flags:
+      --reuse-values           reuse the last release's values and merge in any new values
+      --set stringArray        set values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)
+      --suppress stringArray   allows suppression of the values listed in the diff output
+  -q, --suppress-secrets       suppress secrets in the output
+  -f, --values valueFiles      specify values in a YAML file (can specify multiple) (default [])
 ```
 
+### revision:
+
+```
+$ helm diff revision -h
+This command compares the manifests details of a named release.
+
+It can be used to compare the manifests of 
+ 
+ - lastest REVISION with specified REVISION
+	$ helm diff revision [flags] [RELEASE] REVISION
+
+ - REVISION1 with REVISION2
+	$ helm diff revision [flags] [RELEASE] REVISION1 REVISION1
+
+Usage:
+  diff revision [flags] [RELEASE] REVISION1 REVISION2
+```
 
 ## Install
 
