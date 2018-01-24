@@ -11,7 +11,7 @@ import (
 )
 
 const globalUsage = `
-Show a diff explaing what a helm upgrade would change.
+Show a diff explaining what a helm upgrade would change.
 
 This fetches the currently deployed version of a release
 and compares it to a local chart plus values.
