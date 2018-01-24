@@ -4,7 +4,7 @@ VERSION := $(shell sed -n -e 's/version:[ "]*\([^"]*\).*/\1/p' plugin.yaml)
 
 LDFLAGS := -X main.Version=$(VERSION)
 
-PKG:= github.com/aananthraj/helm-diff
+PKG:= github.com/databus23/helm-diff
 
 # Clear the "unreleased" string in BuildMetadata
 LDFLAGS += -X $(PKG)/vendor/k8s.io/helm/pkg/version.BuildMetadata=
@@ -44,4 +44,4 @@ ifndef GITHUB_ACCESS_TOKEN
 	$(error GITHUB_ACCESS_TOKEN is undefined)
 endif
 	git push
-	gh-release create aananthraj/helm-diff $(VERSION) master
+	gh-release create databus23/helm-diff $(VERSION) master
