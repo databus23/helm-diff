@@ -12,6 +12,7 @@ import (
 )
 
 const globalUsage = `
+
 The Helm Diff Plugin
 
 * Shows a diff explaing what a helm upgrade would change:
