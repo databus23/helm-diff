@@ -1,8 +1,9 @@
 # Helm Diff Plugin
 
-This is a Helm plugin giving your a preview of what a `helm upgrade` would change.
-It basically generates a diff between the latest deployed version of a release
-and a `helm upgrade --debug --dry-run`. This can also be used to compare two 
+This is a Helm plugin giving your a preview of what a `helm upgrade` or `helm rollback` 
+would change. It basically generates a diff between the latest deployed version of a 
+releaseand a `helm upgrade --debug --dry-run` when used with `upgrade` command or with 
+the specified rollback revision of release. This can also be used to compare two 
 revisions/versions of your helm release.
 
 <a href="https://asciinema.org/a/105326" target="_blank"><img src="https://asciinema.org/a/105326.png" /></a>
@@ -10,12 +11,18 @@ revisions/versions of your helm release.
 ## Usage
 
 ```
+$ helm diff
 The Helm Diff Plugin
 
 * Shows a diff explaing what a helm upgrade would change:
     This fetches the currently deployed version of a release
   and compares it to a local chart plus values. This can be 
   used visualize what changes a helm upgrade will perform.
+
+* Shows a diff explaing what a helm rollback would change:
+    This fetches the currently deployed version of a release
+  and compares it rollback revision. This can be 
+  used visualize what changes a helm rollback will perform.
 
 * Shows a diff explaing what had changed between two revisions:
     This fetches previously deployed versions of a release
@@ -27,6 +34,7 @@ Usage:
 
 Available Commands:
   revision    Shows diff between revision's manifests
+  rollback    visualize changes, that a helm rollback could perform
   upgrade     visualize changes, that a helm upgrade could perform
   version     print the version information
 
@@ -56,6 +64,20 @@ Flags:
       --suppress stringArray   allows suppression of the values listed in the diff output
   -q, --suppress-secrets       suppress secrets in the output
   -f, --values valueFiles      specify values in a YAML file (can specify multiple) (default [])
+```
+
+### rollback:
+
+```
+$ helm diff rollback -h
+This command compares the laset manifests details of a named release 
+with specific revision values to rollback.
+
+It forecasts/visualizes changes, that a helm rollback could perform.
+
+Usage:
+  diff rollback [flags] [RELEASE] REVISION
+
 ```
 
 ### revision:
