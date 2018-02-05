@@ -7,6 +7,15 @@ PROJECT_GH="databus23/$PROJECT_NAME"
 
 : ${HELM_PLUGIN_PATH:="$(helm home)/plugins/helm-diff"}
 
+# Convert the HELM_PLUGIN_PATH to unix if cygpath is
+# available. This is the case when using MSYS2 or Cygwin
+# on Windows where helm returns a Windows path but we
+# need a Unix path
+
+if type cygpath > /dev/null 2>&1; then
+  HELM_PLUGIN_PATH=$(cygpath -u $HELM_PLUGIN_PATH)
+fi
+
 if [[ $SKIP_BIN_INSTALL == "1" ]]; then
   echo "Skipping binary install"
   exit
@@ -32,6 +41,8 @@ initOS() {
   OS=$(echo `uname`|tr '[:upper:]' '[:lower:]')
 
   case "$OS" in
+    # Msys support
+    msys*) OS='windows';;
     # Minimalist GNU for Windows
     mingw*) OS='windows';;
     darwin) OS='macos';;
@@ -41,7 +52,7 @@ initOS() {
 # verifySupported checks that the os/arch combination is supported for
 # binary builds.
 verifySupported() {
-  local supported="linux-amd64\nmacos-amd64"
+  local supported="linux-amd64\nmacos-amd64\nwindows-amd64"
   if ! echo "${supported}" | grep -q "${OS}-${ARCH}"; then
     echo "No prebuild binary for ${OS}-${ARCH}."
     exit 1
@@ -55,12 +66,16 @@ verifySupported() {
 
 # getDownloadURL checks the latest available version.
 getDownloadURL() {
-  # Use the GitHub API to find the latest version for this project.
-  local latest_url="https://api.github.com/repos/$PROJECT_GH/releases/latest"
+  local url="https://api.github.com/repos/$PROJECT_GH/releases/latest"
+  local version=$(git describe --tags --exact-match 2>/dev/null)
+  if [ -n "$version" ]; then
+    url="https://api.github.com/repos/$PROJECT_GH/releases/tags/$version"
+  fi
+  # Use the GitHub API to find the download url for this project.
   if type "curl" > /dev/null; then
-    DOWNLOAD_URL=$(curl -s $latest_url | grep $OS | awk '/\"browser_download_url\":/{gsub( /[,\"]/,"", $2); print $2}')
+    DOWNLOAD_URL=$(curl -v -s $url | grep $OS | awk '/\"browser_download_url\":/{gsub( /[,\"]/,"", $2); print $2}')
   elif type "wget" > /dev/null; then
-    DOWNLOAD_URL=$(wget -q -O - $latest_url | grep $OS | awk '/\"browser_download_url\":/{gsub( /[,\"]/,"", $2); print $2}')
+    DOWNLOAD_URL=$(wget -q -O - $url | grep $OS | awk '/\"browser_download_url\":/{gsub( /[,\"]/,"", $2); print $2}')
   fi
 }
 
