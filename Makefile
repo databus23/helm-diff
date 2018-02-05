@@ -37,6 +37,9 @@ dist:
 	tar -C build/ -zcvf $(CURDIR)/release/helm-diff-linux.tgz diff/
 	GOOS=darwin GOARCH=amd64 go build -o build/diff/diff -ldflags="$(LDFLAGS)"
 	tar -C build/ -zcvf $(CURDIR)/release/helm-diff-macos.tgz diff/
+	rm build/diff/diff
+	GOOS=windows GOARCH=amd64 go build -o build/diff/diff.exe -ldflags="$(LDFLAGS)"
+	tar -C build/ -zcvf $(CURDIR)/release/helm-diff-windows.tgz diff/
 
 .PHONY: release
 release: dist
