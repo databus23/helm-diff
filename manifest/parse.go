@@ -74,7 +74,7 @@ func Parse(manifest string) map[string]*MappingResult {
 		}
 		name := metadata.String()
 		if _, ok := result[name]; ok {
-			log.Println("Error: Found duplicate key %#v in manifest", name)
+			log.Println("Error: Found duplicate key %v in manifest", name)
 		} else {
 			result[name] = &MappingResult{
 				Name: name,
