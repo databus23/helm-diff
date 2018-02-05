@@ -13,8 +13,8 @@ import (
 var yamlSeperator = []byte("\n---\n")
 
 type MappingResult struct {
-	Name string
-	Kind string
+	Name    string
+	Kind    string
 	Content string
 }
 
@@ -74,11 +74,11 @@ func Parse(manifest string) map[string]*MappingResult {
 		}
 		name := metadata.String()
 		if _, ok := result[name]; ok {
-			log.Println("Error: Found duplicate key %#v in manifest", name)
+			log.Printf("Error: Found duplicate key %#v in manifest", name)
 		} else {
 			result[name] = &MappingResult{
-				Name: name,
-				Kind: metadata.Kind,
+				Name:    name,
+				Kind:    metadata.Kind,
 				Content: content,
 			}
 		}
