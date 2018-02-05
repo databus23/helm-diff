@@ -43,8 +43,8 @@ dist:
 
 .PHONY: release
 release: dist
-ifndef GITHUB_ACCESS_TOKEN
-	$(error GITHUB_ACCESS_TOKEN is undefined)
+ifndef GITHUB_TOKEN
+	$(error GITHUB_TOKEN is undefined)
 endif
 	git push
-	gh-release create databus23/helm-diff $(VERSION) master
+	github-release databus23/helm-diff v$(VERSION) master "v$(VERSION)" "release/*"
