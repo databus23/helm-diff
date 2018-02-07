@@ -1,5 +1,5 @@
-hash: 62e7ee12d38340d57e7422e546fe3afb8d050aae8738b24a92034c7f9da26559
-updated: 2017-10-30T11:20:11.592207599+01:00
+hash: ec90c4206ef288d4b3ec863fd5d606d999757af81f306a5906c326456e5cb402
+updated: 2018-02-05T13:24:17.645154+01:00
 imports:
 - name: github.com/aryann/difflib
   version: a1a4dd44eb11820695fbe83e00fb2301ee6eb54c
@@ -21,7 +21,9 @@ imports:
   version: 4bd1920723d7b7c925de087aa32e2187708897f7
   subpackages:
   - proto
+  - ptypes
   - ptypes/any
+  - ptypes/duration
   - ptypes/timestamp
 - name: github.com/inconshreveable/mousetrap
   version: 76626ae9c91c4f2a10f34cad8ce83ea42c93bb75
@@ -38,7 +40,7 @@ imports:
 - name: github.com/spf13/pflag
   version: 9ff6c6923cfffbcd502984b8e0c80539a94968b7
 - name: golang.org/x/crypto
-  version: d172538b2cfce0c13cee31e647d0367aa8cd2486
+  version: 81e90905daefcd6fd217b62423c0908922eadb30
   subpackages:
   - cast5
   - openpgp
@@ -49,7 +51,7 @@ imports:
   - openpgp/packet
   - openpgp/s2k
 - name: golang.org/x/net
-  version: f2499483f923065a842d38eb4c7f1927e6fc6e6d
+  version: 1c05540f6879653db88113bc4a2b70aec4bd491f
   subpackages:
   - context
   - http2
@@ -63,28 +65,50 @@ imports:
   subpackages:
   - unix
   - windows
-- name: google.golang.org/grpc
-  version: 8050b9cbc271307e5a716a9d782803d09b0d6f2d
+- name: golang.org/x/text
+  version: b19bf474d317b857955b12035d2c5acb57ce8b01
   subpackages:
+  - secure/bidirule
+  - transform
+  - unicode/bidi
+  - unicode/norm
+- name: google.golang.org/genproto
+  version: 4eb30f4778eed4c258ba66527a0d4f9ec8a36c45
+  subpackages:
+  - googleapis/rpc/status
+- name: google.golang.org/grpc
+  version: 5ffe3083946d5603a0578721101dc8165b1d5b5f
+  subpackages:
+  - balancer
   - codes
+  - connectivity
   - credentials
+  - grpclb/grpc_lb_v1/messages
   - grpclog
   - internal
   - keepalive
   - metadata
   - naming
   - peer
+  - resolver
   - stats
+  - status
   - tap
   - transport
 - name: gopkg.in/yaml.v2
   version: 53feefa2559fb8dfa8d81baad31be332c97d6c77
+- name: k8s.io/api
+  version: 006a217681ae70cbacdd66a5e2fca1a61a8ff28e
 - name: k8s.io/apimachinery
-  version: 917740426ad66ff818da4809990480bcc0786a77
+  version: 68f9c3a1feb3140df59c67ced62d3a5df8e6c9c2
   subpackages:
   - pkg/version
+- name: k8s.io/client-go
+  version: e2d750fcad023e759abc09adcbe3706a6126020d
+  subpackages:
+  - util/homedir
 - name: k8s.io/helm
-  version: 08c1144f5eb3e3b636d9775617287cc26e53dba4
+  version: 14af25f1de6832228539259b821949d20069a222
   subpackages:
   - pkg/chartutil
   - pkg/downloader
@@ -102,6 +126,7 @@ imports:
   - pkg/repo
   - pkg/resolver
   - pkg/strvals
+  - pkg/sympath
   - pkg/tlsutil
   - pkg/urlutil
   - pkg/version

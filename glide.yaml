@@ -1,8 +1,13 @@
 package: github.com/databus23/helm-diff
 import:
-- package: github.com/spf13/cobra
-  version: f62e98d28ab7ad31d707ba837a966378465c7b57
-- package: github.com/spf13/pflag
-  version: 9ff6c6923cfffbcd502984b8e0c80539a94968b7
 - package: k8s.io/helm
-  version: v2.7.0
+  version: v2.8.0
+#taken from k8s.io/helm hlide.yaml
+- package: k8s.io/api
+  version: kubernetes-1.9.2
+- package: k8s.io/apimachinery
+  version: kubernetes-1.9.2
+- package: google.golang.org/grpc
+  version: 1.7.2
+- package: golang.org/x/net
+  version: 1c05540f6879653db88113bc4a2b70aec4bd491f

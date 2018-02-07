@@ -37,11 +37,14 @@ dist:
 	tar -C build/ -zcvf $(CURDIR)/release/helm-diff-linux.tgz diff/
 	GOOS=darwin GOARCH=amd64 go build -o build/diff/diff -ldflags="$(LDFLAGS)"
 	tar -C build/ -zcvf $(CURDIR)/release/helm-diff-macos.tgz diff/
+	rm build/diff/diff
+	GOOS=windows GOARCH=amd64 go build -o build/diff/diff.exe -ldflags="$(LDFLAGS)"
+	tar -C build/ -zcvf $(CURDIR)/release/helm-diff-windows.tgz diff/
 
 .PHONY: release
 release: dist
-ifndef GITHUB_ACCESS_TOKEN
-	$(error GITHUB_ACCESS_TOKEN is undefined)
+ifndef GITHUB_TOKEN
+	$(error GITHUB_TOKEN is undefined)
 endif
 	git push
-	gh-release create databus23/helm-diff $(VERSION) master
+	github-release databus23/helm-diff v$(VERSION) master "v$(VERSION)" "release/*"
