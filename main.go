@@ -30,6 +30,7 @@ type diffCmd struct {
 	valueFiles      valueFiles
 	values          []string
 	reuseValues     bool
+	resetValues     bool
 	suppressedKinds []string
 }
 
@@ -74,6 +75,7 @@ func main() {
 	f.VarP(&diff.valueFiles, "values", "f", "specify values in a YAML file (can specify multiple)")
 	f.StringArrayVar(&diff.values, "set", []string{}, "set values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)")
 	f.BoolVar(&diff.reuseValues, "reuse-values", false, "reuse the last release's values and merge in any new values")
+	f.BoolVar(&diff.resetValues, "reset-values", false, "reset the values to the ones built into the chart and merge in any new values")
 	f.StringArrayVar(&diff.suppressedKinds, "suppress", []string{}, "allows suppression of the values listed in the diff output")
 
 	if err := cmd.Execute(); err != nil {
@@ -103,6 +105,7 @@ func (d *diffCmd) run() error {
 		chartPath,
 		helm.UpdateValueOverrides(rawVals),
 		helm.ReuseValues(d.reuseValues),
+		helm.ResetValues(d.resetValues),
 		helm.UpgradeDryRun(true),
 	)
 	if err != nil {
