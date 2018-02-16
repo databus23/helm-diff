@@ -17,6 +17,7 @@ type revision struct {
 	client          helm.Interface
 	suppressedKinds []string
 	revisions       []string
+	outputContext   int
 }
 
 const revisionCmdLongUsage = `
@@ -69,6 +70,7 @@ func revisionCmd() *cobra.Command {
 
 	revisionCmd.Flags().BoolP("suppress-secrets", "q", false, "suppress secrets in the output")
 	revisionCmd.Flags().StringArrayVar(&diff.suppressedKinds, "suppress", []string{}, "allows suppression of the values listed in the diff output")
+	revisionCmd.Flags().IntVarP(&diff.outputContext, "context", "C", -1, "output NUM lines of context around changes")
 	revisionCmd.SuggestionsMinimumDistance = 1
 	return revisionCmd
 }
@@ -89,7 +91,7 @@ func (d *revision) differentiate() error {
 			return prettyError(err)
 		}
 
-		diff.DiffManifests(manifest.Parse(revisionResponse.Release.Manifest), manifest.Parse(releaseResponse.Release.Manifest), d.suppressedKinds, os.Stdout)
+		diff.DiffManifests(manifest.Parse(revisionResponse.Release.Manifest), manifest.Parse(releaseResponse.Release.Manifest), d.suppressedKinds, d.outputContext, os.Stdout)
 
 	case 2:
 		revision1, _ := strconv.Atoi(d.revisions[0])
@@ -108,7 +110,7 @@ func (d *revision) differentiate() error {
 			return prettyError(err)
 		}
 
-		diff.DiffManifests(manifest.Parse(revisionResponse1.Release.Manifest), manifest.Parse(revisionResponse2.Release.Manifest), d.suppressedKinds, os.Stdout)
+		diff.DiffManifests(manifest.Parse(revisionResponse1.Release.Manifest), manifest.Parse(revisionResponse2.Release.Manifest), d.suppressedKinds, d.outputContext, os.Stdout)
 
 	default:
 		return errors.New("Invalid Arguments")

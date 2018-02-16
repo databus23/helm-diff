@@ -22,6 +22,7 @@ type diffCmd struct {
 	resetValues     bool
 	allowUnreleased bool
 	suppressedKinds []string
+	outputContext   int
 }
 
 const globalUsage = `Show a diff explaining what a helm upgrade would change.
@@ -67,6 +68,7 @@ func newChartCommand() *cobra.Command {
 	f.BoolVar(&diff.resetValues, "reset-values", false, "reset the values to the ones built into the chart and merge in any new values")
 	f.BoolVar(&diff.allowUnreleased, "allow-unreleased", false, "enables diffing of releases that are not yet deployed via Helm")
 	f.StringArrayVar(&diff.suppressedKinds, "suppress", []string{}, "allows suppression of the values listed in the diff output")
+	f.IntVarP(&diff.outputContext, "context", "C", -1, "output NUM lines of context around changes")
 
 	return cmd
 
@@ -137,7 +139,7 @@ func (d *diffCmd) run() error {
 		newSpecs = manifest.Parse(upgradeResponse.Release.Manifest)
 	}
 
-	diff.DiffManifests(currentSpecs, newSpecs, d.suppressedKinds, os.Stdout)
+	diff.DiffManifests(currentSpecs, newSpecs, d.suppressedKinds, d.outputContext, os.Stdout)
 
 	return nil
 }
