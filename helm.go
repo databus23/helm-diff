@@ -76,7 +76,7 @@ func locateChartPath(name, version string, verify bool, keyring string) (string,
 		dl.Verify = downloader.VerifyAlways
 	}
 
-	filename, _, err := dl.DownloadTo(name, version, ".")
+	filename, _, err := dl.DownloadTo(name, version, helmpath.Home(homePath()).Archive())
 	if err == nil {
 		lname, err := filepath.Abs(filename)
 		if err != nil {
