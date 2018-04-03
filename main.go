@@ -89,6 +89,10 @@ func (d *diffCmd) run() error {
 		return err
 	}
 
+	if err := d.valueFiles.Valid(); err != nil {
+		return err
+	}
+
 	rawVals, err := d.vals()
 	if err != nil {
 		return err

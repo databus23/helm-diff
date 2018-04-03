@@ -28,6 +28,22 @@ func (v *valueFiles) String() string {
 	return fmt.Sprint(*v)
 }
 
+// Ensures all valuesFiles exist
+func (v *valueFiles) Valid() error {
+	errStr := ""
+	for _, valuesFile := range *v {
+		if _, err := os.Stat(valuesFile); os.IsNotExist(err) {
+			errStr += err.Error()
+		}
+	}
+
+	if errStr == "" {
+		return nil
+	} else {
+		return errors.New(errStr)
+	}
+}
+
 func (v *valueFiles) Type() string {
 	return "valueFiles"
 }
