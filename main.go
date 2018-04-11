@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/mgutz/ansi"
 	"github.com/spf13/cobra"
@@ -32,6 +33,7 @@ type diffCmd struct {
 	reuseValues     bool
 	resetValues     bool
 	suppressedKinds []string
+	ignoreNewError  bool
 }
 
 func main() {
@@ -59,6 +61,8 @@ func main() {
 				ansi.DisableColors(true)
 			}
 
+			diff.ignoreNewError, _ = cmd.Flags().GetBool("ignore-new-error")
+
 			diff.release = args[0]
 			diff.chart = args[1]
 			if diff.client == nil {
@@ -72,6 +76,7 @@ func main() {
 	f.BoolP("version", "v", false, "show version")
 	f.BoolP("suppress-secrets", "q", false, "suppress secrets in the output")
 	f.Bool("no-color", false, "remove colors from the output")
+	f.Bool("ignore-new-error", false, "suppress the error when the release doesn't exist yet")
 	f.VarP(&diff.valueFiles, "values", "f", "specify values in a YAML file (can specify multiple)")
 	f.StringArrayVar(&diff.values, "set", []string{}, "set values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)")
 	f.BoolVar(&diff.reuseValues, "reuse-values", false, "reuse the last release's values and merge in any new values")
@@ -101,6 +106,15 @@ func (d *diffCmd) run() error {
 	releaseResponse, err := d.client.ReleaseContent(d.release)
 
 	if err != nil {
+		if strings.Contains(err.Error(), fmt.Sprintf("release: %q not found", d.release)) {
+			if d.ignoreNewError {
+				fmt.Println("Release was not present in Helm.")
+				return nil
+			} else {
+				fmt.Println("Release was not present in Helm. You can suppress this error with `--ignore-new-error`.")
+				return prettyError(err)
+			}
+		}
 		return prettyError(err)
 	}
 
