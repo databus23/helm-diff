@@ -1,7 +1,7 @@
 package: github.com/databus23/helm-diff
 import:
 - package: k8s.io/helm
-  version: v2.8.0
+  version: v2.8.2
 #taken from k8s.io/helm hlide.yaml
 - package: k8s.io/api
   version: kubernetes-1.9.2
