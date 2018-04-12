@@ -26,6 +26,7 @@ var Version = "HEAD"
 type diffCmd struct {
 	release         string
 	chart           string
+	chartVersion    string
 	client          helm.Interface
 	valueFiles      valueFiles
 	values          []string
@@ -77,6 +78,7 @@ func main() {
 	f.BoolVar(&diff.reuseValues, "reuse-values", false, "reuse the last release's values and merge in any new values")
 	f.BoolVar(&diff.resetValues, "reset-values", false, "reset the values to the ones built into the chart and merge in any new values")
 	f.StringArrayVar(&diff.suppressedKinds, "suppress", []string{}, "allows suppression of the values listed in the diff output")
+	f.StringVarP(&diff.chartVersion, "chartVersion", "c", "", "specify the exact chart version evaluate. Similar to `helm install --version`")
 
 	if err := cmd.Execute(); err != nil {
 		os.Exit(1)
@@ -84,7 +86,7 @@ func main() {
 }
 
 func (d *diffCmd) run() error {
-	chartPath, err := locateChartPath(d.chart, "", false, "")
+	chartPath, err := locateChartPath(d.chart, d.chartVersion, false, "")
 	if err != nil {
 		return err
 	}
