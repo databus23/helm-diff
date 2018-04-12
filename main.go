@@ -26,6 +26,7 @@ var Version = "HEAD"
 type diffCmd struct {
 	release         string
 	chart           string
+	chartVersion    string
 	client          helm.Interface
 	valueFiles      valueFiles
 	values          []string
@@ -42,8 +43,8 @@ func main() {
 		Short: "Show manifest differences",
 		Long:  globalUsage,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if v, _ := cmd.Flags().GetBool("version"); v {
-				fmt.Println(Version)
+			if v, _ := cmd.Flags().GetBool("diff-version"); v {
+					fmt.Println("Version", Version)
 				return nil
 			}
 
@@ -69,9 +70,10 @@ func main() {
 	}
 
 	f := cmd.Flags()
-	f.BoolP("version", "v", false, "show version")
+	f.BoolP("diff-version", "", false, "show diff version")
 	f.BoolP("suppress-secrets", "q", false, "suppress secrets in the output")
 	f.Bool("no-color", false, "remove colors from the output")
+	f.StringVarP(&diff.chartVersion, "version", "v", "", "specify the chart version")
 	f.VarP(&diff.valueFiles, "values", "f", "specify values in a YAML file (can specify multiple)")
 	f.StringArrayVar(&diff.values, "set", []string{}, "set values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)")
 	f.BoolVar(&diff.reuseValues, "reuse-values", false, "reuse the last release's values and merge in any new values")
@@ -84,7 +86,7 @@ func main() {
 }
 
 func (d *diffCmd) run() error {
-	chartPath, err := locateChartPath(d.chart, "", false, "")
+	chartPath, err := locateChartPath(d.chart, d.chartVersion, false, "")
 	if err != nil {
 		return err
 	}
