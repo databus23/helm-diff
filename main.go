@@ -62,7 +62,7 @@ func main() {
 			diff.release = args[0]
 			diff.chart = args[1]
 			if diff.client == nil {
-				diff.client = helm.NewClient(helm.Host(os.Getenv("TILLER_HOST")))
+				diff.client = helm.NewClient(helm.Host(os.Getenv("TILLER_HOST")), helm.ConnectTimeout(int64(30)))
 			}
 			return diff.run()
 		},
