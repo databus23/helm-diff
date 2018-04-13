@@ -73,7 +73,7 @@ getDownloadURL() {
   fi
   # Use the GitHub API to find the download url for this project.
   if type "curl" > /dev/null; then
-    DOWNLOAD_URL=$(curl -v -s $url | grep $OS | awk '/\"browser_download_url\":/{gsub( /[,\"]/,"", $2); print $2}')
+    DOWNLOAD_URL=$(curl -s $url | grep $OS | awk '/\"browser_download_url\":/{gsub( /[,\"]/,"", $2); print $2}')
   elif type "wget" > /dev/null; then
     DOWNLOAD_URL=$(wget -q -O - $url | grep $OS | awk '/\"browser_download_url\":/{gsub( /[,\"]/,"", $2); print $2}')
   fi
@@ -99,7 +99,8 @@ installFile() {
   tar xf "$PLUGIN_TMP_FILE" -C "$HELM_TMP"
   HELM_TMP_BIN="$HELM_TMP/diff/diff"
   echo "Preparing to install into ${HELM_PLUGIN_PATH}"
-  cp "$HELM_TMP_BIN" "$HELM_PLUGIN_PATH"
+  mkdir -p "$HELM_PLUGIN_PATH/bin"
+  cp "$HELM_TMP_BIN" "$HELM_PLUGIN_PATH/bin"
 }
 
 # fail_trap is executed if an error occurs.
@@ -116,7 +117,7 @@ fail_trap() {
 testVersion() {
   set +e
   echo "$PROJECT_NAME installed into $HELM_PLUGIN_PATH/$PROJECT_NAME"
-  $HELM_PLUGIN_PATH/diff -h
+  $HELM_PLUGIN_PATH/bin/diff -h
   set -e
 }
 
