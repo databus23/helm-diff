@@ -22,12 +22,13 @@ type metadata struct {
 	ApiVersion string `yaml:"apiVersion"`
 	Kind       string
 	Metadata   struct {
-		Name string
+		Namespace string
+		Name      string
 	}
 }
 
 func (m metadata) String() string {
-	return fmt.Sprintf("%s, %s (%s)", m.Metadata.Name, m.Kind, m.ApiVersion)
+	return fmt.Sprintf("%s, %s, %s (%s)", m.Metadata.Namespace, m.Metadata.Name, m.Kind, m.ApiVersion)
 }
 
 func scanYamlSpecs(data []byte, atEOF bool) (advance int, token []byte, err error) {
@@ -53,7 +54,7 @@ func splitSpec(token string) (string, string) {
 	return "", ""
 }
 
-func Parse(manifest string) map[string]*MappingResult {
+func Parse(manifest string, defaultNamespace string) map[string]*MappingResult {
 	scanner := bufio.NewScanner(strings.NewReader(manifest))
 	scanner.Split(scanYamlSpecs)
 	//Allow for tokens (specs) up to 1M in size
@@ -71,6 +72,9 @@ func Parse(manifest string) map[string]*MappingResult {
 		var metadata metadata
 		if err := yaml.Unmarshal([]byte(content), &metadata); err != nil {
 			log.Fatalf("YAML unmarshal error: %s\nCan't unmarshal %s", err, content)
+		}
+		if metadata.Metadata.Namespace == "" {
+			metadata.Metadata.Namespace = defaultNamespace
 		}
 		name := metadata.String()
 		if _, ok := result[name]; ok {
