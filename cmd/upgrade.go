@@ -13,6 +13,7 @@ import (
 type diffCmd struct {
 	release         string
 	chart           string
+	chartVersion    string
 	client          helm.Interface
 	valueFiles      valueFiles
 	values          []string
@@ -60,6 +61,7 @@ func newChartCommand() *cobra.Command {
 	}
 
 	f := cmd.Flags()
+	f.StringVar(&diff.chartVersion, "version", "", "specify the exact chart version to use. If this is not specified, the latest version is used")
 	f.BoolP("suppress-secrets", "q", false, "suppress secrets in the output")
 	f.Bool("no-color", false, "remove colors from the output")
 	f.VarP(&diff.valueFiles, "values", "f", "specify values in a YAML file (can specify multiple)")
@@ -73,7 +75,7 @@ func newChartCommand() *cobra.Command {
 }
 
 func (d *diffCmd) run() error {
-	chartPath, err := locateChartPath(d.chart, "", false, "")
+	chartPath, err := locateChartPath(d.chart, d.chartVersion, false, "")
 	if err != nil {
 		return err
 	}
