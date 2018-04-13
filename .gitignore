@@ -1,4 +1,5 @@
-diff
 vendor/
+bin/
+build/
 release/
 .envrc

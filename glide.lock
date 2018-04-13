@@ -1,5 +1,5 @@
-hash: 41d899932ff17995e339094fcd90096ed03cf4b824e91f8df504297348edcd16
-updated: 2018-04-11T13:52:52.237299+02:00
+hash: a0ff68fa7a80ccc2e21148db56e8f4bbf6194534ba776b16636506782e9d769b
+updated: 2018-04-12T16:28:27.414423+02:00
 imports:
 - name: github.com/aryann/difflib
   version: a1a4dd44eb11820695fbe83e00fb2301ee6eb54c
@@ -36,9 +36,9 @@ imports:
 - name: github.com/mgutz/ansi
   version: 9520e82c474b0a04dd04f8a40959027271bab992
 - name: github.com/spf13/cobra
-  version: f62e98d28ab7ad31d707ba837a966378465c7b57
+  version: 615425954c3b0d9485a7027d4d451fdcdfdee84e
 - name: github.com/spf13/pflag
-  version: 4c012f6dcd9546820e378d0bdda4d8fc772cdfea
+  version: 583c0c0531f06d5278b7d917446061adc344b5cd
 - name: golang.org/x/crypto
   version: 81e90905daefcd6fd217b62423c0908922eadb30
   subpackages:

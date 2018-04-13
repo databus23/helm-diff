@@ -2,23 +2,23 @@ HELM_HOME ?= $(shell helm home)
 HAS_GLIDE := $(shell command -v glide;)
 VERSION := $(shell sed -n -e 's/version:[ "]*\([^"]*\).*/\1/p' plugin.yaml)
 
-LDFLAGS := -X main.Version=$(VERSION)
-
 PKG:= github.com/databus23/helm-diff
+LDFLAGS := -X $(PKG)/cmd.Version=$(VERSION)
 
 # Clear the "unreleased" string in BuildMetadata
 LDFLAGS += -X $(PKG)/vendor/k8s.io/helm/pkg/version.BuildMetadata=
 LDFLAGS += -X $(PKG)/vendor/k8s.io/helm/pkg/version.Version=$(shell grep -A1 "package: k8s.io/helm" glide.yaml | sed -n -e 's/[ ]*version:.*\(v[.0-9]*\).*/\1/p')
 
 .PHONY: install
-install: bootstrap build
+install: build
 	mkdir -p $(HELM_HOME)/plugins/helm-diff
-	cp diff $(HELM_HOME)/plugins/helm-diff/
+	cp bin/diff $(HELM_HOME)/plugins/helm-diff/
 	cp plugin.yaml $(HELM_HOME)/plugins/helm-diff/
 
 .PHONY: build
 build:
-	go build -i -v -o diff -ldflags="$(LDFLAGS)"
+	mkdir -p bin/
+	go build -i -v -o bin/diff -ldflags="$(LDFLAGS)"
 
 .PHONY: bootstrap
 bootstrap:

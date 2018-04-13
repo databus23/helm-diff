@@ -1,5 +1,9 @@
 package: github.com/databus23/helm-diff
 import:
+- package: github.com/spf13/cobra
+  version: 615425954c3b0d9485a7027d4d451fdcdfdee84e
+- package: github.com/spf13/pflag
+  version: 583c0c0531f06d5278b7d917446061adc344b5cd
 - package: k8s.io/helm
   version: v2.8.2
 #taken from k8s.io/helm hlide.yaml

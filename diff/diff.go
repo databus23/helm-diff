@@ -1,4 +1,4 @@
-package main
+package diff
 
 import (
 	"fmt"
@@ -11,7 +11,7 @@ import (
 	"github.com/databus23/helm-diff/manifest"
 )
 
-func diffManifests(oldIndex, newIndex map[string]*manifest.MappingResult, suppressedKinds []string, to io.Writer) {
+func DiffManifests(oldIndex, newIndex map[string]*manifest.MappingResult, suppressedKinds []string, to io.Writer) {
 	for key, oldContent := range oldIndex {
 		if newContent, ok := newIndex[key]; ok {
 			if oldContent.Content != newContent.Content {

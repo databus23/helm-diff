@@ -1,4 +1,4 @@
-package main
+package cmd
 
 // This file contains functions that where blatantly copied from
 // https://github.wdf.sap.corp/kubernetes/helm
@@ -13,9 +13,9 @@ import (
 
 	"github.com/ghodss/yaml"
 	"google.golang.org/grpc"
+	"k8s.io/helm/pkg/downloader"
 	"k8s.io/helm/pkg/getter"
 	"k8s.io/helm/pkg/helm/environment"
-	"k8s.io/helm/pkg/downloader"
 	"k8s.io/helm/pkg/helm/helmpath"
 	"k8s.io/helm/pkg/strvals"
 )
