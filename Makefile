@@ -11,8 +11,8 @@ LDFLAGS += -X $(PKG)/vendor/k8s.io/helm/pkg/version.Version=$(shell grep -A1 "pa
 
 .PHONY: install
 install: build
-	mkdir -p $(HELM_HOME)/plugins/helm-diff
-	cp bin/diff $(HELM_HOME)/plugins/helm-diff/
+	mkdir -p $(HELM_HOME)/plugins/helm-diff/bin
+	cp bin/diff $(HELM_HOME)/plugins/helm-diff/bin
 	cp plugin.yaml $(HELM_HOME)/plugins/helm-diff/
 
 .PHONY: build
