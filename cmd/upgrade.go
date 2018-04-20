@@ -14,6 +14,7 @@ type diffCmd struct {
 	release         string
 	chart           string
 	chartVersion    string
+	tillerNamespace string
 	client          helm.Interface
 	valueFiles      valueFiles
 	values          []string
@@ -69,6 +70,7 @@ func newChartCommand() *cobra.Command {
 	f.BoolVar(&diff.reuseValues, "reuse-values", false, "reuse the last release's values and merge in any new values")
 	f.BoolVar(&diff.resetValues, "reset-values", false, "reset the values to the ones built into the chart and merge in any new values")
 	f.StringArrayVar(&diff.suppressedKinds, "suppress", []string{}, "allows suppression of the values listed in the diff output")
+	f.StringVarP(&diff.tillerNamespace, "tiller-namespace", "t", "kube-system", "namespace of Tiller")
 
 	return cmd
 
