@@ -5,7 +5,6 @@ import (
 
 	"github.com/databus23/helm-diff/diff"
 	"github.com/databus23/helm-diff/manifest"
-	"github.com/mgutz/ansi"
 	"github.com/spf13/cobra"
 	"k8s.io/helm/pkg/helm"
 )
@@ -47,10 +46,6 @@ func newChartCommand() *cobra.Command {
 				diff.suppressedKinds = append(diff.suppressedKinds, "Secret")
 			}
 
-			if nc, _ := cmd.Flags().GetBool("no-color"); nc {
-				ansi.DisableColors(true)
-			}
-
 			diff.release = args[0]
 			diff.chart = args[1]
 			if diff.client == nil {
@@ -63,7 +58,6 @@ func newChartCommand() *cobra.Command {
 	f := cmd.Flags()
 	f.StringVar(&diff.chartVersion, "version", "", "specify the exact chart version to use. If this is not specified, the latest version is used")
 	f.BoolP("suppress-secrets", "q", false, "suppress secrets in the output")
-	f.Bool("no-color", false, "remove colors from the output")
 	f.VarP(&diff.valueFiles, "values", "f", "specify values in a YAML file (can specify multiple)")
 	f.StringArrayVar(&diff.values, "set", []string{}, "set values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)")
 	f.BoolVar(&diff.reuseValues, "reuse-values", false, "reuse the last release's values and merge in any new values")

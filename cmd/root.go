@@ -1,25 +1,41 @@
 package cmd
 
-import "github.com/spf13/cobra"
+import (
+	"github.com/mgutz/ansi"
+	"github.com/spf13/cobra"
+)
 
 func New() *cobra.Command {
+
+	chartCommand := newChartCommand()
 
 	cmd := &cobra.Command{
 		Use:   "diff",
 		Short: "Show manifest differences",
+		//Alias root command to chart subcommand
+		Args: chartCommand.Args,
+		// parse the flags and check for actions like suppress-secrets, no-colors
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			if nc, _ := cmd.Flags().GetBool("no-color"); nc {
+				ansi.DisableColors(true)
+			}
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cmd.Println(`Command "helm diff" is deprecated, use "helm diff upgrade" instead`)
+			return chartCommand.RunE(cmd, args)
+		},
 	}
 
-	chartCommand := newChartCommand()
-	cmd.AddCommand(newVersionCmd(), chartCommand)
-	//Alias root command to chart subcommand
-	cmd.Args = chartCommand.Args
+	// add no-color as global flag
+	cmd.PersistentFlags().Bool("no-color", false, "remove colors from the output")
+	// add flagset from chartCommand
 	cmd.Flags().AddFlagSet(chartCommand.Flags())
-	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		cmd.Println(`Command "helm diff" is deprecated, use "helm diff upgrade" instead`)
-		return chartCommand.RunE(cmd, args)
-	}
+	cmd.AddCommand(newVersionCmd(), chartCommand)
+	// add subcommands
+	cmd.AddCommand(
+		revisionCmd(),
+		rollbackCmd(),
+	)
 	cmd.SetHelpCommand(&cobra.Command{}) // Disable the help command
-
 	return cmd
-
 }
