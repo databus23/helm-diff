@@ -5,12 +5,12 @@ import:
 - package: github.com/spf13/pflag
   version: 583c0c0531f06d5278b7d917446061adc344b5cd
 - package: k8s.io/helm
-  version: v2.8.2
+  version: v2.9.0
 #taken from k8s.io/helm hlide.yaml
 - package: k8s.io/api
-  version: kubernetes-1.9.2
+  version: release-1.10
 - package: k8s.io/apimachinery
-  version: kubernetes-1.9.2
+  version: release-1.10
 - package: google.golang.org/grpc
   version: 1.7.2
 - package: golang.org/x/net
