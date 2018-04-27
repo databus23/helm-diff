@@ -5,6 +5,26 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const rootCmdLongUsage = `
+The Helm Diff Plugin
+
+* Shows a diff explaing what a helm upgrade would change:
+    This fetches the currently deployed version of a release
+  and compares it to a local chart plus values. This can be 
+  used visualize what changes a helm upgrade will perform.
+
+* Shows a diff explaing what had changed between two revisions:
+    This fetches previously deployed versions of a release
+  and compares them. This can be used visualize what changes 
+  were made during revision change.
+
+* Shows a diff explaing what a helm rollback would change:
+    This fetches the currently deployed version of a release
+  and compares it to adeployed versions of a release, that you 
+  want to rollback. This can be used visualize what changes a 
+  helm rollback will perform.
+`
+
 func New() *cobra.Command {
 
 	chartCommand := newChartCommand()
@@ -12,6 +32,7 @@ func New() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "diff",
 		Short: "Show manifest differences",
+		Long:  rootCmdLongUsage,
 		//Alias root command to chart subcommand
 		Args: chartCommand.Args,
 		// parse the flags and check for actions like suppress-secrets, no-colors

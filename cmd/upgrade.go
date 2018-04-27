@@ -36,7 +36,7 @@ func newChartCommand() *cobra.Command {
 		Use:     "upgrade [flags] [RELEASE] [CHART]",
 		Short:   "Show a diff explaining what a helm upgrade would change.",
 		Long:    globalUsage,
-		Example: "helm diff upgrade my-release stable/postgresql --values values.yaml",
+		Example: "  helm diff upgrade my-release stable/postgresql --values values.yaml",
 		Args: func(cmd *cobra.Command, args []string) error {
 			return checkArgsLength(len(args), "release name", "chart path")
 		},
