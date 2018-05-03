@@ -67,7 +67,7 @@ verifySupported() {
 # getDownloadURL checks the latest available version.
 getDownloadURL() {
   local url="https://api.github.com/repos/$PROJECT_GH/releases/latest"
-  local version=$(git describe --tags --exact-match 2>/dev/null)
+  local version=$(git -C $HELM_PLUGIN_PATH describe --tags --exact-match 2>/dev/null)
   if [ -n "$version" ]; then
     url="https://api.github.com/repos/$PROJECT_GH/releases/tags/$version"
   fi
