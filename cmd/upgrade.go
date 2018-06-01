@@ -1,7 +1,9 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
+	"strings"
 
 	"github.com/databus23/helm-diff/diff"
 	"github.com/databus23/helm-diff/manifest"
@@ -18,6 +20,7 @@ type diffCmd struct {
 	values          []string
 	reuseValues     bool
 	resetValues     bool
+	allowUnreleased bool
 	suppressedKinds []string
 }
 
@@ -62,6 +65,7 @@ func newChartCommand() *cobra.Command {
 	f.StringArrayVar(&diff.values, "set", []string{}, "set values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)")
 	f.BoolVar(&diff.reuseValues, "reuse-values", false, "reuse the last release's values and merge in any new values")
 	f.BoolVar(&diff.resetValues, "reset-values", false, "reset the values to the ones built into the chart and merge in any new values")
+	f.BoolVar(&diff.allowUnreleased, "allow-unreleased", false, "enables diffing of releases that are not yet deployed via Helm")
 	f.StringArrayVar(&diff.suppressedKinds, "suppress", []string{}, "allows suppression of the values listed in the diff output")
 
 	return cmd
@@ -85,24 +89,53 @@ func (d *diffCmd) run() error {
 
 	releaseResponse, err := d.client.ReleaseContent(d.release)
 
+	var newInstall bool
+	if err != nil && strings.Contains(err.Error(), fmt.Sprintf("release: %q not found", d.release)) {
+		if d.allowUnreleased {
+			fmt.Printf("********************\n\n\tRelease was not present in Helm.  Diff will show entire contents as new.\n\n********************\n")
+			newInstall = true
+			err = nil
+		} else {
+			fmt.Printf("********************\n\n\tRelease was not present in Helm.  Include the `--allow-unreleased` to perform diff without exiting in error.\n\n********************\n")
+		}
+
+	}
+
 	if err != nil {
 		return prettyError(err)
 	}
 
-	upgradeResponse, err := d.client.UpdateRelease(
-		d.release,
-		chartPath,
-		helm.UpdateValueOverrides(rawVals),
-		helm.ReuseValues(d.reuseValues),
-		helm.ResetValues(d.resetValues),
-		helm.UpgradeDryRun(true),
-	)
-	if err != nil {
-		return prettyError(err)
-	}
+	var currentSpecs, newSpecs map[string]*manifest.MappingResult
+	if newInstall {
+		installResponse, err := d.client.InstallRelease(
+			chartPath,
+			"default",
+			helm.ReleaseName(d.release),
+			helm.ValueOverrides(rawVals),
+			helm.InstallDryRun(true),
+		)
+		if err != nil {
+			return prettyError(err)
+		}
 
-	currentSpecs := manifest.Parse(releaseResponse.Release.Manifest)
-	newSpecs := manifest.Parse(upgradeResponse.Release.Manifest)
+		currentSpecs = make(map[string]*manifest.MappingResult)
+		newSpecs = manifest.Parse(installResponse.Release.Manifest)
+	} else {
+		upgradeResponse, err := d.client.UpdateRelease(
+			d.release,
+			chartPath,
+			helm.UpdateValueOverrides(rawVals),
+			helm.ReuseValues(d.reuseValues),
+			helm.ResetValues(d.resetValues),
+			helm.UpgradeDryRun(true),
+		)
+		if err != nil {
+			return prettyError(err)
+		}
+
+		currentSpecs = manifest.Parse(releaseResponse.Release.Manifest)
+		newSpecs = manifest.Parse(upgradeResponse.Release.Manifest)
+	}
 
 	diff.DiffManifests(currentSpecs, newSpecs, d.suppressedKinds, os.Stdout)
 
