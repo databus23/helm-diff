@@ -97,7 +97,7 @@ installFile() {
   HELM_TMP="/tmp/$PROJECT_NAME"
   mkdir -p "$HELM_TMP"
   tar xf "$PLUGIN_TMP_FILE" -C "$HELM_TMP"
-  HELM_TMP_BIN="$HELM_TMP/diff/diff"
+  HELM_TMP_BIN="$HELM_TMP/diff/bin/diff"
   echo "Preparing to install into ${HELM_PLUGIN_PATH}"
   mkdir -p "$HELM_PLUGIN_PATH/bin"
   cp "$HELM_TMP_BIN" "$HELM_PLUGIN_PATH/bin"

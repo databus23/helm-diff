@@ -31,14 +31,14 @@ endif
 dist: export COPYFILE_DISABLE=1 #teach OSX tar to not put ._* files in tar archive
 dist:
 	rm -rf build/diff/* release/*
-	mkdir -p build/diff release/
+	mkdir -p build/diff/bin release/
 	cp README.md LICENSE plugin.yaml build/diff
-	GOOS=linux GOARCH=amd64 go build -o build/diff/diff -ldflags="$(LDFLAGS)"
+	GOOS=linux GOARCH=amd64 go build -o build/diff/bin/diff -ldflags="$(LDFLAGS)"
 	tar -C build/ -zcvf $(CURDIR)/release/helm-diff-linux.tgz diff/
-	GOOS=darwin GOARCH=amd64 go build -o build/diff/diff -ldflags="$(LDFLAGS)"
+	GOOS=darwin GOARCH=amd64 go build -o build/diff/bin/diff -ldflags="$(LDFLAGS)"
 	tar -C build/ -zcvf $(CURDIR)/release/helm-diff-macos.tgz diff/
-	rm build/diff/diff
-	GOOS=windows GOARCH=amd64 go build -o build/diff/diff.exe -ldflags="$(LDFLAGS)"
+	rm build/diff/bin/diff
+	GOOS=windows GOARCH=amd64 go build -o build/diff/bin/diff.exe -ldflags="$(LDFLAGS)"
 	tar -C build/ -zcvf $(CURDIR)/release/helm-diff-windows.tgz diff/
 
 .PHONY: release
