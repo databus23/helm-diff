@@ -5,7 +5,7 @@
 PROJECT_NAME="helm-diff"
 PROJECT_GH="databus23/$PROJECT_NAME"
 
-: ${HELM_PLUGIN_PATH:="$(helm home)/plugins/helm-diff"}
+: ${HELM_PLUGIN_PATH:="$(helm home --debug=false)/plugins/helm-diff"}
 
 # Convert the HELM_PLUGIN_PATH to unix if cygpath is
 # available. This is the case when using MSYS2 or Cygwin
