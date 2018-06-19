@@ -8,4 +8,3 @@ useTunnel: true
 command: "$HELM_PLUGIN_DIR/bin/diff"
 hooks:
   install: "$HELM_PLUGIN_DIR/install-binary.sh"
-  update: "$HELM_PLUGIN_DIR/install-binary.sh"
