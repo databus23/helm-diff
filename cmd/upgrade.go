@@ -9,19 +9,21 @@ import (
 	"github.com/databus23/helm-diff/manifest"
 	"github.com/spf13/cobra"
 	"k8s.io/helm/pkg/helm"
+	"errors"
 )
 
 type diffCmd struct {
-	release         string
-	chart           string
-	chartVersion    string
-	client          helm.Interface
-	valueFiles      valueFiles
-	values          []string
-	reuseValues     bool
-	resetValues     bool
-	allowUnreleased bool
-	suppressedKinds []string
+	release         	string
+	chart           	string
+	chartVersion    	string
+	client          	helm.Interface
+	valueFiles      	valueFiles
+	values          	[]string
+	reuseValues     	bool
+	resetValues     	bool
+	allowUnreleased 	bool
+	detailedExitCode 	bool
+	suppressedKinds 	[]string
 }
 
 const globalUsage = `Show a diff explaining what a helm upgrade would change.
@@ -67,6 +69,7 @@ func newChartCommand() *cobra.Command {
 	f.BoolVar(&diff.resetValues, "reset-values", false, "reset the values to the ones built into the chart and merge in any new values")
 	f.BoolVar(&diff.allowUnreleased, "allow-unreleased", false, "enables diffing of releases that are not yet deployed via Helm")
 	f.StringArrayVar(&diff.suppressedKinds, "suppress", []string{}, "allows suppression of the values listed in the diff output")
+	f.BoolVar(&diff.detailedExitCode, "detailed-exitcode", false, "return a non-zero exit code when there are changes")
 
 	return cmd
 
@@ -137,7 +140,11 @@ func (d *diffCmd) run() error {
 		newSpecs = manifest.Parse(upgradeResponse.Release.Manifest)
 	}
 
-	diff.DiffManifests(currentSpecs, newSpecs, d.suppressedKinds, os.Stdout)
+	seenAnyChanges := diff.DiffManifests(currentSpecs, newSpecs, d.suppressedKinds, os.Stdout)
+
+	if d.detailedExitCode && seenAnyChanges {
+		return errors.New("identified at least one change, exiting with non-zero exit code (detailed-exitcode parameter enabled)")
+	}
 
 	return nil
 }
