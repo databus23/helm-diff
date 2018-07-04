@@ -150,7 +150,7 @@ Global Flags:
 ### Using Helm plugin manager (> 2.3.x)
 
 ```shell
-helm plugin install https://github.com/databus23/helm-diff
+helm plugin install https://github.com/databus23/helm-diff --version master
 ```
 
 ### Pre Helm 2.3.0 Installation
