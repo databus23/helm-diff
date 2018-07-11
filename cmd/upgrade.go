@@ -44,6 +44,9 @@ func newChartCommand() *cobra.Command {
 		Args: func(cmd *cobra.Command, args []string) error {
 			return checkArgsLength(len(args), "release name", "chart path")
 		},
+		PersistentPreRun: func(*cobra.Command, []string) {
+			expandTLSPaths()
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 
 			if q, _ := cmd.Flags().GetBool("suppress-secrets"); q {
@@ -53,7 +56,7 @@ func newChartCommand() *cobra.Command {
 			diff.release = args[0]
 			diff.chart = args[1]
 			if diff.client == nil {
-				diff.client = helm.NewClient(helm.Host(os.Getenv("TILLER_HOST")), helm.ConnectTimeout(int64(30)))
+				diff.client = createHelmClient()
 			}
 			return diff.run()
 		},
@@ -69,6 +72,8 @@ func newChartCommand() *cobra.Command {
 	f.BoolVar(&diff.allowUnreleased, "allow-unreleased", false, "enables diffing of releases that are not yet deployed via Helm")
 	f.StringArrayVar(&diff.suppressedKinds, "suppress", []string{}, "allows suppression of the values listed in the diff output")
 	f.IntVarP(&diff.outputContext, "context", "C", -1, "output NUM lines of context around changes")
+
+	addCommonCmdOptions(f)
 
 	return cmd
 
