@@ -92,8 +92,8 @@ func (d *revision) differentiate() error {
 		}
 
 		diff.DiffManifests(
-			manifest.Parse(revisionResponse.Release.Manifest, revisionResponse.Release.Namespace),
-			manifest.Parse(releaseResponse.Release.Manifest, releaseResponse.Release.Namespace),
+			manifest.ParseRelease(revisionResponse.Release),
+			manifest.ParseRelease(releaseResponse.Release),
 			d.suppressedKinds,
 			d.outputContext,
 			os.Stdout)
@@ -116,8 +116,8 @@ func (d *revision) differentiate() error {
 		}
 
 		diff.DiffManifests(
-			manifest.Parse(revisionResponse1.Release.Manifest, revisionResponse1.Release.Namespace),
-			manifest.Parse(revisionResponse2.Release.Manifest, revisionResponse2.Release.Namespace),
+			manifest.ParseRelease(revisionResponse1.Release),
+			manifest.ParseRelease(revisionResponse2.Release),
 			d.suppressedKinds,
 			d.outputContext,
 			os.Stdout)

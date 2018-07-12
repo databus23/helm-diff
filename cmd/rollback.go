@@ -83,8 +83,8 @@ func (d *rollback) backcast() error {
 
 	// create a diff between the current manifest and the version of the manifest that a user is intended to rollback
 	diff.DiffManifests(
-		manifest.Parse(releaseResponse.Release.Manifest, releaseResponse.Release.Namespace),
-		manifest.Parse(revisionResponse.Release.Manifest, revisionResponse.Release.Namespace),
+		manifest.ParseRelease(releaseResponse.Release),
+		manifest.ParseRelease(revisionResponse.Release),
 		d.suppressedKinds,
 		d.outputContext,
 		os.Stdout)
