@@ -91,7 +91,12 @@ func (d *revision) differentiate() error {
 			return prettyError(err)
 		}
 
-		diff.DiffManifests(manifest.Parse(revisionResponse.Release.Manifest), manifest.Parse(releaseResponse.Release.Manifest), d.suppressedKinds, d.outputContext, os.Stdout)
+		diff.DiffManifests(
+			manifest.Parse(revisionResponse.Release.Manifest, revisionResponse.Release.Namespace),
+			manifest.Parse(releaseResponse.Release.Manifest, releaseResponse.Release.Namespace),
+			d.suppressedKinds,
+			d.outputContext,
+			os.Stdout)
 
 	case 2:
 		revision1, _ := strconv.Atoi(d.revisions[0])
@@ -110,7 +115,12 @@ func (d *revision) differentiate() error {
 			return prettyError(err)
 		}
 
-		diff.DiffManifests(manifest.Parse(revisionResponse1.Release.Manifest), manifest.Parse(revisionResponse2.Release.Manifest), d.suppressedKinds, d.outputContext, os.Stdout)
+		diff.DiffManifests(
+			manifest.Parse(revisionResponse1.Release.Manifest, revisionResponse1.Release.Namespace),
+			manifest.Parse(revisionResponse2.Release.Manifest, revisionResponse2.Release.Namespace),
+			d.suppressedKinds,
+			d.outputContext,
+			os.Stdout)
 
 	default:
 		return errors.New("Invalid Arguments")

@@ -121,7 +121,7 @@ func (d *diffCmd) run() error {
 		}
 
 		currentSpecs = make(map[string]*manifest.MappingResult)
-		newSpecs = manifest.Parse(installResponse.Release.Manifest)
+		newSpecs = manifest.Parse(installResponse.Release.Manifest, installResponse.Release.Namespace)
 	} else {
 		upgradeResponse, err := d.client.UpdateRelease(
 			d.release,
@@ -135,8 +135,8 @@ func (d *diffCmd) run() error {
 			return prettyError(err)
 		}
 
-		currentSpecs = manifest.Parse(releaseResponse.Release.Manifest)
-		newSpecs = manifest.Parse(upgradeResponse.Release.Manifest)
+		currentSpecs = manifest.Parse(releaseResponse.Release.Manifest, releaseResponse.Release.Namespace)
+		newSpecs = manifest.Parse(upgradeResponse.Release.Manifest, upgradeResponse.Release.Namespace)
 	}
 
 	diff.DiffManifests(currentSpecs, newSpecs, d.suppressedKinds, d.outputContext, os.Stdout)
