@@ -128,9 +128,9 @@ func assertDiff(t *testing.T, before, after string, context int, expected string
 
 func TestDiffManifests(t *testing.T) {
 	specBeta := map[string]*manifest.MappingResult{
-		"default, nginx, Deployment (apps/v1beta1)": &manifest.MappingResult{
+		"default, nginx, Deployment (apps)": &manifest.MappingResult{
 
-			Name: "default, nginx, Deployment (apps/v1beta1)",
+			Name: "default, nginx, Deployment (apps)",
 			Kind: "Deployment",
 			Content: `
 apiVersion: apps/v1beta1
@@ -141,9 +141,9 @@ metadata:
 		}}
 
 	specRelease := map[string]*manifest.MappingResult{
-		"default, nginx, Deployment (apps/v1)": &manifest.MappingResult{
+		"default, nginx, Deployment (apps)": &manifest.MappingResult{
 
-			Name: "default, nginx, Deployment (apps/v1)",
+			Name: "default, nginx, Deployment (apps)",
 			Kind: "Deployment",
 			Content: `
 apiVersion: apps/v1
@@ -154,21 +154,15 @@ metadata:
 		}}
 
 	var buf bytes.Buffer
-	DiffManifests(specBeta, specRelease, []string{}, 1, &buf)
+	DiffManifests(specBeta, specRelease, []string{}, 10, &buf)
 
-	require.Equal(t, `default, nginx, Deployment (apps/v1beta1) has been removed:
+	require.Equal(t, `default, nginx, Deployment (apps) has changed:
   
 - apiVersion: apps/v1beta1
-- kind: Deployment
-- metadata:
--   name: nginx
-- 
-default, nginx, Deployment (apps/v1) has been added:
-  
 + apiVersion: apps/v1
-+ kind: Deployment
-+ metadata:
-+   name: nginx
-+ 
+  kind: Deployment
+  metadata:
+    name: nginx
+  
 `, buf.String())
 }

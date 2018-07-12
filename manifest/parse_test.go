@@ -44,7 +44,7 @@ func TestDeployV1(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t,
-		[]string{"default, nginx, Deployment (apps/v1)"},
+		[]string{"default, nginx, Deployment (apps)"},
 		foundObjects(Parse(string(spec), "default")),
 	)
 }
@@ -54,7 +54,7 @@ func TestDeployV1Beta1(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t,
-		[]string{"default, nginx, Deployment (apps/v1beta1)"},
+		[]string{"default, nginx, Deployment (apps)"},
 		foundObjects(Parse(string(spec), "default")),
 	)
 }

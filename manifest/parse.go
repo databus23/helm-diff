@@ -28,7 +28,13 @@ type metadata struct {
 }
 
 func (m metadata) String() string {
-	return fmt.Sprintf("%s, %s, %s (%s)", m.Metadata.Namespace, m.Metadata.Name, m.Kind, m.ApiVersion)
+	apiBase := m.ApiVersion
+	sp := strings.Split(apiBase, "/")
+	if len(sp) > 1 {
+		apiBase = strings.Join(sp[:len(sp)-1], "/")
+	}
+
+	return fmt.Sprintf("%s, %s, %s (%s)", m.Metadata.Namespace, m.Metadata.Name, m.Kind, apiBase)
 }
 
 func scanYamlSpecs(data []byte, atEOF bool) (advance int, token []byte, err error) {
