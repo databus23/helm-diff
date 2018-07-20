@@ -13,17 +13,18 @@ import (
 )
 
 type diffCmd struct {
-	release         	string
-	chart           	string
-	chartVersion    	string
-	client          	helm.Interface
-	valueFiles      	valueFiles
-	values          	[]string
-	reuseValues     	bool
-	resetValues     	bool
-	allowUnreleased 	bool
+	release           string
+	chart             string
+	chartVersion      string
+	client            helm.Interface
 	detailedExitCode 	bool
-	suppressedKinds 	[]string
+	valueFiles        valueFiles
+	values            []string
+	reuseValues       bool
+	resetValues       bool
+	allowUnreleased   bool
+	suppressedKinds   []string
+	outputContext     int
 }
 
 const globalUsage = `Show a diff explaining what a helm upgrade would change.
@@ -62,6 +63,7 @@ func newChartCommand() *cobra.Command {
 
 	f := cmd.Flags()
 	f.StringVar(&diff.chartVersion, "version", "", "specify the exact chart version to use. If this is not specified, the latest version is used")
+	f.BoolVar(&diff.detailedExitCode, "detailed-exitcode", false, "return a non-zero exit code when there are changes")
 	f.BoolP("suppress-secrets", "q", false, "suppress secrets in the output")
 	f.VarP(&diff.valueFiles, "values", "f", "specify values in a YAML file (can specify multiple)")
 	f.StringArrayVar(&diff.values, "set", []string{}, "set values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)")
@@ -69,7 +71,7 @@ func newChartCommand() *cobra.Command {
 	f.BoolVar(&diff.resetValues, "reset-values", false, "reset the values to the ones built into the chart and merge in any new values")
 	f.BoolVar(&diff.allowUnreleased, "allow-unreleased", false, "enables diffing of releases that are not yet deployed via Helm")
 	f.StringArrayVar(&diff.suppressedKinds, "suppress", []string{}, "allows suppression of the values listed in the diff output")
-	f.BoolVar(&diff.detailedExitCode, "detailed-exitcode", false, "return a non-zero exit code when there are changes")
+	f.IntVarP(&diff.outputContext, "context", "C", -1, "output NUM lines of context around changes")
 
 	return cmd
 
@@ -122,7 +124,7 @@ func (d *diffCmd) run() error {
 		}
 
 		currentSpecs = make(map[string]*manifest.MappingResult)
-		newSpecs = manifest.Parse(installResponse.Release.Manifest)
+		newSpecs = manifest.Parse(installResponse.Release.Manifest, installResponse.Release.Namespace)
 	} else {
 		upgradeResponse, err := d.client.UpdateRelease(
 			d.release,
@@ -136,11 +138,11 @@ func (d *diffCmd) run() error {
 			return prettyError(err)
 		}
 
-		currentSpecs = manifest.Parse(releaseResponse.Release.Manifest)
-		newSpecs = manifest.Parse(upgradeResponse.Release.Manifest)
+		currentSpecs = manifest.Parse(releaseResponse.Release.Manifest, releaseResponse.Release.Namespace)
+		newSpecs = manifest.Parse(upgradeResponse.Release.Manifest, upgradeResponse.Release.Namespace)
 	}
 
-	seenAnyChanges := diff.DiffManifests(currentSpecs, newSpecs, d.suppressedKinds, os.Stdout)
+	seenAnyChanges := diff.DiffManifests(currentSpecs, newSpecs, d.suppressedKinds, d.outputContext, os.Stdout)
 
 	if d.detailedExitCode && seenAnyChanges {
 		return errors.New("identified at least one change, exiting with non-zero exit code (detailed-exitcode parameter enabled)")

@@ -151,7 +151,7 @@ Global Flags:
 ### Using Helm plugin manager (> 2.3.x)
 
 ```shell
-helm plugin install https://github.com/databus23/helm-diff
+helm plugin install https://github.com/databus23/helm-diff --version master
 ```
 
 ### Pre Helm 2.3.0 Installation
@@ -183,3 +183,11 @@ The above will install this plugin into your `$HELM_HOME/plugins` directory.
 - You need to have [Go](http://golang.org) installed. Make sure to set `$GOPATH`
 - If you don't have [Glide](http://glide.sh) installed, this will install it into
   `$GOPATH/bin` for you.
+
+### Running Tests
+Automated tests are implemented with [*testing*](https://golang.org/pkg/testing/).
+
+To run all tests:
+```
+go test -v ./...
+```

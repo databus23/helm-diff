@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"math"
 
 	"github.com/aryann/difflib"
 	"github.com/mgutz/ansi"
@@ -11,8 +12,7 @@ import (
 	"github.com/databus23/helm-diff/manifest"
 )
 
-
-func DiffManifests(oldIndex, newIndex map[string]*manifest.MappingResult, suppressedKinds []string, to io.Writer) bool {
+func DiffManifests(oldIndex, newIndex map[string]*manifest.MappingResult, suppressedKinds []string, context int, to io.Writer) bool {
 	seenAnyChanges := false
 	emptyMapping := &manifest.MappingResult{}
 	for key, oldContent := range oldIndex {
@@ -24,7 +24,7 @@ func DiffManifests(oldIndex, newIndex map[string]*manifest.MappingResult, suppre
 				if len(diffs) > 0 {
 					seenAnyChanges = true
 				}
-				printDiff(suppressedKinds, oldContent.Kind, diffs, to)
+				printDiff(suppressedKinds, oldContent.Kind, context, diffs, to)
 			}
 		} else {
 			// removed
@@ -33,7 +33,7 @@ func DiffManifests(oldIndex, newIndex map[string]*manifest.MappingResult, suppre
 			if len(diffs) > 0 {
 				seenAnyChanges = true
 			}
-			printDiff(suppressedKinds, oldContent.Kind, diffs, to)
+			printDiff(suppressedKinds, oldContent.Kind, context, diffs, to)
 		}
 	}
 
@@ -45,7 +45,7 @@ func DiffManifests(oldIndex, newIndex map[string]*manifest.MappingResult, suppre
 			if len(diffs) > 0 {
 				seenAnyChanges = true
 			}
-			printDiff(suppressedKinds, newContent.Kind, diffs, to)
+			printDiff(suppressedKinds, newContent.Kind, context, diffs, to)
 		}
 	}
 	return seenAnyChanges
@@ -56,7 +56,8 @@ func generateDiff(oldContent *manifest.MappingResult, newContent *manifest.Mappi
 	return difflib.Diff(strings.Split(oldContent.Content, sep), strings.Split(newContent.Content, sep))
 }
 
-func printDiff(suppressedKinds []string, kind string, diffs []difflib.DiffRecord, to io.Writer) {
+func printDiff(suppressedKinds []string, kind string, context int, diffs []difflib.DiffRecord, to io.Writer) {
+	diffs := difflib.Diff(strings.Split(before, "\n"), strings.Split(after, "\n"))
 
 	for _, ckind := range suppressedKinds {
 		if ckind == kind {
@@ -66,16 +67,71 @@ func printDiff(suppressedKinds []string, kind string, diffs []difflib.DiffRecord
 		}
 	}
 
-	for _, diff := range diffs {
-		text := diff.Payload
-
-		switch diff.Delta {
-		case difflib.RightOnly:
-			fmt.Fprintf(to, "%s\n", ansi.Color("+ "+text, "green"))
-		case difflib.LeftOnly:
-			fmt.Fprintf(to, "%s\n", ansi.Color("- "+text, "red"))
-		case difflib.Common:
-			fmt.Fprintf(to, "%s\n", "  "+text)
+	if context >= 0 {
+		distances := calculateDistances(diffs)
+		omitting := false
+		for i, diff := range diffs {
+			if distances[i] > context {
+				if !omitting {
+					fmt.Fprintln(to, "...")
+					omitting = true
+				}
+			} else {
+				omitting = false
+				printDiffRecord(diff, to)
+			}
+		}
+	} else {
+		for _, diff := range diffs {
+			printDiffRecord(diff, to)
 		}
 	}
+}
+
+func printDiffRecord(diff difflib.DiffRecord, to io.Writer) {
+	text := diff.Payload
+
+	switch diff.Delta {
+	case difflib.RightOnly:
+		fmt.Fprintf(to, "%s\n", ansi.Color("+ "+text, "green"))
+	case difflib.LeftOnly:
+		fmt.Fprintf(to, "%s\n", ansi.Color("- "+text, "red"))
+	case difflib.Common:
+		fmt.Fprintf(to, "%s\n", "  "+text)
+	}
+}
+
+// Calculate distance of every diff-line to the closest change
+func calculateDistances(diffs []difflib.DiffRecord) map[int]int {
+	distances := map[int]int{}
+
+	// Iterate forwards through diffs, set 'distance' based on closest 'change' before this line
+	change := -1
+	for i, diff := range diffs {
+		if diff.Delta != difflib.Common {
+			change = i
+		}
+		distance := math.MaxInt32
+		if change != -1 {
+			distance = i - change
+		}
+		distances[i] = distance
+	}
+
+	// Iterate backwards through diffs, reduce 'distance' based on closest 'change' after this line
+	change = -1
+	for i := len(diffs) - 1; i >= 0; i-- {
+		diff := diffs[i]
+		if diff.Delta != difflib.Common {
+			change = i
+		}
+		if change != -1 {
+			distance := change - i
+			if distance < distances[i] {
+				distances[i] = distance
+			}
+		}
+	}
+
+	return distances
 }
