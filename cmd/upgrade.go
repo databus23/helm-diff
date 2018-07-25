@@ -9,20 +9,22 @@ import (
 	"github.com/databus23/helm-diff/manifest"
 	"github.com/spf13/cobra"
 	"k8s.io/helm/pkg/helm"
+	"errors"
 )
 
 type diffCmd struct {
-	release         string
-	chart           string
-	chartVersion    string
-	client          helm.Interface
-	valueFiles      valueFiles
-	values          []string
-	reuseValues     bool
-	resetValues     bool
-	allowUnreleased bool
-	suppressedKinds []string
-	outputContext   int
+	release           string
+	chart             string
+	chartVersion      string
+	client            helm.Interface
+	detailedExitCode 	bool
+	valueFiles        valueFiles
+	values            []string
+	reuseValues       bool
+	resetValues       bool
+	allowUnreleased   bool
+	suppressedKinds   []string
+	outputContext     int
 }
 
 const globalUsage = `Show a diff explaining what a helm upgrade would change.
@@ -61,6 +63,7 @@ func newChartCommand() *cobra.Command {
 
 	f := cmd.Flags()
 	f.StringVar(&diff.chartVersion, "version", "", "specify the exact chart version to use. If this is not specified, the latest version is used")
+	f.BoolVar(&diff.detailedExitCode, "detailed-exitcode", false, "return a non-zero exit code when there are changes")
 	f.BoolP("suppress-secrets", "q", false, "suppress secrets in the output")
 	f.VarP(&diff.valueFiles, "values", "f", "specify values in a YAML file (can specify multiple)")
 	f.StringArrayVar(&diff.values, "set", []string{}, "set values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)")
@@ -139,7 +142,11 @@ func (d *diffCmd) run() error {
 		newSpecs = manifest.Parse(upgradeResponse.Release.Manifest, upgradeResponse.Release.Namespace)
 	}
 
-	diff.DiffManifests(currentSpecs, newSpecs, d.suppressedKinds, d.outputContext, os.Stdout)
+	seenAnyChanges := diff.DiffManifests(currentSpecs, newSpecs, d.suppressedKinds, d.outputContext, os.Stdout)
+
+	if d.detailedExitCode && seenAnyChanges {
+		return errors.New("identified at least one change, exiting with non-zero exit code (detailed-exitcode parameter enabled)")
+	}
 
 	return nil
 }

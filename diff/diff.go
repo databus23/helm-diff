@@ -12,18 +12,28 @@ import (
 	"github.com/databus23/helm-diff/manifest"
 )
 
-func DiffManifests(oldIndex, newIndex map[string]*manifest.MappingResult, suppressedKinds []string, context int, to io.Writer) {
+func DiffManifests(oldIndex, newIndex map[string]*manifest.MappingResult, suppressedKinds []string, context int, to io.Writer) bool {
+	seenAnyChanges := false
+	emptyMapping := &manifest.MappingResult{}
 	for key, oldContent := range oldIndex {
 		if newContent, ok := newIndex[key]; ok {
 			if oldContent.Content != newContent.Content {
 				// modified
 				fmt.Fprintf(to, ansi.Color("%s has changed:", "yellow")+"\n", key)
-				printDiff(suppressedKinds, oldContent.Kind, context, oldContent.Content, newContent.Content, to)
+				diffs := generateDiff(oldContent, newContent)
+				if len(diffs) > 0 {
+					seenAnyChanges = true
+				}
+				printDiff(suppressedKinds, oldContent.Kind, context, diffs, to)
 			}
 		} else {
 			// removed
 			fmt.Fprintf(to, ansi.Color("%s has been removed:", "yellow")+"\n", key)
-			printDiff(suppressedKinds, oldContent.Kind, context, oldContent.Content, "", to)
+			diffs := generateDiff(oldContent, emptyMapping)
+			if len(diffs) > 0 {
+				seenAnyChanges = true
+			}
+			printDiff(suppressedKinds, oldContent.Kind, context, diffs, to)
 		}
 	}
 
@@ -31,12 +41,22 @@ func DiffManifests(oldIndex, newIndex map[string]*manifest.MappingResult, suppre
 		if _, ok := oldIndex[key]; !ok {
 			// added
 			fmt.Fprintf(to, ansi.Color("%s has been added:", "yellow")+"\n", key)
-			printDiff(suppressedKinds, newContent.Kind, context, "", newContent.Content, to)
+			diffs := generateDiff(emptyMapping, newContent)
+			if len(diffs) > 0 {
+				seenAnyChanges = true
+			}
+			printDiff(suppressedKinds, newContent.Kind, context, diffs, to)
 		}
 	}
+	return seenAnyChanges
 }
 
-func printDiff(suppressedKinds []string, kind string, context int, before, after string, to io.Writer) {
+func generateDiff(oldContent *manifest.MappingResult, newContent *manifest.MappingResult) []difflib.DiffRecord {
+	const sep = "\n"
+	return difflib.Diff(strings.Split(oldContent.Content, sep), strings.Split(newContent.Content, sep))
+}
+
+func printDiff(suppressedKinds []string, kind string, context int, diffs []difflib.DiffRecord, to io.Writer) {
 	diffs := difflib.Diff(strings.Split(before, "\n"), strings.Split(after, "\n"))
 
 	for _, ckind := range suppressedKinds {
