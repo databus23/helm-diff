@@ -20,6 +20,10 @@ build:
 	mkdir -p bin/
 	go build -i -v -o bin/diff -ldflags="$(LDFLAGS)"
 
+.PHONY: test
+test:
+	go test -v ./...
+
 .PHONY: bootstrap
 bootstrap:
 ifndef HAS_GLIDE
