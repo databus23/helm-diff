@@ -57,8 +57,6 @@ func generateDiff(oldContent *manifest.MappingResult, newContent *manifest.Mappi
 }
 
 func printDiff(suppressedKinds []string, kind string, context int, diffs []difflib.DiffRecord, to io.Writer) {
-	diffs := difflib.Diff(strings.Split(before, "\n"), strings.Split(after, "\n"))
-
 	for _, ckind := range suppressedKinds {
 		if ckind == kind {
 			str := fmt.Sprintf("+ Changes suppressed on sensitive content of type %s\n", kind)
