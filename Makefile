@@ -9,6 +9,11 @@ LDFLAGS := -X $(PKG)/cmd.Version=$(VERSION)
 LDFLAGS += -X $(PKG)/vendor/k8s.io/helm/pkg/version.BuildMetadata=
 LDFLAGS += -X $(PKG)/vendor/k8s.io/helm/pkg/version.Version=$(shell grep -A1 "package: k8s.io/helm" glide.yaml | sed -n -e 's/[ ]*version:.*\(v[.0-9]*\).*/\1/p')
 
+.PHONY: format
+format:
+	test -z "$$(find . -path ./vendor -prune -type f -o -name '*.go' -exec gofmt -d {} + | tee /dev/stderr)" || \
+	test -z "$$(find . -path ./vendor -prune -type f -o -name '*.go' -exec gofmt -w {} + | tee /dev/stderr)"
+
 .PHONY: install
 install: build
 	mkdir -p $(HELM_HOME)/plugins/helm-diff/bin

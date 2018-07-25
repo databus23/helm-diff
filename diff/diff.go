@@ -3,8 +3,8 @@ package diff
 import (
 	"fmt"
 	"io"
-	"strings"
 	"math"
+	"strings"
 
 	"github.com/aryann/difflib"
 	"github.com/mgutz/ansi"

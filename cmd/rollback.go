@@ -5,6 +5,7 @@ import (
 	"os"
 	"strconv"
 
+	"errors"
 	"github.com/databus23/helm-diff/diff"
 	"github.com/databus23/helm-diff/manifest"
 	"github.com/spf13/cobra"
@@ -12,11 +13,12 @@ import (
 )
 
 type rollback struct {
-	release         string
-	client          helm.Interface
-	suppressedKinds []string
-	revisions       []string
-	outputContext   int
+	release          string
+	client           helm.Interface
+	detailedExitCode bool
+	suppressedKinds  []string
+	revisions        []string
+	outputContext    int
 }
 
 const rollbackCmdLongUsage = `
@@ -88,12 +90,19 @@ func (d *rollback) backcast() error {
 	}
 
 	// create a diff between the current manifest and the version of the manifest that a user is intended to rollback
-	diff.DiffManifests(
+	seenAnyChanges := diff.DiffManifests(
 		manifest.ParseRelease(releaseResponse.Release),
 		manifest.ParseRelease(revisionResponse.Release),
 		d.suppressedKinds,
 		d.outputContext,
 		os.Stdout)
+
+	if d.detailedExitCode && seenAnyChanges {
+		return Error{
+			error: errors.New("identified at least one change, exiting with non-zero exit code (detailed-exitcode parameter enabled)"),
+			Code:  2,
+		}
+	}
 
 	return nil
 }

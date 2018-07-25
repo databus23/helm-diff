@@ -13,11 +13,12 @@ import (
 )
 
 type revision struct {
-	release         string
-	client          helm.Interface
-	suppressedKinds []string
-	revisions       []string
-	outputContext   int
+	release          string
+	client           helm.Interface
+	detailedExitCode bool
+	suppressedKinds  []string
+	revisions        []string
+	outputContext    int
 }
 
 const revisionCmdLongUsage = `
@@ -121,12 +122,19 @@ func (d *revision) differentiate() error {
 			return prettyError(err)
 		}
 
-		diff.DiffManifests(
+		seenAnyChanges := diff.DiffManifests(
 			manifest.ParseRelease(revisionResponse1.Release),
 			manifest.ParseRelease(revisionResponse2.Release),
 			d.suppressedKinds,
 			d.outputContext,
 			os.Stdout)
+
+		if d.detailedExitCode && seenAnyChanges {
+			return Error{
+				error: errors.New("identified at least one change, exiting with non-zero exit code (detailed-exitcode parameter enabled)"),
+				Code:  2,
+			}
+		}
 
 	default:
 		return errors.New("Invalid Arguments")

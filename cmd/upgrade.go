@@ -5,26 +5,26 @@ import (
 	"os"
 	"strings"
 
+	"errors"
 	"github.com/databus23/helm-diff/diff"
 	"github.com/databus23/helm-diff/manifest"
 	"github.com/spf13/cobra"
 	"k8s.io/helm/pkg/helm"
-	"errors"
 )
 
 type diffCmd struct {
-	release           string
-	chart             string
-	chartVersion      string
-	client            helm.Interface
-	detailedExitCode 	bool
-	valueFiles        valueFiles
-	values            []string
-	reuseValues       bool
-	resetValues       bool
-	allowUnreleased   bool
-	suppressedKinds   []string
-	outputContext     int
+	release          string
+	chart            string
+	chartVersion     string
+	client           helm.Interface
+	detailedExitCode bool
+	valueFiles       valueFiles
+	values           []string
+	reuseValues      bool
+	resetValues      bool
+	allowUnreleased  bool
+	suppressedKinds  []string
+	outputContext    int
 }
 
 const globalUsage = `Show a diff explaining what a helm upgrade would change.
@@ -150,7 +150,10 @@ func (d *diffCmd) run() error {
 	seenAnyChanges := diff.DiffManifests(currentSpecs, newSpecs, d.suppressedKinds, d.outputContext, os.Stdout)
 
 	if d.detailedExitCode && seenAnyChanges {
-		return errors.New("identified at least one change, exiting with non-zero exit code (detailed-exitcode parameter enabled)")
+		return Error{
+			error: errors.New("identified at least one change, exiting with non-zero exit code (detailed-exitcode parameter enabled)"),
+			Code:  2,
+		}
 	}
 
 	return nil
