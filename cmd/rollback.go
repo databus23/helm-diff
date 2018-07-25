@@ -39,6 +39,9 @@ func rollbackCmd() *cobra.Command {
 			expandTLSPaths()
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Suppress the command usage on error. See #77 for more info
+			cmd.SilenceUsage = true
+
 			if v, _ := cmd.Flags().GetBool("version"); v {
 				fmt.Println(Version)
 				return nil

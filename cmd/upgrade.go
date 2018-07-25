@@ -50,6 +50,8 @@ func newChartCommand() *cobra.Command {
 			expandTLSPaths()
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Suppress the command usage on error. See #77 for more info
+			cmd.SilenceUsage = true
 
 			if q, _ := cmd.Flags().GetBool("suppress-secrets"); q {
 				diff.suppressedKinds = append(diff.suppressedKinds, "Secret")
