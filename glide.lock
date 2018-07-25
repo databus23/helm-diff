@@ -1,5 +1,5 @@
-hash: 02bce39773133aecd03781f0284dd7e215876a47a3c1fb3303d7805063d9529f
-updated: 2018-04-27T00:46:18.988457+02:00
+hash: 577ed63de6e9ee86cafc0e6051f2aaa2095ec5c3f009fa5d986b652c0f041495
+updated: 2018-07-12T17:35:13.372814615-07:00
 imports:
 - name: github.com/aryann/difflib
   version: a1a4dd44eb11820695fbe83e00fb2301ee6eb54c
@@ -131,4 +131,17 @@ imports:
   - pkg/tlsutil
   - pkg/urlutil
   - pkg/version
-testImports: []
+testImports:
+- name: github.com/davecgh/go-spew
+  version: 782f4967f2dc4564575ca782fe2d04090b5faca8
+  subpackages:
+  - spew
+- name: github.com/pmezard/go-difflib
+  version: d8ed2627bdf02c080bf22230dbb337003b7aba2d
+  subpackages:
+  - difflib
+- name: github.com/stretchr/testify
+  version: f35b8ab0b5a2cef36673838d662e249dd9c94686
+  subpackages:
+  - assert
+  - require

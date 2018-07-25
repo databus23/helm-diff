@@ -1,9 +1,13 @@
 package diff
 
 import (
-	"testing"
 	"bytes"
+	"testing"
+
 	"github.com/mgutz/ansi"
+	"github.com/stretchr/testify/require"
+
+	"github.com/databus23/helm-diff/manifest"
 )
 
 var text1 = "" +
@@ -120,4 +124,45 @@ func assertDiff(t *testing.T, before, after string, context int, expected string
 	if actual != expected {
 		t.Errorf("Unexpected diff output: \nExpected:\n#%v# \nActual:\n#%v#", expected, actual)
 	}
+}
+
+func TestDiffManifests(t *testing.T) {
+	specBeta := map[string]*manifest.MappingResult{
+		"default, nginx, Deployment (apps)": &manifest.MappingResult{
+
+			Name: "default, nginx, Deployment (apps)",
+			Kind: "Deployment",
+			Content: `
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: nginx
+`,
+		}}
+
+	specRelease := map[string]*manifest.MappingResult{
+		"default, nginx, Deployment (apps)": &manifest.MappingResult{
+
+			Name: "default, nginx, Deployment (apps)",
+			Kind: "Deployment",
+			Content: `
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx
+`,
+		}}
+
+	var buf bytes.Buffer
+	DiffManifests(specBeta, specRelease, []string{}, 10, &buf)
+
+	require.Equal(t, `default, nginx, Deployment (apps) has changed:
+  
+- apiVersion: apps/v1beta1
++ apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: nginx
+  
+`, buf.String())
 }
