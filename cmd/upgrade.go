@@ -143,8 +143,8 @@ func (d *diffCmd) run() error {
 			return prettyError(err)
 		}
 
-		currentSpecs = manifest.Parse(releaseResponse.Release.Manifest, releaseResponse.Release.Namespace)
-		newSpecs = manifest.Parse(upgradeResponse.Release.Manifest, upgradeResponse.Release.Namespace)
+		currentSpecs = manifest.ParseRelease(releaseResponse.Release)
+		newSpecs = manifest.ParseRelease(upgradeResponse.Release)
 	}
 
 	seenAnyChanges := diff.DiffManifests(currentSpecs, newSpecs, d.suppressedKinds, d.outputContext, os.Stdout)

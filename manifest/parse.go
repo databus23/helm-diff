@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v2"
+	"k8s.io/helm/pkg/proto/hapi/release"
 )
 
 var yamlSeperator = []byte("\n---\n")
@@ -52,6 +53,16 @@ func splitSpec(token string) (string, string) {
 		return token[0:i], token[i+1:]
 	}
 	return "", ""
+}
+
+func ParseRelease(release *release.Release) map[string]*MappingResult {
+	manifest := release.Manifest
+	for _, hook := range release.Hooks {
+		manifest += "\n---\n"
+		manifest += fmt.Sprintf("# Source: %s\n", hook.Path)
+		manifest += hook.Manifest
+	}
+	return Parse(manifest, release.Namespace)
 }
 
 func Parse(manifest string, defaultNamespace string) map[string]*MappingResult {
