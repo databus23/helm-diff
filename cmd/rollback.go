@@ -20,7 +20,7 @@ type rollback struct {
 }
 
 const rollbackCmdLongUsage = `
-This command compares the laset manifests details of a named release 
+This command compares the laset manifests details of a named release
 with specific revision values to rollback.
 
 It forecasts/visualizes changes, that a helm rollback could perform.
@@ -33,6 +33,9 @@ func rollbackCmd() *cobra.Command {
 		Short:   "Show a diff explaining what a helm rollback could perform",
 		Long:    rollbackCmdLongUsage,
 		Example: "  helm diff rollback my-release 2",
+		PersistentPreRun: func(*cobra.Command, []string) {
+			expandTLSPaths()
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if v, _ := cmd.Flags().GetBool("version"); v {
 				fmt.Println(Version)
@@ -51,7 +54,7 @@ func rollbackCmd() *cobra.Command {
 			diff.revisions = args[1:]
 
 			if diff.client == nil {
-				diff.client = helm.NewClient(helm.Host(os.Getenv("TILLER_HOST")), helm.ConnectTimeout(int64(30)))
+				diff.client = createHelmClient()
 			}
 
 			return diff.backcast()
@@ -62,6 +65,9 @@ func rollbackCmd() *cobra.Command {
 	rollbackCmd.Flags().StringArrayVar(&diff.suppressedKinds, "suppress", []string{}, "allows suppression of the values listed in the diff output")
 	rollbackCmd.Flags().IntVarP(&diff.outputContext, "context", "C", -1, "output NUM lines of context around changes")
 	rollbackCmd.SuggestionsMinimumDistance = 1
+
+	addCommonCmdOptions(rollbackCmd.Flags())
+
 	return rollbackCmd
 }
 
