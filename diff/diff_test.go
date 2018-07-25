@@ -119,7 +119,8 @@ func TestPrintDiffWithContext(t *testing.T) {
 func assertDiff(t *testing.T, before, after string, context int, expected string) {
 	ansi.DisableColors(true)
 	var output bytes.Buffer
-	printDiff([]string{}, "some-resource", context, before, after, &output)
+	diffs := diffStrings(before, after)
+	printDiffRecords([]string{}, "some-resource", context, diffs, &output)
 	actual := output.String()
 	if actual != expected {
 		t.Errorf("Unexpected diff output: \nExpected:\n#%v# \nActual:\n#%v#", expected, actual)
@@ -153,10 +154,15 @@ metadata:
 `,
 		}}
 
-	var buf bytes.Buffer
-	DiffManifests(specBeta, specRelease, []string{}, 10, &buf)
+	t.Run("OnChange", func(t *testing.T) {
 
-	require.Equal(t, `default, nginx, Deployment (apps) has changed:
+		var buf1 bytes.Buffer
+
+		if changesSeen := DiffManifests(specBeta, specRelease, []string{}, 10, &buf1); !changesSeen {
+			t.Error("Unexpected return value from DiffManifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
+		}
+
+		require.Equal(t, `default, nginx, Deployment (apps) has changed:
   
 - apiVersion: apps/v1beta1
 + apiVersion: apps/v1
@@ -164,5 +170,16 @@ metadata:
   metadata:
     name: nginx
   
-`, buf.String())
+`, buf1.String())
+	})
+
+	t.Run("OnNoChange", func(t *testing.T) {
+		var buf2 bytes.Buffer
+
+		if changesSeen := DiffManifests(specRelease, specRelease, []string{}, 10, &buf2); changesSeen {
+			t.Error("Unexpected return value from DiffManifests: Expected the return value to be `false` to indicate that it has NOT seen any change(s), but was `true`")
+		}
+
+		require.Equal(t, ``, buf2.String())
+	})
 }

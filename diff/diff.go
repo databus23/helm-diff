@@ -20,20 +20,20 @@ func DiffManifests(oldIndex, newIndex map[string]*manifest.MappingResult, suppre
 			if oldContent.Content != newContent.Content {
 				// modified
 				fmt.Fprintf(to, ansi.Color("%s has changed:", "yellow")+"\n", key)
-				diffs := generateDiff(oldContent, newContent)
+				diffs := diffMappingResults(oldContent, newContent)
 				if len(diffs) > 0 {
 					seenAnyChanges = true
 				}
-				printDiff(suppressedKinds, oldContent.Kind, context, diffs, to)
+				printDiffRecords(suppressedKinds, oldContent.Kind, context, diffs, to)
 			}
 		} else {
 			// removed
 			fmt.Fprintf(to, ansi.Color("%s has been removed:", "yellow")+"\n", key)
-			diffs := generateDiff(oldContent, emptyMapping)
+			diffs := diffMappingResults(oldContent, emptyMapping)
 			if len(diffs) > 0 {
 				seenAnyChanges = true
 			}
-			printDiff(suppressedKinds, oldContent.Kind, context, diffs, to)
+			printDiffRecords(suppressedKinds, oldContent.Kind, context, diffs, to)
 		}
 	}
 
@@ -41,22 +41,26 @@ func DiffManifests(oldIndex, newIndex map[string]*manifest.MappingResult, suppre
 		if _, ok := oldIndex[key]; !ok {
 			// added
 			fmt.Fprintf(to, ansi.Color("%s has been added:", "yellow")+"\n", key)
-			diffs := generateDiff(emptyMapping, newContent)
+			diffs := diffMappingResults(emptyMapping, newContent)
 			if len(diffs) > 0 {
 				seenAnyChanges = true
 			}
-			printDiff(suppressedKinds, newContent.Kind, context, diffs, to)
+			printDiffRecords(suppressedKinds, newContent.Kind, context, diffs, to)
 		}
 	}
 	return seenAnyChanges
 }
 
-func generateDiff(oldContent *manifest.MappingResult, newContent *manifest.MappingResult) []difflib.DiffRecord {
-	const sep = "\n"
-	return difflib.Diff(strings.Split(oldContent.Content, sep), strings.Split(newContent.Content, sep))
+func diffMappingResults(oldContent *manifest.MappingResult, newContent *manifest.MappingResult) []difflib.DiffRecord {
+	return diffStrings(oldContent.Content, newContent.Content)
 }
 
-func printDiff(suppressedKinds []string, kind string, context int, diffs []difflib.DiffRecord, to io.Writer) {
+func diffStrings(before, after string) []difflib.DiffRecord {
+	const sep = "\n"
+	return difflib.Diff(strings.Split(before, sep), strings.Split(after, sep))
+}
+
+func printDiffRecords(suppressedKinds []string, kind string, context int, diffs []difflib.DiffRecord, to io.Writer) {
 	for _, ckind := range suppressedKinds {
 		if ckind == kind {
 			str := fmt.Sprintf("+ Changes suppressed on sensitive content of type %s\n", kind)
