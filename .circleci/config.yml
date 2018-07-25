@@ -1,0 +1,23 @@
+version: 2
+jobs:
+  build:
+    docker:
+      - image: circleci/golang:1.10
+    working_directory: /go/src/github.com/databus23/helm-diff
+    steps:
+      - checkout
+      - run:
+          name: Install dependencies
+          command: |
+            make bootstrap
+      - run:
+          name: Run unit tests
+          command: |
+            make test
+      - run:
+          name: Verify installation
+          command: |
+            mkdir -p helmhome
+            make install HELM_HOME=helmhome
+            helmhome/plugins/helm-diff/bin/diff version
+
