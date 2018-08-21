@@ -5,12 +5,32 @@ import:
 - package: github.com/spf13/pflag
   version: 583c0c0531f06d5278b7d917446061adc344b5cd
 - package: k8s.io/helm
-  version: v2.9.0
-#taken from k8s.io/helm hlide.yaml
+  version: v2.10.0
+  subpackages:
+  - pkg/downloader
+  - pkg/getter
+  - pkg/helm/environment
+  - pkg/helm/helmpath
+  - pkg/nstrvals
+  - pkg/helm
+  - pkg/tlsutil
+  - pkg/proto/hapi/release
+#taken from k8s.io/helm glide.yaml
 - package: k8s.io/api
   version: release-1.10
+# The k8s pkg is there due to the ustream bug
+# https://github.com/helm/helm/pull/4499
+# This should be pointed to our own fork, and then removed after the issue is resolved.
+- package: k8s.io/kubernetes
+  version: 32ac1c9073b132b8ba18aa830f46b77dcceb0723
+# The two packages below were expected to have `version: release-1.10`,
+# but it ended up vendoring versions of pkgs newer than those in helm's glide.lock
+# https://github.com/helm/helm/blob/cc7cc1087f586f64d0b0d08aa516a003ced2d85b/glide.lock#L400-L458
+# See #82 for more information
 - package: k8s.io/apimachinery
-  version: release-1.10
+  version: f6313580a4d36c7c74a3d845dda6e116642c4f90
+- package: k8s.io/apiserver
+  version: f7914ed3085badf66a1b6f3a5218ada28f7bd084
 - package: google.golang.org/grpc
   version: 1.7.2
 - package: golang.org/x/net
