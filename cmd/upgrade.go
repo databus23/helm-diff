@@ -18,6 +18,7 @@ type diffCmd struct {
 	chartVersion     string
 	client           helm.Interface
 	detailedExitCode bool
+	namespace        string // namespace to assume the release to be installed into. Defaults to the current kube config namespace.
 	valueFiles       valueFiles
 	values           []string
 	reuseValues      bool
@@ -77,6 +78,7 @@ func newChartCommand() *cobra.Command {
 	f.BoolVar(&diff.allowUnreleased, "allow-unreleased", false, "enables diffing of releases that are not yet deployed via Helm")
 	f.StringArrayVar(&diff.suppressedKinds, "suppress", []string{}, "allows suppression of the values listed in the diff output")
 	f.IntVarP(&diff.outputContext, "context", "C", -1, "output NUM lines of context around changes")
+	f.StringVar(&diff.namespace, "namespace", "default", "namespace to assume the release to be installed into")
 
 	addCommonCmdOptions(f)
 
@@ -121,7 +123,7 @@ func (d *diffCmd) run() error {
 	if newInstall {
 		installResponse, err := d.client.InstallRelease(
 			chartPath,
-			"default",
+			d.namespace,
 			helm.ReleaseName(d.release),
 			helm.ValueOverrides(rawVals),
 			helm.InstallDryRun(true),
