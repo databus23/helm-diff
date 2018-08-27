@@ -1,10 +1,15 @@
-hash: 577ed63de6e9ee86cafc0e6051f2aaa2095ec5c3f009fa5d986b652c0f041495
-updated: 2018-07-12T17:35:13.372814615-07:00
+hash: bcc7754b1b92cc5ed4d3cb9ae50d7b343803e058fde4ab232973ca3b2f0e99eb
+updated: 2018-08-27T11:16:21.783008205+09:00
 imports:
 - name: github.com/aryann/difflib
   version: a1a4dd44eb11820695fbe83e00fb2301ee6eb54c
 - name: github.com/BurntSushi/toml
   version: b26d9c308763d68093482582cea63d69be07a0f0
+- name: github.com/docker/distribution
+  version: edc3ab29cdff8694dd6feb85cfeb4b5f1b38ed9c
+  subpackages:
+  - digestset
+  - reference
 - name: github.com/ghodss/yaml
   version: 73d445a93680fa1a78ae23a5839bad48f32ba1ee
 - name: github.com/gobwas/glob
@@ -17,6 +22,13 @@ imports:
   - syntax/lexer
   - util/runes
   - util/strings
+- name: github.com/gogo/protobuf
+  version: c0656edd0d9eab7c66d1eb0c568f9039345796f7
+  subpackages:
+  - proto
+  - sortkeys
+- name: github.com/golang/glog
+  version: 44145f04b68cf362d9c4df2182967c2275eaefed
 - name: github.com/golang/protobuf
   version: 1643683e1b54a9e88ad26d98f81400c8c9d9f4f9
   subpackages:
@@ -25,8 +37,12 @@ imports:
   - ptypes/any
   - ptypes/duration
   - ptypes/timestamp
+- name: github.com/google/gofuzz
+  version: 44d81051d367757e1c7c6a5a86423ece9afcf63c
 - name: github.com/inconshreveable/mousetrap
   version: 76626ae9c91c4f2a10f34cad8ce83ea42c93bb75
+- name: github.com/json-iterator/go
+  version: 13f86432b882000a51c6e610c620974462691a97
 - name: github.com/Masterminds/semver
   version: 517734cc7d6470c0d07130e40fd40bdeb9bcd3fd
 - name: github.com/mattn/go-colorable
@@ -35,6 +51,8 @@ imports:
   version: fc9e8d8ef48496124e79ae0df75490096eccf6fe
 - name: github.com/mgutz/ansi
   version: 9520e82c474b0a04dd04f8a40959027271bab992
+- name: github.com/opencontainers/go-digest
+  version: a6d0ee40d4207ea02364bd3b9e8e77b9159ba1eb
 - name: github.com/spf13/cobra
   version: 615425954c3b0d9485a7027d4d451fdcdfdee84e
 - name: github.com/spf13/pflag
@@ -50,6 +68,7 @@ imports:
   - openpgp/errors
   - openpgp/packet
   - openpgp/s2k
+  - ssh/terminal
 - name: golang.org/x/net
   version: 1c05540f6879653db88113bc4a2b70aec4bd491f
   subpackages:
@@ -61,7 +80,7 @@ imports:
   - lex/httplex
   - trace
 - name: golang.org/x/sys
-  version: 43eea11bc92608addb41b8a406b0407495c106f6
+  version: 95c6576299259db960f6c5b9b69ea52422860fce
   subpackages:
   - unix
   - windows
@@ -72,6 +91,10 @@ imports:
   - transform
   - unicode/bidi
   - unicode/norm
+- name: golang.org/x/time
+  version: f51c12702a4d776e4c1fa9b0fabab841babae631
+  subpackages:
+  - rate
 - name: google.golang.org/genproto
   version: 09f6ed296fc66555a25fe4ce95173148778dfa85
   subpackages:
@@ -96,20 +119,110 @@ imports:
   - status
   - tap
   - transport
+- name: gopkg.in/inf.v0
+  version: 3887ee99ecf07df5b447e9b00d9c0b2adaa9f3e4
 - name: gopkg.in/yaml.v2
-  version: eb3733d160e74a9c7e442f435eb3bea458e1d19f
+  version: 53feefa2559fb8dfa8d81baad31be332c97d6c77
 - name: k8s.io/api
-  version: edd5e319fc45211023fffb41c7aa5555229c4179
-- name: k8s.io/apimachinery
-  version: 01bc873149a1802eb74df583613872d126449ed5
+  version: 0f11257a8a25954878633ebdc9841c67d8f83bdb
   subpackages:
+  - admissionregistration/v1alpha1
+  - admissionregistration/v1beta1
+  - apps/v1
+  - apps/v1beta1
+  - apps/v1beta2
+  - authentication/v1
+  - authentication/v1beta1
+  - authorization/v1
+  - authorization/v1beta1
+  - autoscaling/v1
+  - autoscaling/v2beta1
+  - batch/v1
+  - batch/v1beta1
+  - batch/v2alpha1
+  - certificates/v1beta1
+  - core/v1
+  - events/v1beta1
+  - extensions/v1beta1
+  - networking/v1
+  - policy/v1beta1
+  - rbac/v1
+  - rbac/v1alpha1
+  - rbac/v1beta1
+  - scheduling/v1alpha1
+  - settings/v1alpha1
+  - storage/v1
+  - storage/v1alpha1
+  - storage/v1beta1
+- name: k8s.io/apiextensions-apiserver
+  version: 898b0eda132e1aeac43a459785144ee4bf9b0a2e
+  subpackages:
+  - pkg/features
+- name: k8s.io/apimachinery
+  version: f6313580a4d36c7c74a3d845dda6e116642c4f90
+  subpackages:
+  - pkg/api/errors
+  - pkg/api/meta
+  - pkg/api/resource
+  - pkg/apimachinery
+  - pkg/apimachinery/announced
+  - pkg/apimachinery/registered
+  - pkg/apis/meta/internalversion
+  - pkg/apis/meta/v1
+  - pkg/apis/meta/v1/unstructured
+  - pkg/apis/meta/v1beta1
+  - pkg/conversion
+  - pkg/conversion/queryparams
+  - pkg/fields
+  - pkg/labels
+  - pkg/runtime
+  - pkg/runtime/schema
+  - pkg/runtime/serializer
+  - pkg/runtime/serializer/json
+  - pkg/runtime/serializer/protobuf
+  - pkg/runtime/serializer/recognizer
+  - pkg/runtime/serializer/streaming
+  - pkg/runtime/serializer/versioning
+  - pkg/selection
+  - pkg/types
+  - pkg/util/clock
+  - pkg/util/errors
+  - pkg/util/framer
+  - pkg/util/intstr
+  - pkg/util/json
+  - pkg/util/net
+  - pkg/util/runtime
+  - pkg/util/sets
+  - pkg/util/validation
+  - pkg/util/validation/field
+  - pkg/util/wait
+  - pkg/util/yaml
   - pkg/version
+  - pkg/watch
+  - third_party/forked/golang/reflect
+- name: k8s.io/apiserver
+  version: f7914ed3085badf66a1b6f3a5218ada28f7bd084
+  subpackages:
+  - pkg/features
+  - pkg/util/feature
 - name: k8s.io/client-go
   version: 23781f4d6632d88e869066eaebb743857aa1ef9b
   subpackages:
+  - pkg/apis/clientauthentication
+  - pkg/apis/clientauthentication/v1alpha1
+  - pkg/version
+  - plugin/pkg/client/auth/exec
+  - rest
+  - rest/watch
+  - tools/clientcmd/api
+  - tools/metrics
+  - transport
+  - util/cert
+  - util/flowcontrol
   - util/homedir
+  - util/integer
 - name: k8s.io/helm
-  version: f6025bb9ee7daf9fee0026541c90a6f557a3e0bc
+  version: 9ad53aac42165a5fadc6c87be0dea6b115f93090
   subpackages:
   - pkg/chartutil
   - pkg/downloader
@@ -118,6 +231,7 @@ imports:
   - pkg/helm/environment
   - pkg/helm/helmpath
   - pkg/ignore
+  - pkg/nstrvals
   - pkg/plugin
   - pkg/proto/hapi/chart
   - pkg/proto/hapi/release
@@ -126,11 +240,87 @@ imports:
   - pkg/provenance
   - pkg/repo
   - pkg/resolver
+  - pkg/storage/driver
   - pkg/strvals
   - pkg/sympath
   - pkg/tlsutil
   - pkg/urlutil
   - pkg/version
+- name: k8s.io/kubernetes
+  version: 32ac1c9073b132b8ba18aa830f46b77dcceb0723
+  subpackages:
+  - pkg/api/legacyscheme
+  - pkg/api/ref
+  - pkg/apis/admissionregistration
+  - pkg/apis/admissionregistration/install
+  - pkg/apis/admissionregistration/v1alpha1
+  - pkg/apis/admissionregistration/v1beta1
+  - pkg/apis/apps
+  - pkg/apis/apps/install
+  - pkg/apis/apps/v1
+  - pkg/apis/apps/v1beta1
+  - pkg/apis/apps/v1beta2
+  - pkg/apis/authentication
+  - pkg/apis/authentication/install
+  - pkg/apis/authentication/v1
+  - pkg/apis/authentication/v1beta1
+  - pkg/apis/authorization
+  - pkg/apis/authorization/install
+  - pkg/apis/authorization/v1
+  - pkg/apis/authorization/v1beta1
+  - pkg/apis/autoscaling
+  - pkg/apis/autoscaling/install
+  - pkg/apis/autoscaling/v1
+  - pkg/apis/autoscaling/v2beta1
+  - pkg/apis/batch
+  - pkg/apis/batch/install
+  - pkg/apis/batch/v1
+  - pkg/apis/batch/v1beta1
+  - pkg/apis/batch/v2alpha1
+  - pkg/apis/certificates
+  - pkg/apis/certificates/install
+  - pkg/apis/certificates/v1beta1
+  - pkg/apis/componentconfig
+  - pkg/apis/componentconfig/install
+  - pkg/apis/componentconfig/v1alpha1
+  - pkg/apis/core
+  - pkg/apis/core/install
+  - pkg/apis/core/v1
+  - pkg/apis/events
+  - pkg/apis/events/install
+  - pkg/apis/events/v1beta1
+  - pkg/apis/extensions
+  - pkg/apis/extensions/install
+  - pkg/apis/extensions/v1beta1
+  - pkg/apis/networking
+  - pkg/apis/networking/install
+  - pkg/apis/networking/v1
+  - pkg/apis/policy
+  - pkg/apis/policy/install
+  - pkg/apis/policy/v1beta1
+  - pkg/apis/rbac
+  - pkg/apis/rbac/install
+  - pkg/apis/rbac/v1
+  - pkg/apis/rbac/v1alpha1
+  - pkg/apis/rbac/v1beta1
+  - pkg/apis/scheduling
+  - pkg/apis/scheduling/install
+  - pkg/apis/scheduling/v1alpha1
+  - pkg/apis/settings
+  - pkg/apis/settings/install
+  - pkg/apis/settings/v1alpha1
+  - pkg/apis/storage
+  - pkg/apis/storage/install
+  - pkg/apis/storage/v1
+  - pkg/apis/storage/v1alpha1
+  - pkg/apis/storage/v1beta1
+  - pkg/client/clientset_generated/internalclientset/scheme
+  - pkg/client/clientset_generated/internalclientset/typed/core/internalversion
+  - pkg/features
+  - pkg/kubelet/apis
+  - pkg/master/ports
+  - pkg/util/parsers
+  - pkg/util/pointer
 testImports:
 - name: github.com/davecgh/go-spew
   version: 782f4967f2dc4564575ca782fe2d04090b5faca8
