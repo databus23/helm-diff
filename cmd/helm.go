@@ -163,6 +163,13 @@ func (d *diffCmd) vals() ([]byte, error) {
 		}
 	}
 
+	// User specified a value via --set-string
+	for _, value := range d.stringValues {
+		if err := strvals.ParseIntoString(value, base); err != nil {
+			return []byte{}, fmt.Errorf("failed parsing --set-string data: %s", err)
+		}
+	}
+
 	return yaml.Marshal(base)
 }
 
