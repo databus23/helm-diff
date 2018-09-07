@@ -1,5 +1,5 @@
-hash: 577ed63de6e9ee86cafc0e6051f2aaa2095ec5c3f009fa5d986b652c0f041495
-updated: 2018-07-12T17:35:13.372814615-07:00
+hash: be66501e99d486e1c24fe960b6784896e351e461c372add709df16893f64e0f3
+updated: 2018-09-04T21:52:36.640538+02:00
 imports:
 - name: github.com/aryann/difflib
   version: a1a4dd44eb11820695fbe83e00fb2301ee6eb54c
@@ -50,6 +50,7 @@ imports:
   - openpgp/errors
   - openpgp/packet
   - openpgp/s2k
+  - ssh/terminal
 - name: golang.org/x/net
   version: 1c05540f6879653db88113bc4a2b70aec4bd491f
   subpackages:
@@ -61,7 +62,7 @@ imports:
   - lex/httplex
   - trace
 - name: golang.org/x/sys
-  version: 43eea11bc92608addb41b8a406b0407495c106f6
+  version: 95c6576299259db960f6c5b9b69ea52422860fce
   subpackages:
   - unix
   - windows
@@ -97,19 +98,22 @@ imports:
   - tap
   - transport
 - name: gopkg.in/yaml.v2
-  version: eb3733d160e74a9c7e442f435eb3bea458e1d19f
+  version: 670d4cfef0544295bc27a114dbac37980d83185a
 - name: k8s.io/api
-  version: edd5e319fc45211023fffb41c7aa5555229c4179
+  version: 12444147eb1150aa5c80d2aae532cbc5b7be73d0
 - name: k8s.io/apimachinery
-  version: 01bc873149a1802eb74df583613872d126449ed5
+  version: f6313580a4d36c7c74a3d845dda6e116642c4f90
   subpackages:
   - pkg/version
+- name: k8s.io/apiserver
+  version: f7914ed3085badf66a1b6f3a5218ada28f7bd084
 - name: k8s.io/client-go
   version: 23781f4d6632d88e869066eaebb743857aa1ef9b
   subpackages:
   - util/homedir
 - name: k8s.io/helm
-  version: f6025bb9ee7daf9fee0026541c90a6f557a3e0bc
+  version: 8c8e20ac45796e72c2031f2514cbe212c0b6126b
+  repo: https://github.com/databus23/helm.git
   subpackages:
   - pkg/chartutil
   - pkg/downloader
@@ -126,6 +130,7 @@ imports:
   - pkg/provenance
   - pkg/repo
   - pkg/resolver
+  - pkg/storage/errors
   - pkg/strvals
   - pkg/sympath
   - pkg/tlsutil
