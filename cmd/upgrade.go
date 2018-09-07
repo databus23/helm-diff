@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"errors"
+
 	"github.com/databus23/helm-diff/diff"
 	"github.com/databus23/helm-diff/manifest"
 	"github.com/spf13/cobra"
@@ -18,6 +19,7 @@ type diffCmd struct {
 	chartVersion     string
 	client           helm.Interface
 	detailedExitCode bool
+	devel            bool
 	namespace        string // namespace to assume the release to be installed into. Defaults to the current kube config namespace.
 	valueFiles       valueFiles
 	values           []string
@@ -78,6 +80,7 @@ func newChartCommand() *cobra.Command {
 	f.BoolVar(&diff.reuseValues, "reuse-values", false, "reuse the last release's values and merge in any new values")
 	f.BoolVar(&diff.resetValues, "reset-values", false, "reset the values to the ones built into the chart and merge in any new values")
 	f.BoolVar(&diff.allowUnreleased, "allow-unreleased", false, "enables diffing of releases that are not yet deployed via Helm")
+	f.BoolVar(&diff.devel, "devel", false, "use development versions, too. Equivalent to version '>0.0.0-0'. If --version is set, this is ignored.")
 	f.StringArrayVar(&diff.suppressedKinds, "suppress", []string{}, "allows suppression of the values listed in the diff output")
 	f.IntVarP(&diff.outputContext, "context", "C", -1, "output NUM lines of context around changes")
 	f.StringVar(&diff.namespace, "namespace", "default", "namespace to assume the release to be installed into")
@@ -89,6 +92,10 @@ func newChartCommand() *cobra.Command {
 }
 
 func (d *diffCmd) run() error {
+	if d.chartVersion == "" && d.devel {
+		d.chartVersion = ">0.0.0-0"
+	}
+
 	chartPath, err := locateChartPath(d.chart, d.chartVersion, false, "")
 	if err != nil {
 		return err
