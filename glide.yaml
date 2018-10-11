@@ -5,20 +5,12 @@ import:
 - package: github.com/spf13/pflag
   version: 583c0c0531f06d5278b7d917446061adc344b5cd
 - package: k8s.io/helm
-  #revert back to upstream once https://github.com/helm/helm/pull/4499 is released
-  repo: https://github.com/databus23/helm.git
-  version: v2.10.0-nok8s
+  version: v2.11.0
 #taken from k8s.io/helm glide.yaml
 - package: k8s.io/api
-  version: release-1.10
-# The two packages below were expected to have `version: release-1.10`,
-# but it ended up vendoring versions of pkgs newer than those in helm's glide.lock
-# https://github.com/helm/helm/blob/cc7cc1087f586f64d0b0d08aa516a003ced2d85b/glide.lock#L400-L458
-# See #82 for more information
+  version: kubernetes-1.11.1 
 - package: k8s.io/apimachinery
-  version: f6313580a4d36c7c74a3d845dda6e116642c4f90
-- package: k8s.io/apiserver
-  version: f7914ed3085badf66a1b6f3a5218ada28f7bd084
+  version: kubernetes-1.11.1
 - package: google.golang.org/grpc
   version: 1.7.2
 - package: golang.org/x/net

@@ -1,10 +1,12 @@
-hash: be66501e99d486e1c24fe960b6784896e351e461c372add709df16893f64e0f3
-updated: 2018-09-04T21:52:36.640538+02:00
+hash: 41869ddd7c45fba60173a6fcf13ef7aa202e3f2581dfebed02e4f9fd57a364be
+updated: 2018-10-11T10:43:24.76598+02:00
 imports:
+- name: github.com/aokoli/goutils
+  version: 3391d3790d23d03408670993e957e8f408993c34
 - name: github.com/aryann/difflib
   version: a1a4dd44eb11820695fbe83e00fb2301ee6eb54c
 - name: github.com/BurntSushi/toml
-  version: b26d9c308763d68093482582cea63d69be07a0f0
+  version: 3012a1dbe2e4bd1391d42b32f0577cb7bbc7f005
 - name: github.com/ghodss/yaml
   version: 73d445a93680fa1a78ae23a5839bad48f32ba1ee
 - name: github.com/gobwas/glob
@@ -25,10 +27,18 @@ imports:
   - ptypes/any
   - ptypes/duration
   - ptypes/timestamp
+- name: github.com/google/uuid
+  version: 064e2069ce9c359c118179501254f67d7d37ba24
+- name: github.com/huandu/xstrings
+  version: 8bbcf2f9ccb55755e748b7644164cd4bdce94c1d
+- name: github.com/imdario/mergo
+  version: 6633656539c1639d9d78127b7d47c622b5d7b6dc
 - name: github.com/inconshreveable/mousetrap
   version: 76626ae9c91c4f2a10f34cad8ce83ea42c93bb75
 - name: github.com/Masterminds/semver
   version: 517734cc7d6470c0d07130e40fd40bdeb9bcd3fd
+- name: github.com/Masterminds/sprig
+  version: 15f9564e7e9cf0da02a48e0d25f12a7b83559aa6
 - name: github.com/mattn/go-colorable
   version: ded68f7a9561c023e790de24279db7ebf473ea80
 - name: github.com/mattn/go-isatty
@@ -50,6 +60,8 @@ imports:
   - openpgp/errors
   - openpgp/packet
   - openpgp/s2k
+  - pbkdf2
+  - scrypt
   - ssh/terminal
 - name: golang.org/x/net
   version: 1c05540f6879653db88113bc4a2b70aec4bd491f
@@ -100,34 +112,35 @@ imports:
 - name: gopkg.in/yaml.v2
   version: 670d4cfef0544295bc27a114dbac37980d83185a
 - name: k8s.io/api
-  version: 12444147eb1150aa5c80d2aae532cbc5b7be73d0
+  version: 2d6f90ab1293a1fb871cf149423ebb72aa7423aa
 - name: k8s.io/apimachinery
-  version: f6313580a4d36c7c74a3d845dda6e116642c4f90
+  version: 103fd098999dc9c0c88536f5c9ad2e5da39373ae
   subpackages:
   - pkg/version
-- name: k8s.io/apiserver
-  version: f7914ed3085badf66a1b6f3a5218ada28f7bd084
 - name: k8s.io/client-go
   version: 23781f4d6632d88e869066eaebb743857aa1ef9b
   subpackages:
   - util/homedir
 - name: k8s.io/helm
-  version: 8c8e20ac45796e72c2031f2514cbe212c0b6126b
-  repo: https://github.com/databus23/helm.git
+  version: 2e55dbe1fdb5fdb96b75ff144a339489417b146b
   subpackages:
   - pkg/chartutil
   - pkg/downloader
+  - pkg/engine
   - pkg/getter
   - pkg/helm
   - pkg/helm/environment
   - pkg/helm/helmpath
   - pkg/ignore
+  - pkg/manifest
   - pkg/plugin
   - pkg/proto/hapi/chart
   - pkg/proto/hapi/release
   - pkg/proto/hapi/services
   - pkg/proto/hapi/version
   - pkg/provenance
+  - pkg/releaseutil
+  - pkg/renderutil
   - pkg/repo
   - pkg/resolver
   - pkg/storage/errors
