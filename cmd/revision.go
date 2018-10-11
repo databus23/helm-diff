@@ -6,10 +6,11 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/databus23/helm-diff/diff"
-	"github.com/databus23/helm-diff/manifest"
 	"github.com/spf13/cobra"
 	"k8s.io/helm/pkg/helm"
+
+	"github.com/databus23/helm-diff/diff"
+	"github.com/databus23/helm-diff/manifest"
 )
 
 type revision struct {
@@ -43,7 +44,7 @@ func revisionCmd() *cobra.Command {
 		Use:   "revision [flags] RELEASE REVISION1 [REVISION2]",
 		Short: "Shows diff between revision's manifests",
 		Long:  revisionCmdLongUsage,
-		PersistentPreRun: func(*cobra.Command, []string) {
+		PreRun: func(*cobra.Command, []string) {
 			expandTLSPaths()
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {

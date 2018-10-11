@@ -5,9 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"k8s.io/client-go/util/homedir"
-
 	flag "github.com/spf13/pflag"
+	"k8s.io/client-go/util/homedir"
 	"k8s.io/helm/pkg/helm"
 	helm_env "k8s.io/helm/pkg/helm/environment"
 	"k8s.io/helm/pkg/tlsutil"

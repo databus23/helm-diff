@@ -1,16 +1,16 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
 
-	"errors"
+	"github.com/spf13/cobra"
+	"k8s.io/helm/pkg/helm"
 
 	"github.com/databus23/helm-diff/diff"
 	"github.com/databus23/helm-diff/manifest"
-	"github.com/spf13/cobra"
-	"k8s.io/helm/pkg/helm"
 )
 
 type diffCmd struct {
@@ -51,7 +51,7 @@ func newChartCommand() *cobra.Command {
 		Args: func(cmd *cobra.Command, args []string) error {
 			return checkArgsLength(len(args), "release name", "chart path")
 		},
-		PersistentPreRun: func(*cobra.Command, []string) {
+		PreRun: func(*cobra.Command, []string) {
 			expandTLSPaths()
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {

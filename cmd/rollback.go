@@ -1,15 +1,16 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
 
-	"errors"
-	"github.com/databus23/helm-diff/diff"
-	"github.com/databus23/helm-diff/manifest"
 	"github.com/spf13/cobra"
 	"k8s.io/helm/pkg/helm"
+
+	"github.com/databus23/helm-diff/diff"
+	"github.com/databus23/helm-diff/manifest"
 )
 
 type rollback struct {
@@ -35,7 +36,7 @@ func rollbackCmd() *cobra.Command {
 		Short:   "Show a diff explaining what a helm rollback could perform",
 		Long:    rollbackCmdLongUsage,
 		Example: "  helm diff rollback my-release 2",
-		PersistentPreRun: func(*cobra.Command, []string) {
+		PreRun: func(*cobra.Command, []string) {
 			expandTLSPaths()
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
