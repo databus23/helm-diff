@@ -5,9 +5,7 @@ import:
 - package: github.com/spf13/pflag
   version: 583c0c0531f06d5278b7d917446061adc344b5cd
 - package: k8s.io/helm
-  #revert back to upstream once https://github.com/helm/helm/pull/4499 is released
-  repo: https://github.com/databus23/helm.git
-  version: v2.10.0-nok8s
+  version: v2.11.0
 #taken from k8s.io/helm glide.yaml
 - package: k8s.io/api
   version: release-1.10
