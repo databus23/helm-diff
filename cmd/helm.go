@@ -32,7 +32,7 @@ func (v *valueFiles) String() string {
 func (v *valueFiles) Valid() error {
 	errStr := ""
 	for _, valuesFile := range *v {
-		if valuesFile != "-" {
+		if strings.TrimSpace(valuesFile) != "-" {
 			if _, err := os.Stat(valuesFile); os.IsNotExist(err) {
 				errStr += err.Error()
 			}
