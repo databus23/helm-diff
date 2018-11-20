@@ -21,20 +21,11 @@ const (
 var (
 	settings        helm_env.EnvSettings
 	DefaultHelmHome = filepath.Join(homedir.HomeDir(), ".helm")
-
-	tlsCaCertFile string // path to TLS CA certificate file
-	tlsCertFile   string // path to TLS certificate file
-	tlsKeyFile    string // path to TLS key file
-	tlsVerify     bool   // enable TLS and verify remote certificates
-	tlsEnable     bool   // enable TLS
 )
 
 func addCommonCmdOptions(f *flag.FlagSet) {
-	f.StringVar(&tlsCaCertFile, "tls-ca-cert", tlsCaCertDefault, "path to TLS CA certificate file")
-	f.StringVar(&tlsCertFile, "tls-cert", tlsCertDefault, "path to TLS certificate file")
-	f.StringVar(&tlsKeyFile, "tls-key", tlsKeyDefault, "path to TLS key file")
-	f.BoolVar(&tlsVerify, "tls-verify", false, "enable TLS for request and verify remote")
-	f.BoolVar(&tlsEnable, "tls", false, "enable TLS for request")
+	settings.AddFlagsTLS(f)
+	settings.InitTLS(f)
 
 	f.StringVar((*string)(&settings.Home), "home", DefaultHelmHome, "location of your Helm config. Overrides $HELM_HOME")
 }
@@ -42,20 +33,10 @@ func addCommonCmdOptions(f *flag.FlagSet) {
 func createHelmClient() helm.Interface {
 	options := []helm.Option{helm.Host(os.Getenv("TILLER_HOST")), helm.ConnectTimeout(int64(30))}
 
-	if tlsVerify || tlsEnable {
-		if tlsCaCertFile == "" {
-			tlsCaCertFile = settings.Home.TLSCaCert()
-		}
-		if tlsCertFile == "" {
-			tlsCertFile = settings.Home.TLSCert()
-		}
-		if tlsKeyFile == "" {
-			tlsKeyFile = settings.Home.TLSKey()
-		}
-
-		tlsopts := tlsutil.Options{KeyFile: tlsKeyFile, CertFile: tlsCertFile, InsecureSkipVerify: true}
-		if tlsVerify {
-			tlsopts.CaCertFile = tlsCaCertFile
+	if settings.TLSVerify || settings.TLSEnable {
+		tlsopts := tlsutil.Options{KeyFile: settings.TLSKeyFile, CertFile: settings.TLSCertFile, InsecureSkipVerify: true}
+		if settings.TLSVerify {
+			tlsopts.CaCertFile = settings.TLSCaCertFile
 			tlsopts.InsecureSkipVerify = false
 		}
 
@@ -72,7 +53,7 @@ func createHelmClient() helm.Interface {
 }
 
 func expandTLSPaths() {
-	tlsCaCertFile = os.ExpandEnv(tlsCaCertFile)
-	tlsCertFile = os.ExpandEnv(tlsCertFile)
-	tlsKeyFile = os.ExpandEnv(tlsKeyFile)
+       settings.TLSCaCertFile = os.ExpandEnv(settings.TLSCaCertFile)
+       settings.TLSCertFile = os.ExpandEnv(settings.TLSCertFile)
+       settings.TLSKeyFile = os.ExpandEnv(settings.TLSKeyFile)
 }
