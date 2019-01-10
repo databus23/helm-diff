@@ -34,7 +34,13 @@ func createHelmClient() helm.Interface {
 	options := []helm.Option{helm.Host(os.Getenv("TILLER_HOST")), helm.ConnectTimeout(int64(30))}
 
 	if settings.TLSVerify || settings.TLSEnable {
-		tlsopts := tlsutil.Options{KeyFile: settings.TLSKeyFile, CertFile: settings.TLSCertFile, InsecureSkipVerify: true}
+		tlsopts := tlsutil.Options{
+			ServerName:         settings.TLSServerName,
+			KeyFile:            settings.TLSKeyFile,
+			CertFile:           settings.TLSCertFile,
+			InsecureSkipVerify: true,
+		}
+
 		if settings.TLSVerify {
 			tlsopts.CaCertFile = settings.TLSCaCertFile
 			tlsopts.InsecureSkipVerify = false
