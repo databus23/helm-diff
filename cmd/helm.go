@@ -32,8 +32,10 @@ func (v *valueFiles) String() string {
 func (v *valueFiles) Valid() error {
 	errStr := ""
 	for _, valuesFile := range *v {
-		if _, err := os.Stat(valuesFile); os.IsNotExist(err) {
-			errStr += err.Error()
+		if strings.TrimSpace(valuesFile) != "-" {
+			if _, err := os.Stat(valuesFile); os.IsNotExist(err) {
+				errStr += err.Error()
+			}
 		}
 	}
 
@@ -144,7 +146,14 @@ func (d *diffCmd) vals() ([]byte, error) {
 	// User specified a values files via -f/--values
 	for _, filePath := range d.valueFiles {
 		currentMap := map[string]interface{}{}
-		bytes, err := ioutil.ReadFile(filePath)
+
+		var bytes []byte
+ 		var err error
+ 		if strings.TrimSpace(filePath) == "-" {
+ 			bytes, err = ioutil.ReadAll(os.Stdin)
+ 		} else {
+ 			bytes, err = ioutil.ReadFile(filePath)
+ 		}
 		if err != nil {
 			return []byte{}, err
 		}
