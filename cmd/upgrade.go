@@ -28,6 +28,7 @@ type diffCmd struct {
 	reuseValues      bool
 	resetValues      bool
 	allowUnreleased  bool
+	noHooks          bool
 	suppressedKinds  []string
 	outputContext    int
 }
@@ -82,6 +83,7 @@ func newChartCommand() *cobra.Command {
 	f.BoolVar(&diff.reuseValues, "reuse-values", false, "reuse the last release's values and merge in any new values")
 	f.BoolVar(&diff.resetValues, "reset-values", false, "reset the values to the ones built into the chart and merge in any new values")
 	f.BoolVar(&diff.allowUnreleased, "allow-unreleased", false, "enables diffing of releases that are not yet deployed via Helm")
+	f.BoolVar(&diff.noHooks, "no-hooks", false, "disable diffing of hooks")
 	f.BoolVar(&diff.devel, "devel", false, "use development versions, too. Equivalent to version '>0.0.0-0'. If --version is set, this is ignored.")
 	f.StringArrayVar(&diff.suppressedKinds, "suppress", []string{}, "allows suppression of the values listed in the diff output")
 	f.IntVarP(&diff.outputContext, "context", "C", -1, "output NUM lines of context around changes")
@@ -158,8 +160,13 @@ func (d *diffCmd) run() error {
 			return prettyError(err)
 		}
 
-		currentSpecs = manifest.ParseRelease(releaseResponse.Release)
-		newSpecs = manifest.ParseRelease(upgradeResponse.Release)
+		if d.noHooks {
+			currentSpecs = manifest.Parse(releaseResponse.Release.Manifest, releaseResponse.Release.Namespace)
+			newSpecs = manifest.Parse(upgradeResponse.Release.Manifest, upgradeResponse.Release.Namespace)
+		} else {
+			currentSpecs = manifest.ParseRelease(releaseResponse.Release)
+			newSpecs = manifest.ParseRelease(upgradeResponse.Release)
+		}
 	}
 
 	seenAnyChanges := diff.DiffManifests(currentSpecs, newSpecs, d.suppressedKinds, d.outputContext, os.Stdout)
