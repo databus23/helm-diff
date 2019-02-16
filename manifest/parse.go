@@ -61,10 +61,10 @@ func splitSpec(token string) (string, string) {
 	return "", ""
 }
 
-func ParseRelease(release *release.Release, noTests bool) map[string]*MappingResult {
+func ParseRelease(release *release.Release, includeTests bool) map[string]*MappingResult {
 	manifest := release.Manifest
 	for _, hook := range release.Hooks {
-		if noTests && isTestHook(hook.Events) {
+		if !includeTests && isTestHook(hook.Events) {
 			continue
 		}
 
