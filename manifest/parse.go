@@ -61,9 +61,13 @@ func splitSpec(token string) (string, string) {
 	return "", ""
 }
 
-func ParseRelease(release *release.Release) map[string]*MappingResult {
+func ParseRelease(release *release.Release, includeTests bool) map[string]*MappingResult {
 	manifest := release.Manifest
 	for _, hook := range release.Hooks {
+		if !includeTests && isTestHook(hook.Events) {
+			continue
+		}
+
 		manifest += "\n---\n"
 		manifest += fmt.Sprintf("# Source: %s\n", hook.Path)
 		manifest += hook.Manifest
@@ -105,5 +109,14 @@ func Parse(manifest string, defaultNamespace string) map[string]*MappingResult {
 		}
 	}
 	return result
+}
 
+func isTestHook(hookEvents []release.Hook_Event) bool {
+	for _, event := range hookEvents {
+		if event == release.Hook_RELEASE_TEST_FAILURE || event == release.Hook_RELEASE_TEST_SUCCESS {
+			return true
+		}
+	}
+
+	return false
 }
