@@ -20,6 +20,7 @@ type revision struct {
 	suppressedKinds  []string
 	revisions        []string
 	outputContext    int
+	includeTests     bool
 }
 
 const revisionCmdLongUsage = `
@@ -79,6 +80,7 @@ func revisionCmd() *cobra.Command {
 	revisionCmd.Flags().BoolP("suppress-secrets", "q", false, "suppress secrets in the output")
 	revisionCmd.Flags().StringArrayVar(&diff.suppressedKinds, "suppress", []string{}, "allows suppression of the values listed in the diff output")
 	revisionCmd.Flags().IntVarP(&diff.outputContext, "context", "C", -1, "output NUM lines of context around changes")
+	revisionCmd.Flags().BoolVar(&diff.includeTests, "include-tests", false, "enable the diffing of the helm test hooks")
 	revisionCmd.SuggestionsMinimumDistance = 1
 
 	addCommonCmdOptions(revisionCmd.Flags())
@@ -103,8 +105,8 @@ func (d *revision) differentiate() error {
 		}
 
 		diff.DiffManifests(
-			manifest.ParseRelease(revisionResponse.Release),
-			manifest.ParseRelease(releaseResponse.Release),
+			manifest.ParseRelease(revisionResponse.Release, d.includeTests),
+			manifest.ParseRelease(releaseResponse.Release, d.includeTests),
 			d.suppressedKinds,
 			d.outputContext,
 			os.Stdout)
@@ -127,8 +129,8 @@ func (d *revision) differentiate() error {
 		}
 
 		seenAnyChanges := diff.DiffManifests(
-			manifest.ParseRelease(revisionResponse1.Release),
-			manifest.ParseRelease(revisionResponse2.Release),
+			manifest.ParseRelease(revisionResponse1.Release, d.includeTests),
+			manifest.ParseRelease(revisionResponse2.Release, d.includeTests),
 			d.suppressedKinds,
 			d.outputContext,
 			os.Stdout)
