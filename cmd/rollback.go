@@ -20,6 +20,7 @@ type rollback struct {
 	suppressedKinds  []string
 	revisions        []string
 	outputContext    int
+	includeTests     bool
 }
 
 const rollbackCmdLongUsage = `
@@ -70,6 +71,7 @@ func rollbackCmd() *cobra.Command {
 	rollbackCmd.Flags().BoolP("suppress-secrets", "q", false, "suppress secrets in the output")
 	rollbackCmd.Flags().StringArrayVar(&diff.suppressedKinds, "suppress", []string{}, "allows suppression of the values listed in the diff output")
 	rollbackCmd.Flags().IntVarP(&diff.outputContext, "context", "C", -1, "output NUM lines of context around changes")
+	rollbackCmd.Flags().BoolVar(&diff.includeTests, "include-tests", false, "enable the diffing of the helm test hooks")
 	rollbackCmd.SuggestionsMinimumDistance = 1
 
 	addCommonCmdOptions(rollbackCmd.Flags())
@@ -95,8 +97,8 @@ func (d *rollback) backcast() error {
 
 	// create a diff between the current manifest and the version of the manifest that a user is intended to rollback
 	seenAnyChanges := diff.DiffManifests(
-		manifest.ParseRelease(releaseResponse.Release),
-		manifest.ParseRelease(revisionResponse.Release),
+		manifest.ParseRelease(releaseResponse.Release, d.includeTests),
+		manifest.ParseRelease(revisionResponse.Release, d.includeTests),
 		d.suppressedKinds,
 		d.outputContext,
 		os.Stdout)
