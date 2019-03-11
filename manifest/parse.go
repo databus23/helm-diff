@@ -7,7 +7,7 @@ import (
 	"log"
 	"strings"
 
-	"gopkg.in/yaml.v2"
+	yaml "gopkg.in/yaml.v2"
 	"k8s.io/helm/pkg/proto/hapi/release"
 )
 
@@ -90,20 +90,27 @@ func Parse(manifest string, defaultNamespace string) map[string]*MappingResult {
 		if strings.TrimSpace(content) == "" {
 			continue
 		}
-		var metadata metadata
-		if err := yaml.Unmarshal([]byte(content), &metadata); err != nil {
+		var parsedMetadata metadata
+		if err := yaml.Unmarshal([]byte(content), &parsedMetadata); err != nil {
 			log.Fatalf("YAML unmarshal error: %s\nCan't unmarshal %s", err, content)
 		}
-		if metadata.Metadata.Namespace == "" {
-			metadata.Metadata.Namespace = defaultNamespace
+
+		//Skip content without any metadata.  It is probably a template that
+		//only contains comments in the current state.
+		if (metadata{}) == parsedMetadata {
+			continue
 		}
-		name := metadata.String()
+
+		if parsedMetadata.Metadata.Namespace == "" {
+			parsedMetadata.Metadata.Namespace = defaultNamespace
+		}
+		name := parsedMetadata.String()
 		if _, ok := result[name]; ok {
 			log.Printf("Error: Found duplicate key %#v in manifest", name)
 		} else {
 			result[name] = &MappingResult{
 				Name:    name,
-				Kind:    metadata.Kind,
+				Kind:    parsedMetadata.Kind,
 				Content: content,
 			}
 		}

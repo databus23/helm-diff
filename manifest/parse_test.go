@@ -58,3 +58,13 @@ func TestDeployV1Beta1(t *testing.T) {
 		foundObjects(Parse(string(spec), "default")),
 	)
 }
+
+func TestEmpty(t *testing.T) {
+	spec, err := ioutil.ReadFile("testdata/empty.yaml")
+	require.NoError(t, err)
+
+	require.Equal(t,
+		[]string{},
+		foundObjects(Parse(string(spec), "default")),
+	)
+}
