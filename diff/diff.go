@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"sort"
 	"strings"
 
 	"github.com/aryann/difflib"
@@ -49,6 +50,13 @@ func DiffManifests(oldIndex, newIndex map[string]*manifest.MappingResult, suppre
 		}
 	}
 	return seenAnyChanges
+}
+
+// DiffReleases reindex the content  based on the template names and pass it to DiffManifests
+func DiffReleases(oldIndex, newIndex map[string]*manifest.MappingResult, suppressedKinds []string, context int, to io.Writer) bool {
+	oldIndex = reIndexForRelease(oldIndex)
+	newIndex = reIndexForRelease(newIndex)
+	return DiffManifests(oldIndex, newIndex, suppressedKinds, context, to)
 }
 
 func diffMappingResults(oldContent *manifest.MappingResult, newContent *manifest.MappingResult) []difflib.DiffRecord {
@@ -136,4 +144,35 @@ func calculateDistances(diffs []difflib.DiffRecord) map[int]int {
 	}
 
 	return distances
+}
+
+// reIndexForRelease based on template names
+func reIndexForRelease(index map[string]*manifest.MappingResult) map[string]*manifest.MappingResult {
+
+	// sort the index to iterate map in the same order
+	var keys []string
+	for key := range index {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	// holds number of object in a single file
+	count := make(map[string]int)
+
+	newIndex := make(map[string]*manifest.MappingResult)
+
+	for key := range keys {
+
+		str := strings.Replace(strings.Split(index[keys[key]].Content, "\n")[0], "# Source: ", "", 1)
+
+		if _, ok := newIndex[str]; ok {
+			count[str]++
+			str += fmt.Sprintf(" %d", count[str])
+			newIndex[str] = index[keys[key]]
+		} else {
+			newIndex[str] = index[keys[key]]
+			count[str]++
+		}
+	}
+	return newIndex
 }
