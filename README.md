@@ -1,4 +1,6 @@
 # Helm Diff Plugin
+[![Go Report Card](https://goreportcard.com/badge/github.com/databus23/helm-diff)](https://goreportcard.com/report/github.com/databus23/helm-diff)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/databus23/helm-diff/blob/master/LICENSE)
 
 This is a Helm plugin giving your a preview of what a `helm upgrade` would change.
 It basically generates a diff between the latest deployed version of a release
@@ -33,6 +35,7 @@ Usage:
   diff [command]
 
 Available Commands:
+  release     Shows diff between release's manifests
   revision    Shows diff between revision's manifests
   rollback    Show a diff explaining what a helm rollback could perform
   upgrade     Show a diff explaining what a helm upgrade would change.
@@ -84,6 +87,41 @@ Flags:
   -q, --suppress-secrets       suppress secrets in the output
   -f, --values valueFiles      specify values in a YAML file (can specify multiple) (default [])
       --version string         specify the exact chart version to use. If this is not specified, the latest version is used
+
+Global Flags:
+      --no-color   remove colors from the output
+```
+
+### release:
+
+```
+$ helm diff release -h
+
+This command compares the manifests details of a different releases created from the same chart
+
+It can be used to compare the manifests of
+
+ - release1 with release2
+	$ helm diff release [flags] release1 release2
+   Example:
+	$ helm diff release my-prod my-stage
+
+Usage:
+  diff release [flags] RELEASE release1 [release2]
+
+Flags:
+  -C, --context int            output NUM lines of context around changes (default -1)
+  -h, --help                   help for release
+      --home string            location of your Helm config. Overrides $HELM_HOME (default "/home/aananth/.helm")
+      --include-tests          enable the diffing of the helm test hooks
+      --suppress stringArray   allows suppression of the values listed in the diff output
+  -q, --suppress-secrets       suppress secrets in the output
+      --tls                    enable TLS for request
+      --tls-ca-cert string     path to TLS CA certificate file (default "$HELM_HOME/ca.pem")
+      --tls-cert string        path to TLS certificate file (default "$HELM_HOME/cert.pem")
+      --tls-hostname string    the server name used to verify the hostname on the returned certificates from the server
+      --tls-key string         path to TLS key file (default "$HELM_HOME/key.pem")
+      --tls-verify             enable TLS for request and verify remote
 
 Global Flags:
       --no-color   remove colors from the output
