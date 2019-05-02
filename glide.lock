@@ -1,5 +1,5 @@
 hash: 41869ddd7c45fba60173a6fcf13ef7aa202e3f2581dfebed02e4f9fd57a364be
-updated: 2019-04-01T09:44:39.823854424+05:30
+updated: 2019-04-09T14:30:32.482000193-07:00
 imports:
 - name: github.com/aryann/difflib
   version: a1a4dd44eb11820695fbe83e00fb2301ee6eb54c
@@ -30,7 +30,7 @@ imports:
 - name: github.com/huandu/xstrings
   version: f02667b379e2fb5916c3cda2cf31e0eb885d79f8
 - name: github.com/imdario/mergo
-  version: 6633656539c1639d9d78127b7d47c622b5d7b6dc
+  version: 7c29201646fa3de8506f701213473dd407f19646
 - name: github.com/inconshreveable/mousetrap
   version: 76626ae9c91c4f2a10f34cad8ce83ea42c93bb75
 - name: github.com/Masterminds/goutils
