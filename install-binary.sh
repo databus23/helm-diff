@@ -118,7 +118,7 @@ fail_trap() {
 testVersion() {
   set +e
   echo "$PROJECT_NAME installed into $HELM_PLUGIN_PATH/$PROJECT_NAME"
-  $HELM_PLUGIN_PATH/bin/diff -h
+  "${HELM_PLUGIN_PATH}/bin/diff" -h
   set -e
 }
 
