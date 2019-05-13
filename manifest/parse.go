@@ -115,6 +115,9 @@ func Parse(manifest string, defaultNamespace string) map[string]*MappingResult {
 			}
 		}
 	}
+	if err := scanner.Err(); err != nil {
+		log.Fatalf("Error reading input: %s", err)
+	}
 	return result
 }
 
