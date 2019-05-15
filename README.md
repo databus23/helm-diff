@@ -229,3 +229,11 @@ To run all tests:
 ```
 go test -v ./...
 ```
+
+## Release
+
+Set `GITHUB_TOKEN` and run:
+
+```
+$ make docker-run-release
+```
