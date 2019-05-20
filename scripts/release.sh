@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -x
 
-if [ ! -f bin/github-releae ]; then
+if [ ! -f bin/github-release ]; then
   OS=$(uname)
   curl -L https://github.com/aktau/github-release/releases/download/v0.7.2/$OS-amd64-github-release.tar.bz2 | tar -C bin/ -jvx --strip-components=3
 fi
