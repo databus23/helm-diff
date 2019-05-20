@@ -45,6 +45,7 @@ docker-run-release:
 
 .PHONY: dist
 dist: export COPYFILE_DISABLE=1 #teach OSX tar to not put ._* files in tar archive
+dist: export CGO_ENABLED=0
 dist:
 	rm -rf build/diff/* release/*
 	mkdir -p build/diff/bin release/
