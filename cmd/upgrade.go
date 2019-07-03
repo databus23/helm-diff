@@ -119,7 +119,7 @@ func (d *diffCmd) run() error {
 	releaseResponse, err := d.client.ReleaseContent(d.release)
 
 	var newInstall bool
-	if err != nil && strings.Contains(err.Error(), fmt.Sprintf("release: %q not found", d.release)) {
+	if isUnreleasedErr(err, d.release) {
 		if d.allowUnreleased {
 			fmt.Printf("********************\n\n\tRelease was not present in Helm.  Diff will show entire contents as new.\n\n********************\n")
 			newInstall = true
@@ -181,4 +181,13 @@ func (d *diffCmd) run() error {
 	}
 
 	return nil
+}
+
+func isUnreleasedErr(err error, releaseName string) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, fmt.Sprintf("release: %q not found", releaseName)) ||
+		strings.Contains(msg, fmt.Sprintf("%q has no deployed releases", releaseName))
 }
