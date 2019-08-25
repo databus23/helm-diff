@@ -41,9 +41,9 @@ func (v *valueFiles) Valid() error {
 
 	if errStr == "" {
 		return nil
-	} else {
-		return errors.New(errStr)
 	}
+
+	return errors.New(errStr)
 }
 
 func (v *valueFiles) Type() string {
@@ -148,12 +148,12 @@ func (d *diffCmd) vals() ([]byte, error) {
 		currentMap := map[string]interface{}{}
 
 		var bytes []byte
- 		var err error
- 		if strings.TrimSpace(filePath) == "-" {
- 			bytes, err = ioutil.ReadAll(os.Stdin)
- 		} else {
- 			bytes, err = ioutil.ReadFile(filePath)
- 		}
+		var err error
+		if strings.TrimSpace(filePath) == "-" {
+			bytes, err = ioutil.ReadAll(os.Stdin)
+		} else {
+			bytes, err = ioutil.ReadFile(filePath)
+		}
 		if err != nil {
 			return []byte{}, err
 		}

@@ -19,7 +19,8 @@ const (
 )
 
 var (
-	settings        helm_env.EnvSettings
+	settings helm_env.EnvSettings
+	// DefaultHelmHome to hold default home path of .helm dir
 	DefaultHelmHome = filepath.Join(homedir.HomeDir(), ".helm")
 )
 
@@ -59,7 +60,7 @@ func createHelmClient() helm.Interface {
 }
 
 func expandTLSPaths() {
-       settings.TLSCaCertFile = os.ExpandEnv(settings.TLSCaCertFile)
-       settings.TLSCertFile = os.ExpandEnv(settings.TLSCertFile)
-       settings.TLSKeyFile = os.ExpandEnv(settings.TLSKeyFile)
+	settings.TLSCaCertFile = os.ExpandEnv(settings.TLSCaCertFile)
+	settings.TLSCertFile = os.ExpandEnv(settings.TLSCertFile)
+	settings.TLSKeyFile = os.ExpandEnv(settings.TLSKeyFile)
 }

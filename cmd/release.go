@@ -91,7 +91,7 @@ func (d *release) differentiate() error {
 	}
 
 	if releaseResponse1.Release.Chart.Metadata.Name == releaseResponse2.Release.Chart.Metadata.Name {
-		seenAnyChanges := diff.DiffReleases(
+		seenAnyChanges := diff.Releases(
 			manifest.ParseRelease(releaseResponse1.Release, d.includeTests),
 			manifest.ParseRelease(releaseResponse2.Release, d.includeTests),
 			d.suppressedKinds,

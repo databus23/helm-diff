@@ -171,7 +171,7 @@ func (d *diffCmd) run() error {
 		}
 	}
 
-	seenAnyChanges := diff.DiffManifests(currentSpecs, newSpecs, d.suppressedKinds, d.outputContext, os.Stdout)
+	seenAnyChanges := diff.Manifests(currentSpecs, newSpecs, d.suppressedKinds, d.outputContext, os.Stdout)
 
 	if d.detailedExitCode && seenAnyChanges {
 		return Error{

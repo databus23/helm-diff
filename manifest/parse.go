@@ -13,6 +13,7 @@ import (
 
 var yamlSeperator = []byte("\n---\n")
 
+// MappingResult to store result of diff
 type MappingResult struct {
 	Name    string
 	Kind    string
@@ -20,7 +21,7 @@ type MappingResult struct {
 }
 
 type metadata struct {
-	ApiVersion string `yaml:"apiVersion"`
+	APIVersion string `yaml:"apiVersion"`
 	Kind       string
 	Metadata   struct {
 		Namespace string
@@ -29,7 +30,7 @@ type metadata struct {
 }
 
 func (m metadata) String() string {
-	apiBase := m.ApiVersion
+	apiBase := m.APIVersion
 	sp := strings.Split(apiBase, "/")
 	if len(sp) > 1 {
 		apiBase = strings.Join(sp[:len(sp)-1], "/")
@@ -61,6 +62,7 @@ func splitSpec(token string) (string, string) {
 	return "", ""
 }
 
+// ParseRelease parses release objects into MappingResult
 func ParseRelease(release *release.Release, includeTests bool) map[string]*MappingResult {
 	manifest := release.Manifest
 	for _, hook := range release.Hooks {
@@ -75,12 +77,13 @@ func ParseRelease(release *release.Release, includeTests bool) map[string]*Mappi
 	return Parse(manifest, release.Namespace)
 }
 
+// Parse parses manifest strings into MappingResult
 func Parse(manifest string, defaultNamespace string) map[string]*MappingResult {
 	scanner := bufio.NewScanner(strings.NewReader(manifest))
 	scanner.Split(scanYamlSpecs)
 	//Allow for tokens (specs) up to 1M in size
 	scanner.Buffer(make([]byte, bufio.MaxScanTokenSize), 1048576)
-	//Discard the first result, we only care about everything after the first seperator
+	//Discard the first result, we only care about everything after the first separator
 	scanner.Scan()
 
 	result := make(map[string]*MappingResult)

@@ -20,8 +20,15 @@ install: build
 	cp bin/diff $(HELM_HOME)/plugins/helm-diff/bin
 	cp plugin.yaml $(HELM_HOME)/plugins/helm-diff/
 
+.PHONY: lint
+lint:
+	scripts/update-gofmt.sh
+	scripts/verify-gofmt.sh
+	scripts/verify-golint.sh
+	scripts/verify-govet.sh
+
 .PHONY: build
-build:
+build: lint
 	mkdir -p bin/
 	go build -i -v -o bin/diff -ldflags="$(LDFLAGS)"
 
@@ -61,7 +68,7 @@ dist:
 	tar -C build/ -zcvf $(CURDIR)/release/helm-diff-windows.tgz diff/
 
 .PHONY: release
-release: dist
+release: lint dist 
 ifndef GITHUB_TOKEN
 	$(error GITHUB_TOKEN is undefined)
 endif
