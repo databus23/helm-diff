@@ -96,7 +96,7 @@ func (d *rollback) backcast() error {
 	}
 
 	// create a diff between the current manifest and the version of the manifest that a user is intended to rollback
-	seenAnyChanges := diff.DiffManifests(
+	seenAnyChanges := diff.Manifests(
 		manifest.ParseRelease(releaseResponse.Release, d.includeTests),
 		manifest.ParseRelease(revisionResponse.Release, d.includeTests),
 		d.suppressedKinds,

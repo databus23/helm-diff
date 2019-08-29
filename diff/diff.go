@@ -13,7 +13,8 @@ import (
 	"github.com/databus23/helm-diff/manifest"
 )
 
-func DiffManifests(oldIndex, newIndex map[string]*manifest.MappingResult, suppressedKinds []string, context int, to io.Writer) bool {
+// Manifests diff on manifests
+func Manifests(oldIndex, newIndex map[string]*manifest.MappingResult, suppressedKinds []string, context int, to io.Writer) bool {
 	seenAnyChanges := false
 	emptyMapping := &manifest.MappingResult{}
 	for key, oldContent := range oldIndex {
@@ -52,11 +53,11 @@ func DiffManifests(oldIndex, newIndex map[string]*manifest.MappingResult, suppre
 	return seenAnyChanges
 }
 
-// DiffReleases reindex the content  based on the template names and pass it to DiffManifests
-func DiffReleases(oldIndex, newIndex map[string]*manifest.MappingResult, suppressedKinds []string, context int, to io.Writer) bool {
+// Releases reindex the content  based on the template names and pass it to Manifests
+func Releases(oldIndex, newIndex map[string]*manifest.MappingResult, suppressedKinds []string, context int, to io.Writer) bool {
 	oldIndex = reIndexForRelease(oldIndex)
 	newIndex = reIndexForRelease(newIndex)
-	return DiffManifests(oldIndex, newIndex, suppressedKinds, context, to)
+	return Manifests(oldIndex, newIndex, suppressedKinds, context, to)
 }
 
 func diffMappingResults(oldContent *manifest.MappingResult, newContent *manifest.MappingResult) []difflib.DiffRecord {

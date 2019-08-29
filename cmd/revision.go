@@ -104,7 +104,7 @@ func (d *revision) differentiate() error {
 			return prettyError(err)
 		}
 
-		diff.DiffManifests(
+		diff.Manifests(
 			manifest.ParseRelease(revisionResponse.Release, d.includeTests),
 			manifest.ParseRelease(releaseResponse.Release, d.includeTests),
 			d.suppressedKinds,
@@ -128,7 +128,7 @@ func (d *revision) differentiate() error {
 			return prettyError(err)
 		}
 
-		seenAnyChanges := diff.DiffManifests(
+		seenAnyChanges := diff.Manifests(
 			manifest.ParseRelease(revisionResponse1.Release, d.includeTests),
 			manifest.ParseRelease(revisionResponse2.Release, d.includeTests),
 			d.suppressedKinds,
