@@ -79,7 +79,13 @@ func locateChartPath(name, version string, verify bool, keyring string) (string,
 		return name, fmt.Errorf("path %q not found", name)
 	}
 
-	crepo := filepath.Join(helmpath.Home(homePath()).Repository(), name)
+	var crepo string
+	if os.Getenv("HELM_REPOSITORY_CONFIG") != "" {
+		crepo = os.Getenv("HELM_REPOSITORY_CONFIG")
+	} else {
+		crepo = filepath.Join(helmpath.Home(homePath()).Repository(), name)
+	}
+
 	if _, err := os.Stat(crepo); err == nil {
 		return filepath.Abs(crepo)
 	}

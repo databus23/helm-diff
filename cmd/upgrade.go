@@ -9,6 +9,8 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/helm/pkg/helm"
 
+	"helm.sh/helm/pkg/action"
+
 	"github.com/databus23/helm-diff/diff"
 	"github.com/databus23/helm-diff/manifest"
 )
@@ -18,6 +20,7 @@ type diffCmd struct {
 	chart            string
 	chartVersion     string
 	client           helm.Interface
+	v3conf           *action.Configuration
 	detailedExitCode bool
 	devel            bool
 	namespace        string // namespace to assume the release to be installed into. Defaults to the current kube config namespace.
@@ -97,6 +100,13 @@ func newChartCommand() *cobra.Command {
 
 }
 
+func isHelm3() bool {
+	// See the followings. TILLER_HOST is helm2-only plugin env
+	// Helm 2: https://github.com/helm/helm/blob/7cad59091a9451b2aa4f95aa882ea27e6b195f98/pkg/plugin/plugin.go#L175-L192
+	// Helm 3: https://github.com/helm/helm/blob/5cb923eecbe80d1ad76399aee234717c11931d9a/pkg/plugin/plugin.go#L221-L232
+	return os.Getenv("TILLER_HOST") == ""
+}
+
 func (d *diffCmd) run() error {
 	if d.chartVersion == "" && d.devel {
 		d.chartVersion = ">0.0.0-0"
@@ -114,6 +124,10 @@ func (d *diffCmd) run() error {
 	rawVals, err := d.vals()
 	if err != nil {
 		return err
+	}
+
+	if isHelm3() {
+		return helm3Run(d, chartPath)
 	}
 
 	releaseResponse, err := d.client.ReleaseContent(d.release)

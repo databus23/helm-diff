@@ -6,6 +6,11 @@ import:
   version: 583c0c0531f06d5278b7d917446061adc344b5cd
 - package: k8s.io/helm
   version: v2.11.0
+- package: helm.sh/helm
+  version: v3.0.0-beta.3
+- package: github.com/asaskevich/govalidator
+- package: github.com/imdario/mergo
+  version: v0.3.7
 #taken from k8s.io/helm glide.yaml
 - package: k8s.io/api
   version: kubernetes-1.11.1 
