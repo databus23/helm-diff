@@ -7,15 +7,14 @@ import (
 	"strconv"
 
 	"github.com/spf13/cobra"
-	"k8s.io/helm/pkg/helm"
 
 	"github.com/databus23/helm-diff/diff"
 	"github.com/databus23/helm-diff/manifest"
 )
 
 type revision struct {
-	release          string
-	client           helm.Interface
+	release string
+	clientHolder
 	detailedExitCode bool
 	suppressedKinds  []string
 	revisions        []string
@@ -70,9 +69,7 @@ func revisionCmd() *cobra.Command {
 
 			diff.release = args[0]
 			diff.revisions = args[1:]
-			if diff.client == nil {
-				diff.client = createHelmClient()
-			}
+			diff.init()
 			return diff.differentiate()
 		},
 	}
@@ -92,21 +89,21 @@ func (d *revision) differentiate() error {
 
 	switch len(d.revisions) {
 	case 1:
-		releaseResponse, err := d.client.ReleaseContent(d.release)
+		releaseResponse, err := d.deployedRelease(d.release)
 
 		if err != nil {
 			return prettyError(err)
 		}
 
 		revision, _ := strconv.Atoi(d.revisions[0])
-		revisionResponse, err := d.client.ReleaseContent(d.release, helm.ContentReleaseVersion(int32(revision)))
+		revisionResponse, err := d.deployedReleaseRevision(d.release, revision)
 		if err != nil {
 			return prettyError(err)
 		}
 
 		diff.Manifests(
-			manifest.ParseRelease(revisionResponse.Release, d.includeTests),
-			manifest.ParseRelease(releaseResponse.Release, d.includeTests),
+			manifest.ParseRelease(revisionResponse, d.includeTests),
+			manifest.ParseRelease(releaseResponse, d.includeTests),
 			d.suppressedKinds,
 			d.outputContext,
 			os.Stdout)
@@ -118,19 +115,19 @@ func (d *revision) differentiate() error {
 			revision1, revision2 = revision2, revision1
 		}
 
-		revisionResponse1, err := d.client.ReleaseContent(d.release, helm.ContentReleaseVersion(int32(revision1)))
+		revisionResponse1, err := d.deployedReleaseRevision(d.release, revision1)
 		if err != nil {
 			return prettyError(err)
 		}
 
-		revisionResponse2, err := d.client.ReleaseContent(d.release, helm.ContentReleaseVersion(int32(revision2)))
+		revisionResponse2, err := d.deployedReleaseRevision(d.release, revision2)
 		if err != nil {
 			return prettyError(err)
 		}
 
 		seenAnyChanges := diff.Manifests(
-			manifest.ParseRelease(revisionResponse1.Release, d.includeTests),
-			manifest.ParseRelease(revisionResponse2.Release, d.includeTests),
+			manifest.ParseRelease(revisionResponse1, d.includeTests),
+			manifest.ParseRelease(revisionResponse2, d.includeTests),
 			d.suppressedKinds,
 			d.outputContext,
 			os.Stdout)

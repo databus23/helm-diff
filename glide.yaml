@@ -5,16 +5,28 @@ import:
 - package: github.com/spf13/pflag
   version: 583c0c0531f06d5278b7d917446061adc344b5cd
 - package: k8s.io/helm
-  version: v2.11.0
+  version: v2.14.0
+- package: helm.sh/helm
+  version: v3.0.0-beta.3
+- package: k8s.io/client-go
+  version: kubernetes-1.14.1
+- package: k8s.io/kubernetes
+  version: v1.14.1
+- package: k8s.io/cli-runtime
+  version: kubernetes-1.14.1
+- package: k8s.io/cloud-provider
+  version: kubernetes-1.14.1
+- package: github.com/containerd/containerd
+  version: v1.3.0-beta.2
 #taken from k8s.io/helm glide.yaml
 - package: k8s.io/api
-  version: kubernetes-1.11.1 
+  version: kubernetes-1.14.1
 - package: k8s.io/apimachinery
-  version: kubernetes-1.11.1
+  version: kubernetes-1.14.1
 - package: google.golang.org/grpc
-  version: 1.7.2
-- package: golang.org/x/net
-  version: 1c05540f6879653db88113bc4a2b70aec4bd491f
+  version: 1.18.0
+- package: golang.org/x/sys
+  version: b90733256f2e882e81d52f9126de08df5615afd9
 testImport:
 - package: github.com/stretchr/testify
   version: ^1.2.2

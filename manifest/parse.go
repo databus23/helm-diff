@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	yaml "gopkg.in/yaml.v2"
+	rspb "helm.sh/helm/pkg/release"
 	"k8s.io/helm/pkg/proto/hapi/release"
 )
 
@@ -63,7 +64,14 @@ func splitSpec(token string) (string, string) {
 }
 
 // ParseRelease parses release objects into MappingResult
-func ParseRelease(release *release.Release, includeTests bool) map[string]*MappingResult {
+func ParseRelease(release ReleaseResponse, includeTests bool) map[string]*MappingResult {
+	if release.Release == nil {
+		return parseReleaseV3(release.ReleaseV3, includeTests)
+	}
+	return parseReleaseV2(release.Release, includeTests)
+}
+
+func parseReleaseV2(release *release.Release, includeTests bool) map[string]*MappingResult {
 	manifest := release.Manifest
 	for _, hook := range release.Hooks {
 		if !includeTests && isTestHook(hook.Events) {
@@ -74,11 +82,32 @@ func ParseRelease(release *release.Release, includeTests bool) map[string]*Mappi
 		manifest += fmt.Sprintf("# Source: %s\n", hook.Path)
 		manifest += hook.Manifest
 	}
-	return Parse(manifest, release.Namespace)
+	return parse(manifest, release.Namespace)
+}
+
+func parseReleaseV3(release *rspb.Release, includeTests bool) map[string]*MappingResult {
+	manifest := release.Manifest
+	for _, hook := range release.Hooks {
+		if !includeTests && isTestHookV3(hook.Events) {
+			continue
+		}
+
+		manifest += "\n---\n"
+		manifest += fmt.Sprintf("# Source: %s\n", hook.Path)
+		manifest += hook.Manifest
+	}
+	return parse(manifest, release.Namespace)
 }
 
 // Parse parses manifest strings into MappingResult
-func Parse(manifest string, defaultNamespace string) map[string]*MappingResult {
+func Parse(release ReleaseResponse) map[string]*MappingResult {
+	if release.Release == nil {
+		return parse(release.ReleaseV3.Manifest, release.ReleaseV3.Namespace)
+	}
+	return parse(release.Release.Manifest, release.Release.Namespace)
+}
+
+func parse(manifest string, defaultNamespace string) map[string]*MappingResult {
 	scanner := bufio.NewScanner(strings.NewReader(manifest))
 	scanner.Split(scanYamlSpecs)
 	//Allow for tokens (specs) up to 1M in size
@@ -127,6 +156,16 @@ func Parse(manifest string, defaultNamespace string) map[string]*MappingResult {
 func isTestHook(hookEvents []release.Hook_Event) bool {
 	for _, event := range hookEvents {
 		if event == release.Hook_RELEASE_TEST_FAILURE || event == release.Hook_RELEASE_TEST_SUCCESS {
+			return true
+		}
+	}
+
+	return false
+}
+
+func isTestHookV3(hookEvents []rspb.HookEvent) bool {
+	for _, event := range hookEvents {
+		if event == rspb.HookTest {
 			return true
 		}
 	}

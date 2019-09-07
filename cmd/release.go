@@ -6,14 +6,13 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"k8s.io/helm/pkg/helm"
 
 	"github.com/databus23/helm-diff/diff"
 	"github.com/databus23/helm-diff/manifest"
 )
 
 type release struct {
-	client           helm.Interface
+	clientHolder
 	detailedExitCode bool
 	suppressedKinds  []string
 	releases         []string
@@ -60,9 +59,7 @@ func releaseCmd() *cobra.Command {
 			}
 
 			diff.releases = args[0:]
-			if diff.client == nil {
-				diff.client = createHelmClient()
-			}
+			diff.init()
 			return diff.differentiate()
 		},
 	}
@@ -80,20 +77,20 @@ func releaseCmd() *cobra.Command {
 
 func (d *release) differentiate() error {
 
-	releaseResponse1, err := d.client.ReleaseContent(d.releases[0])
+	releaseResponse1, err := d.deployedRelease(d.releases[0])
 	if err != nil {
 		return prettyError(err)
 	}
 
-	releaseResponse2, err := d.client.ReleaseContent(d.releases[1])
+	releaseResponse2, err := d.deployedRelease(d.releases[1])
 	if err != nil {
 		return prettyError(err)
 	}
 
-	if releaseResponse1.Release.Chart.Metadata.Name == releaseResponse2.Release.Chart.Metadata.Name {
+	if releaseResponse1.ChartName() == releaseResponse2.ChartName() {
 		seenAnyChanges := diff.Releases(
-			manifest.ParseRelease(releaseResponse1.Release, d.includeTests),
-			manifest.ParseRelease(releaseResponse2.Release, d.includeTests),
+			manifest.ParseRelease(releaseResponse1, d.includeTests),
+			manifest.ParseRelease(releaseResponse2, d.includeTests),
 			d.suppressedKinds,
 			d.outputContext,
 			os.Stdout)

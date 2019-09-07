@@ -7,15 +7,14 @@ import (
 	"strconv"
 
 	"github.com/spf13/cobra"
-	"k8s.io/helm/pkg/helm"
 
 	"github.com/databus23/helm-diff/diff"
 	"github.com/databus23/helm-diff/manifest"
 )
 
 type rollback struct {
-	release          string
-	client           helm.Interface
+	release string
+	clientHolder
 	detailedExitCode bool
 	suppressedKinds  []string
 	revisions        []string
@@ -60,9 +59,7 @@ func rollbackCmd() *cobra.Command {
 			diff.release = args[0]
 			diff.revisions = args[1:]
 
-			if diff.client == nil {
-				diff.client = createHelmClient()
-			}
+			diff.init()
 
 			return diff.backcast()
 		},
@@ -82,7 +79,7 @@ func rollbackCmd() *cobra.Command {
 func (d *rollback) backcast() error {
 
 	// get manifest of the latest release
-	releaseResponse, err := d.client.ReleaseContent(d.release)
+	releaseResponse, err := d.deployedRelease(d.release)
 
 	if err != nil {
 		return prettyError(err)
@@ -90,15 +87,15 @@ func (d *rollback) backcast() error {
 
 	// get manifest of the release to rollback
 	revision, _ := strconv.Atoi(d.revisions[0])
-	revisionResponse, err := d.client.ReleaseContent(d.release, helm.ContentReleaseVersion(int32(revision)))
+	revisionResponse, err := d.deployedReleaseRevision(d.release, revision)
 	if err != nil {
 		return prettyError(err)
 	}
 
 	// create a diff between the current manifest and the version of the manifest that a user is intended to rollback
 	seenAnyChanges := diff.Manifests(
-		manifest.ParseRelease(releaseResponse.Release, d.includeTests),
-		manifest.ParseRelease(revisionResponse.Release, d.includeTests),
+		manifest.ParseRelease(releaseResponse, d.includeTests),
+		manifest.ParseRelease(revisionResponse, d.includeTests),
 		d.suppressedKinds,
 		d.outputContext,
 		os.Stdout)
