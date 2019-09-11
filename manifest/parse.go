@@ -89,8 +89,8 @@ func Parse(manifest string, defaultNamespace string) map[string]*MappingResult {
 	result := make(map[string]*MappingResult)
 
 	for scanner.Scan() {
-		content := scanner.Text()
-		if strings.TrimSpace(content) == "" {
+		content := strings.TrimSpace(scanner.Text())
+		if content == "" {
 			continue
 		}
 		var parsedMetadata metadata

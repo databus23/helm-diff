@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -43,7 +44,9 @@ perform.
 `
 
 func newChartCommand() *cobra.Command {
-	diff := diffCmd{}
+	diff := diffCmd{
+		namespace: os.Getenv("HELM_NAMESPACE"),
+	}
 
 	cmd := &cobra.Command{
 		Use:     "upgrade [flags] [RELEASE] [CHART]",
@@ -66,6 +69,9 @@ func newChartCommand() *cobra.Command {
 
 			diff.release = args[0]
 			diff.chart = args[1]
+			if isHelm3() {
+				return diff.runHelm3()
+			}
 			if diff.client == nil {
 				diff.client = createHelmClient()
 			}
@@ -85,16 +91,70 @@ func newChartCommand() *cobra.Command {
 	f.BoolVar(&diff.resetValues, "reset-values", false, "reset the values to the ones built into the chart and merge in any new values")
 	f.BoolVar(&diff.allowUnreleased, "allow-unreleased", false, "enables diffing of releases that are not yet deployed via Helm")
 	f.BoolVar(&diff.noHooks, "no-hooks", false, "disable diffing of hooks")
-	f.BoolVar(&diff.includeTests, "include-tests", false, "enable the diffing of the helm test hooks")
+	if !isHelm3() {
+		f.BoolVar(&diff.includeTests, "include-tests", false, "enable the diffing of the helm test hooks")
+	}
 	f.BoolVar(&diff.devel, "devel", false, "use development versions, too. Equivalent to version '>0.0.0-0'. If --version is set, this is ignored.")
 	f.StringArrayVar(&diff.suppressedKinds, "suppress", []string{}, "allows suppression of the values listed in the diff output")
 	f.IntVarP(&diff.outputContext, "context", "C", -1, "output NUM lines of context around changes")
-	f.StringVar(&diff.namespace, "namespace", "default", "namespace to assume the release to be installed into")
+	if !isHelm3() {
+		f.StringVar(&diff.namespace, "namespace", "default", "namespace to assume the release to be installed into")
+	}
 
-	addCommonCmdOptions(f)
+	if !isHelm3() {
+		addCommonCmdOptions(f)
+	}
 
 	return cmd
 
+}
+
+func (d *diffCmd) runHelm3() error {
+	releaseManifest, err := getRelease(d.release, d.namespace)
+
+	var newInstall bool
+	if err != nil && strings.Contains(string(err.(*exec.ExitError).Stderr), "release: not found") {
+		if d.allowUnreleased {
+			fmt.Printf("********************\n\n\tRelease was not present in Helm.  Diff will show entire contents as new.\n\n********************\n")
+			err = nil
+		} else {
+			fmt.Printf("********************\n\n\tRelease was not present in Helm.  Include the `--allow-unreleased` to perform diff without exiting in error.\n\n********************\n")
+			return err
+		}
+
+	}
+	if err != nil {
+		return err
+	}
+
+	installManifest, err := d.template()
+	if err != nil {
+		return err
+	}
+
+	currentSpecs := make(map[string]*manifest.MappingResult)
+	if !newInstall {
+		if !d.noHooks {
+			hooks, err := getHooks(d.release, d.namespace)
+			if err != nil {
+				return err
+			}
+			releaseManifest = append(releaseManifest, hooks...)
+		}
+		currentSpecs = manifest.Parse(string(releaseManifest), d.namespace)
+	}
+	newSpecs := manifest.Parse(string(installManifest), d.namespace)
+
+	seenAnyChanges := diff.Manifests(currentSpecs, newSpecs, d.suppressedKinds, d.outputContext, os.Stdout)
+
+	if d.detailedExitCode && seenAnyChanges {
+		return Error{
+			error: errors.New("identified at least one change, exiting with non-zero exit code (detailed-exitcode parameter enabled)"),
+			Code:  2,
+		}
+	}
+
+	return nil
 }
 
 func (d *diffCmd) run() error {

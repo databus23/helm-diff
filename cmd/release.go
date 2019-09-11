@@ -60,6 +60,9 @@ func releaseCmd() *cobra.Command {
 			}
 
 			diff.releases = args[0:]
+			if isHelm3() {
+				return diff.differentiateHelm3()
+			}
 			if diff.client == nil {
 				diff.client = createHelmClient()
 			}
@@ -70,12 +73,55 @@ func releaseCmd() *cobra.Command {
 	releaseCmd.Flags().BoolP("suppress-secrets", "q", false, "suppress secrets in the output")
 	releaseCmd.Flags().StringArrayVar(&diff.suppressedKinds, "suppress", []string{}, "allows suppression of the values listed in the diff output")
 	releaseCmd.Flags().IntVarP(&diff.outputContext, "context", "C", -1, "output NUM lines of context around changes")
-	releaseCmd.Flags().BoolVar(&diff.includeTests, "include-tests", false, "enable the diffing of the helm test hooks")
+	if !isHelm3() {
+		releaseCmd.Flags().BoolVar(&diff.includeTests, "include-tests", false, "enable the diffing of the helm test hooks")
+	}
 	releaseCmd.SuggestionsMinimumDistance = 1
 
-	addCommonCmdOptions(releaseCmd.Flags())
+	if !isHelm3() {
+		addCommonCmdOptions(releaseCmd.Flags())
+	}
 
 	return releaseCmd
+}
+
+func (d *release) differentiateHelm3() error {
+	releaseResponse1, err := getRelease(d.releases[0], "")
+	if err != nil {
+		return err
+	}
+	releaseChart1, err := getChart(d.releases[0], "")
+	if err != nil {
+		return err
+	}
+
+	releaseResponse2, err := getRelease(d.releases[1], "")
+	if err != nil {
+		return err
+	}
+	releaseChart2, err := getChart(d.releases[1], "")
+	if err != nil {
+		return err
+	}
+
+	if releaseChart1 == releaseChart2 {
+		seenAnyChanges := diff.Releases(
+			manifest.Parse(string(releaseResponse1), ""),
+			manifest.Parse(string(releaseResponse2), ""),
+			d.suppressedKinds,
+			d.outputContext,
+			os.Stdout)
+
+		if d.detailedExitCode && seenAnyChanges {
+			return Error{
+				error: errors.New("identified at least one change, exiting with non-zero exit code (detailed-exitcode parameter enabled)"),
+				Code:  2,
+			}
+		}
+	} else {
+		fmt.Printf("Error : Incomparable Releases \n Unable to compare releases from two different charts \"%s\", \"%s\". \n try helm diff release --help to know more \n", releaseChart1, releaseChart2)
+	}
+	return nil
 }
 
 func (d *release) differentiate() error {

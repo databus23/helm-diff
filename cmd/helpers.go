@@ -24,6 +24,10 @@ var (
 	DefaultHelmHome = filepath.Join(homedir.HomeDir(), ".helm")
 )
 
+func isHelm3() bool {
+	return os.Getenv("TILLER_HOST") == ""
+}
+
 func addCommonCmdOptions(f *flag.FlagSet) {
 	settings.AddFlagsTLS(f)
 	settings.InitTLS(f)

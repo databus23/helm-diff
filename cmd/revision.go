@@ -70,6 +70,9 @@ func revisionCmd() *cobra.Command {
 
 			diff.release = args[0]
 			diff.revisions = args[1:]
+			if isHelm3() {
+				return diff.differentiateHelm3()
+			}
 			if diff.client == nil {
 				diff.client = createHelmClient()
 			}
@@ -80,12 +83,76 @@ func revisionCmd() *cobra.Command {
 	revisionCmd.Flags().BoolP("suppress-secrets", "q", false, "suppress secrets in the output")
 	revisionCmd.Flags().StringArrayVar(&diff.suppressedKinds, "suppress", []string{}, "allows suppression of the values listed in the diff output")
 	revisionCmd.Flags().IntVarP(&diff.outputContext, "context", "C", -1, "output NUM lines of context around changes")
-	revisionCmd.Flags().BoolVar(&diff.includeTests, "include-tests", false, "enable the diffing of the helm test hooks")
+	if !isHelm3() {
+		revisionCmd.Flags().BoolVar(&diff.includeTests, "include-tests", false, "enable the diffing of the helm test hooks")
+	}
 	revisionCmd.SuggestionsMinimumDistance = 1
 
-	addCommonCmdOptions(revisionCmd.Flags())
+	if !isHelm3() {
+		addCommonCmdOptions(revisionCmd.Flags())
+	}
 
 	return revisionCmd
+}
+
+func (d *revision) differentiateHelm3() error {
+	switch len(d.revisions) {
+	case 1:
+		releaseResponse, err := getRelease(d.release, "")
+
+		if err != nil {
+			return err
+		}
+
+		revision, _ := strconv.Atoi(d.revisions[0])
+		revisionResponse, err := getRevision(d.release, revision, "")
+		if err != nil {
+			return err
+		}
+
+		diff.Manifests(
+			manifest.Parse(string(revisionResponse), ""),
+			manifest.Parse(string(releaseResponse), ""),
+			d.suppressedKinds,
+			d.outputContext,
+			os.Stdout)
+
+	case 2:
+		revision1, _ := strconv.Atoi(d.revisions[0])
+		revision2, _ := strconv.Atoi(d.revisions[1])
+		if revision1 > revision2 {
+			revision1, revision2 = revision2, revision1
+		}
+
+		revisionResponse1, err := getRevision(d.release, revision1, "")
+		if err != nil {
+			return prettyError(err)
+		}
+
+		revisionResponse2, err := getRevision(d.release, revision2, "")
+		if err != nil {
+			return prettyError(err)
+		}
+
+		seenAnyChanges := diff.Manifests(
+			manifest.Parse(string(revisionResponse1), ""),
+			manifest.Parse(string(revisionResponse2), ""),
+			d.suppressedKinds,
+			d.outputContext,
+			os.Stdout)
+
+		if d.detailedExitCode && seenAnyChanges {
+			return Error{
+				error: errors.New("identified at least one change, exiting with non-zero exit code (detailed-exitcode parameter enabled)"),
+				Code:  2,
+			}
+		}
+
+	default:
+		return errors.New("Invalid Arguments")
+	}
+
+	return nil
 }
 
 func (d *revision) differentiate() error {
