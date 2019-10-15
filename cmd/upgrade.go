@@ -91,9 +91,7 @@ func newChartCommand() *cobra.Command {
 	f.BoolVar(&diff.resetValues, "reset-values", false, "reset the values to the ones built into the chart and merge in any new values")
 	f.BoolVar(&diff.allowUnreleased, "allow-unreleased", false, "enables diffing of releases that are not yet deployed via Helm")
 	f.BoolVar(&diff.noHooks, "no-hooks", false, "disable diffing of hooks")
-	if !isHelm3() {
-		f.BoolVar(&diff.includeTests, "include-tests", false, "enable the diffing of the helm test hooks")
-	}
+	f.BoolVar(&diff.includeTests, "include-tests", false, "enable the diffing of the helm test hooks")
 	f.BoolVar(&diff.devel, "devel", false, "use development versions, too. Equivalent to version '>0.0.0-0'. If --version is set, this is ignored.")
 	f.StringArrayVar(&diff.suppressedKinds, "suppress", []string{}, "allows suppression of the values listed in the diff output")
 	f.IntVarP(&diff.outputContext, "context", "C", -1, "output NUM lines of context around changes")
@@ -141,9 +139,18 @@ func (d *diffCmd) runHelm3() error {
 			}
 			releaseManifest = append(releaseManifest, hooks...)
 		}
-		currentSpecs = manifest.Parse(string(releaseManifest), d.namespace)
+		if d.includeTests {
+			currentSpecs = manifest.Parse(string(releaseManifest), d.namespace)
+		} else {
+			currentSpecs = manifest.Parse(string(releaseManifest), d.namespace, helm3TestHook, helm2TestSuccessHook)
+		}
 	}
-	newSpecs := manifest.Parse(string(installManifest), d.namespace)
+	var newSpecs map[string]*manifest.MappingResult
+	if d.includeTests {
+		newSpecs = manifest.Parse(string(installManifest), d.namespace)
+	} else {
+		newSpecs = manifest.Parse(string(installManifest), d.namespace, helm3TestHook, helm2TestSuccessHook)
+	}
 
 	seenAnyChanges := diff.Manifests(currentSpecs, newSpecs, d.suppressedKinds, d.outputContext, os.Stdout)
 

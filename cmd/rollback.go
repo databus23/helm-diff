@@ -75,9 +75,7 @@ func rollbackCmd() *cobra.Command {
 	rollbackCmd.Flags().BoolP("suppress-secrets", "q", false, "suppress secrets in the output")
 	rollbackCmd.Flags().StringArrayVar(&diff.suppressedKinds, "suppress", []string{}, "allows suppression of the values listed in the diff output")
 	rollbackCmd.Flags().IntVarP(&diff.outputContext, "context", "C", -1, "output NUM lines of context around changes")
-	if !isHelm3() {
-		rollbackCmd.Flags().BoolVar(&diff.includeTests, "include-tests", false, "enable the diffing of the helm test hooks")
-	}
+	rollbackCmd.Flags().BoolVar(&diff.includeTests, "include-tests", false, "enable the diffing of the helm test hooks")
 	rollbackCmd.SuggestionsMinimumDistance = 1
 
 	if !isHelm3() {
@@ -88,8 +86,13 @@ func rollbackCmd() *cobra.Command {
 }
 
 func (d *rollback) backcastHelm3() error {
+	namespace := os.Getenv("HELM_NAMESPACE")
+	excludes := []string{helm3TestHook, helm2TestSuccessHook}
+	if d.includeTests {
+		excludes = []string{}
+	}
 	// get manifest of the latest release
-	releaseResponse, err := getRelease(d.release, "")
+	releaseResponse, err := getRelease(d.release, namespace)
 
 	if err != nil {
 		return err
@@ -97,15 +100,15 @@ func (d *rollback) backcastHelm3() error {
 
 	// get manifest of the release to rollback
 	revision, _ := strconv.Atoi(d.revisions[0])
-	revisionResponse, err := getRevision(d.release, revision, "")
+	revisionResponse, err := getRevision(d.release, revision, namespace)
 	if err != nil {
 		return err
 	}
 
 	// create a diff between the current manifest and the version of the manifest that a user is intended to rollback
 	seenAnyChanges := diff.Manifests(
-		manifest.Parse(string(releaseResponse), ""),
-		manifest.Parse(string(revisionResponse), ""),
+		manifest.Parse(string(releaseResponse), namespace, excludes...),
+		manifest.Parse(string(revisionResponse), namespace, excludes...),
 		d.suppressedKinds,
 		d.outputContext,
 		os.Stdout)

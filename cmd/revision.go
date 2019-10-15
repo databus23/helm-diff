@@ -83,9 +83,7 @@ func revisionCmd() *cobra.Command {
 	revisionCmd.Flags().BoolP("suppress-secrets", "q", false, "suppress secrets in the output")
 	revisionCmd.Flags().StringArrayVar(&diff.suppressedKinds, "suppress", []string{}, "allows suppression of the values listed in the diff output")
 	revisionCmd.Flags().IntVarP(&diff.outputContext, "context", "C", -1, "output NUM lines of context around changes")
-	if !isHelm3() {
-		revisionCmd.Flags().BoolVar(&diff.includeTests, "include-tests", false, "enable the diffing of the helm test hooks")
-	}
+	revisionCmd.Flags().BoolVar(&diff.includeTests, "include-tests", false, "enable the diffing of the helm test hooks")
 	revisionCmd.SuggestionsMinimumDistance = 1
 
 	if !isHelm3() {
@@ -96,23 +94,28 @@ func revisionCmd() *cobra.Command {
 }
 
 func (d *revision) differentiateHelm3() error {
+	namespace := os.Getenv("HELM_NAMESPACE")
+	excludes := []string{helm3TestHook, helm2TestSuccessHook}
+	if d.includeTests {
+		excludes = []string{}
+	}
 	switch len(d.revisions) {
 	case 1:
-		releaseResponse, err := getRelease(d.release, "")
+		releaseResponse, err := getRelease(d.release, namespace)
 
 		if err != nil {
 			return err
 		}
 
 		revision, _ := strconv.Atoi(d.revisions[0])
-		revisionResponse, err := getRevision(d.release, revision, "")
+		revisionResponse, err := getRevision(d.release, revision, namespace)
 		if err != nil {
 			return err
 		}
 
 		diff.Manifests(
-			manifest.Parse(string(revisionResponse), ""),
-			manifest.Parse(string(releaseResponse), ""),
+			manifest.Parse(string(revisionResponse), namespace, excludes...),
+			manifest.Parse(string(releaseResponse), namespace, excludes...),
 			d.suppressedKinds,
 			d.outputContext,
 			os.Stdout)
@@ -124,19 +127,19 @@ func (d *revision) differentiateHelm3() error {
 			revision1, revision2 = revision2, revision1
 		}
 
-		revisionResponse1, err := getRevision(d.release, revision1, "")
+		revisionResponse1, err := getRevision(d.release, revision1, namespace)
 		if err != nil {
 			return prettyError(err)
 		}
 
-		revisionResponse2, err := getRevision(d.release, revision2, "")
+		revisionResponse2, err := getRevision(d.release, revision2, namespace)
 		if err != nil {
 			return prettyError(err)
 		}
 
 		seenAnyChanges := diff.Manifests(
-			manifest.Parse(string(revisionResponse1), ""),
-			manifest.Parse(string(revisionResponse2), ""),
+			manifest.Parse(string(revisionResponse1), namespace, excludes...),
+			manifest.Parse(string(revisionResponse2), namespace, excludes...),
 			d.suppressedKinds,
 			d.outputContext,
 			os.Stdout)

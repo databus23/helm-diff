@@ -16,6 +16,9 @@ const (
 	tlsCaCertDefault = "$HELM_HOME/ca.pem"
 	tlsCertDefault   = "$HELM_HOME/cert.pem"
 	tlsKeyDefault    = "$HELM_HOME/key.pem"
+
+	helm2TestSuccessHook = "test-success"
+	helm3TestHook        = "test"
 )
 
 var (

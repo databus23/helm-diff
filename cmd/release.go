@@ -73,9 +73,7 @@ func releaseCmd() *cobra.Command {
 	releaseCmd.Flags().BoolP("suppress-secrets", "q", false, "suppress secrets in the output")
 	releaseCmd.Flags().StringArrayVar(&diff.suppressedKinds, "suppress", []string{}, "allows suppression of the values listed in the diff output")
 	releaseCmd.Flags().IntVarP(&diff.outputContext, "context", "C", -1, "output NUM lines of context around changes")
-	if !isHelm3() {
-		releaseCmd.Flags().BoolVar(&diff.includeTests, "include-tests", false, "enable the diffing of the helm test hooks")
-	}
+	releaseCmd.Flags().BoolVar(&diff.includeTests, "include-tests", false, "enable the diffing of the helm test hooks")
 	releaseCmd.SuggestionsMinimumDistance = 1
 
 	if !isHelm3() {
@@ -86,28 +84,33 @@ func releaseCmd() *cobra.Command {
 }
 
 func (d *release) differentiateHelm3() error {
-	releaseResponse1, err := getRelease(d.releases[0], "")
+	namespace := os.Getenv("HELM_NAMESPACE")
+	excludes := []string{helm3TestHook, helm2TestSuccessHook}
+	if d.includeTests {
+		excludes = []string{}
+	}
+	releaseResponse1, err := getRelease(d.releases[0], namespace)
 	if err != nil {
 		return err
 	}
-	releaseChart1, err := getChart(d.releases[0], "")
+	releaseChart1, err := getChart(d.releases[0], namespace)
 	if err != nil {
 		return err
 	}
 
-	releaseResponse2, err := getRelease(d.releases[1], "")
+	releaseResponse2, err := getRelease(d.releases[1], namespace)
 	if err != nil {
 		return err
 	}
-	releaseChart2, err := getChart(d.releases[1], "")
+	releaseChart2, err := getChart(d.releases[1], namespace)
 	if err != nil {
 		return err
 	}
 
 	if releaseChart1 == releaseChart2 {
 		seenAnyChanges := diff.Releases(
-			manifest.Parse(string(releaseResponse1), ""),
-			manifest.Parse(string(releaseResponse2), ""),
+			manifest.Parse(string(releaseResponse1), namespace, excludes...),
+			manifest.Parse(string(releaseResponse2), namespace, excludes...),
 			d.suppressedKinds,
 			d.outputContext,
 			os.Stdout)
