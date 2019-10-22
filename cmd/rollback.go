@@ -60,6 +60,10 @@ func rollbackCmd() *cobra.Command {
 			diff.release = args[0]
 			diff.revisions = args[1:]
 
+			if isHelm3() {
+				return diff.backcastHelm3()
+			}
+
 			if diff.client == nil {
 				diff.client = createHelmClient()
 			}
@@ -74,9 +78,49 @@ func rollbackCmd() *cobra.Command {
 	rollbackCmd.Flags().BoolVar(&diff.includeTests, "include-tests", false, "enable the diffing of the helm test hooks")
 	rollbackCmd.SuggestionsMinimumDistance = 1
 
-	addCommonCmdOptions(rollbackCmd.Flags())
+	if !isHelm3() {
+		addCommonCmdOptions(rollbackCmd.Flags())
+	}
 
 	return rollbackCmd
+}
+
+func (d *rollback) backcastHelm3() error {
+	namespace := os.Getenv("HELM_NAMESPACE")
+	excludes := []string{helm3TestHook, helm2TestSuccessHook}
+	if d.includeTests {
+		excludes = []string{}
+	}
+	// get manifest of the latest release
+	releaseResponse, err := getRelease(d.release, namespace)
+
+	if err != nil {
+		return err
+	}
+
+	// get manifest of the release to rollback
+	revision, _ := strconv.Atoi(d.revisions[0])
+	revisionResponse, err := getRevision(d.release, revision, namespace)
+	if err != nil {
+		return err
+	}
+
+	// create a diff between the current manifest and the version of the manifest that a user is intended to rollback
+	seenAnyChanges := diff.Manifests(
+		manifest.Parse(string(releaseResponse), namespace, excludes...),
+		manifest.Parse(string(revisionResponse), namespace, excludes...),
+		d.suppressedKinds,
+		d.outputContext,
+		os.Stdout)
+
+	if d.detailedExitCode && seenAnyChanges {
+		return Error{
+			error: errors.New("identified at least one change, exiting with non-zero exit code (detailed-exitcode parameter enabled)"),
+			Code:  2,
+		}
+	}
+
+	return nil
 }
 
 func (d *rollback) backcast() error {

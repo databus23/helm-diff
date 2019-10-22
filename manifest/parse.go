@@ -11,6 +11,10 @@ import (
 	"k8s.io/helm/pkg/proto/hapi/release"
 )
 
+const (
+	hookAnnotation = "helm.sh/hook"
+)
+
 var yamlSeperator = []byte("\n---\n")
 
 // MappingResult to store result of diff
@@ -24,8 +28,9 @@ type metadata struct {
 	APIVersion string `yaml:"apiVersion"`
 	Kind       string
 	Metadata   struct {
-		Namespace string
-		Name      string
+		Namespace   string
+		Name        string
+		Annotations map[string]string
 	}
 }
 
@@ -78,7 +83,7 @@ func ParseRelease(release *release.Release, includeTests bool) map[string]*Mappi
 }
 
 // Parse parses manifest strings into MappingResult
-func Parse(manifest string, defaultNamespace string) map[string]*MappingResult {
+func Parse(manifest string, defaultNamespace string, excludedHooks ...string) map[string]*MappingResult {
 	scanner := bufio.NewScanner(strings.NewReader(manifest))
 	scanner.Split(scanYamlSpecs)
 	//Allow for tokens (specs) up to 1M in size
@@ -89,8 +94,8 @@ func Parse(manifest string, defaultNamespace string) map[string]*MappingResult {
 	result := make(map[string]*MappingResult)
 
 	for scanner.Scan() {
-		content := scanner.Text()
-		if strings.TrimSpace(content) == "" {
+		content := strings.TrimSpace(scanner.Text())
+		if content == "" {
 			continue
 		}
 		var parsedMetadata metadata
@@ -100,7 +105,10 @@ func Parse(manifest string, defaultNamespace string) map[string]*MappingResult {
 
 		//Skip content without any metadata.  It is probably a template that
 		//only contains comments in the current state.
-		if (metadata{}) == parsedMetadata {
+		if parsedMetadata.APIVersion == "" && parsedMetadata.Kind == "" {
+			continue
+		}
+		if isHook(parsedMetadata, excludedHooks...) {
 			continue
 		}
 
@@ -122,6 +130,15 @@ func Parse(manifest string, defaultNamespace string) map[string]*MappingResult {
 		log.Fatalf("Error reading input: %s", err)
 	}
 	return result
+}
+
+func isHook(metadata metadata, hooks ...string) bool {
+	for _, hook := range hooks {
+		if metadata.Metadata.Annotations[hookAnnotation] == hook {
+			return true
+		}
+	}
+	return false
 }
 
 func isTestHook(hookEvents []release.Hook_Event) bool {

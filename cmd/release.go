@@ -60,6 +60,9 @@ func releaseCmd() *cobra.Command {
 			}
 
 			diff.releases = args[0:]
+			if isHelm3() {
+				return diff.differentiateHelm3()
+			}
 			if diff.client == nil {
 				diff.client = createHelmClient()
 			}
@@ -73,9 +76,55 @@ func releaseCmd() *cobra.Command {
 	releaseCmd.Flags().BoolVar(&diff.includeTests, "include-tests", false, "enable the diffing of the helm test hooks")
 	releaseCmd.SuggestionsMinimumDistance = 1
 
-	addCommonCmdOptions(releaseCmd.Flags())
+	if !isHelm3() {
+		addCommonCmdOptions(releaseCmd.Flags())
+	}
 
 	return releaseCmd
+}
+
+func (d *release) differentiateHelm3() error {
+	namespace := os.Getenv("HELM_NAMESPACE")
+	excludes := []string{helm3TestHook, helm2TestSuccessHook}
+	if d.includeTests {
+		excludes = []string{}
+	}
+	releaseResponse1, err := getRelease(d.releases[0], namespace)
+	if err != nil {
+		return err
+	}
+	releaseChart1, err := getChart(d.releases[0], namespace)
+	if err != nil {
+		return err
+	}
+
+	releaseResponse2, err := getRelease(d.releases[1], namespace)
+	if err != nil {
+		return err
+	}
+	releaseChart2, err := getChart(d.releases[1], namespace)
+	if err != nil {
+		return err
+	}
+
+	if releaseChart1 == releaseChart2 {
+		seenAnyChanges := diff.Releases(
+			manifest.Parse(string(releaseResponse1), namespace, excludes...),
+			manifest.Parse(string(releaseResponse2), namespace, excludes...),
+			d.suppressedKinds,
+			d.outputContext,
+			os.Stdout)
+
+		if d.detailedExitCode && seenAnyChanges {
+			return Error{
+				error: errors.New("identified at least one change, exiting with non-zero exit code (detailed-exitcode parameter enabled)"),
+				Code:  2,
+			}
+		}
+	} else {
+		fmt.Printf("Error : Incomparable Releases \n Unable to compare releases from two different charts \"%s\", \"%s\". \n try helm diff release --help to know more \n", releaseChart1, releaseChart2)
+	}
+	return nil
 }
 
 func (d *release) differentiate() error {

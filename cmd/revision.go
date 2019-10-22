@@ -70,6 +70,9 @@ func revisionCmd() *cobra.Command {
 
 			diff.release = args[0]
 			diff.revisions = args[1:]
+			if isHelm3() {
+				return diff.differentiateHelm3()
+			}
 			if diff.client == nil {
 				diff.client = createHelmClient()
 			}
@@ -83,9 +86,76 @@ func revisionCmd() *cobra.Command {
 	revisionCmd.Flags().BoolVar(&diff.includeTests, "include-tests", false, "enable the diffing of the helm test hooks")
 	revisionCmd.SuggestionsMinimumDistance = 1
 
-	addCommonCmdOptions(revisionCmd.Flags())
+	if !isHelm3() {
+		addCommonCmdOptions(revisionCmd.Flags())
+	}
 
 	return revisionCmd
+}
+
+func (d *revision) differentiateHelm3() error {
+	namespace := os.Getenv("HELM_NAMESPACE")
+	excludes := []string{helm3TestHook, helm2TestSuccessHook}
+	if d.includeTests {
+		excludes = []string{}
+	}
+	switch len(d.revisions) {
+	case 1:
+		releaseResponse, err := getRelease(d.release, namespace)
+
+		if err != nil {
+			return err
+		}
+
+		revision, _ := strconv.Atoi(d.revisions[0])
+		revisionResponse, err := getRevision(d.release, revision, namespace)
+		if err != nil {
+			return err
+		}
+
+		diff.Manifests(
+			manifest.Parse(string(revisionResponse), namespace, excludes...),
+			manifest.Parse(string(releaseResponse), namespace, excludes...),
+			d.suppressedKinds,
+			d.outputContext,
+			os.Stdout)
+
+	case 2:
+		revision1, _ := strconv.Atoi(d.revisions[0])
+		revision2, _ := strconv.Atoi(d.revisions[1])
+		if revision1 > revision2 {
+			revision1, revision2 = revision2, revision1
+		}
+
+		revisionResponse1, err := getRevision(d.release, revision1, namespace)
+		if err != nil {
+			return prettyError(err)
+		}
+
+		revisionResponse2, err := getRevision(d.release, revision2, namespace)
+		if err != nil {
+			return prettyError(err)
+		}
+
+		seenAnyChanges := diff.Manifests(
+			manifest.Parse(string(revisionResponse1), namespace, excludes...),
+			manifest.Parse(string(revisionResponse2), namespace, excludes...),
+			d.suppressedKinds,
+			d.outputContext,
+			os.Stdout)
+
+		if d.detailedExitCode && seenAnyChanges {
+			return Error{
+				error: errors.New("identified at least one change, exiting with non-zero exit code (detailed-exitcode parameter enabled)"),
+				Code:  2,
+			}
+		}
+
+	default:
+		return errors.New("Invalid Arguments")
+	}
+
+	return nil
 }
 
 func (d *revision) differentiate() error {

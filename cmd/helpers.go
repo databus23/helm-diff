@@ -16,6 +16,9 @@ const (
 	tlsCaCertDefault = "$HELM_HOME/ca.pem"
 	tlsCertDefault   = "$HELM_HOME/cert.pem"
 	tlsKeyDefault    = "$HELM_HOME/key.pem"
+
+	helm2TestSuccessHook = "test-success"
+	helm3TestHook        = "test"
 )
 
 var (
@@ -23,6 +26,10 @@ var (
 	// DefaultHelmHome to hold default home path of .helm dir
 	DefaultHelmHome = filepath.Join(homedir.HomeDir(), ".helm")
 )
+
+func isHelm3() bool {
+	return os.Getenv("TILLER_HOST") == ""
+}
 
 func addCommonCmdOptions(f *flag.FlagSet) {
 	settings.AddFlagsTLS(f)
