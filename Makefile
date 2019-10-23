@@ -42,6 +42,7 @@ ifndef HAS_GLIDE
 	go get -u github.com/Masterminds/glide
 endif
 	glide install --strip-vendor
+	command -v golint || go get -u golang.org/x/lint/golint
 
 .PHONY: docker-run-release
 docker-run-release: export pkg=/go/src/github.com/databus23/helm-diff
