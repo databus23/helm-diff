@@ -49,7 +49,7 @@ docker-run-release: export pkg=/go/src/github.com/databus23/helm-diff
 docker-run-release:
 	git checkout master
 	git push
-	docker run -it --rm -e GITHUB_TOKEN -v $(shell pwd):$(pkg) -w $(pkg) golang:1.12.5 make bootstrap release
+	docker run -it --rm -e GITHUB_TOKEN -v $(shell pwd):$(pkg) -w $(pkg) golang:1.13.3 make bootstrap release
 
 .PHONY: dist
 dist: export COPYFILE_DISABLE=1 #teach OSX tar to not put ._* files in tar archive
@@ -69,7 +69,7 @@ dist:
 	tar -C build/ -zcvf $(CURDIR)/release/helm-diff-windows.tgz diff/
 
 .PHONY: release
-release: lint dist 
+release: lint dist
 ifndef GITHUB_TOKEN
 	$(error GITHUB_TOKEN is undefined)
 endif
