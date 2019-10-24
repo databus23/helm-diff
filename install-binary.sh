@@ -5,15 +5,15 @@
 PROJECT_NAME="helm-diff"
 PROJECT_GH="databus23/$PROJECT_NAME"
 
-: ${HELM_PLUGIN_PATH:="$(helm home --debug=false)/plugins/helm-diff"}
+: ${HELM_PLUGIN_DIR:="$(helm home --debug=false)/plugins/helm-diff"}
 
-# Convert the HELM_PLUGIN_PATH to unix if cygpath is
+# Convert the HELM_PLUGIN_DIR to unix if cygpath is
 # available. This is the case when using MSYS2 or Cygwin
 # on Windows where helm returns a Windows path but we
 # need a Unix path
 
 if type cygpath > /dev/null 2>&1; then
-  HELM_PLUGIN_PATH=$(cygpath -u $HELM_PLUGIN_PATH)
+  HELM_PLUGIN_DIR=$(cygpath -u $HELM_PLUGIN_DIR)
 fi
 
 if [[ $SKIP_BIN_INSTALL == "1" ]]; then
@@ -66,7 +66,7 @@ verifySupported() {
 
 # getDownloadURL checks the latest available version.
 getDownloadURL() {
-  local version=$(git -C $HELM_PLUGIN_PATH describe --tags --exact-match 2>/dev/null)
+  local version=$(git -C $HELM_PLUGIN_DIR describe --tags --exact-match 2>/dev/null)
   if [ -n "$version" ]; then
     DOWNLOAD_URL="https://github.com/$PROJECT_GH/releases/download/$version/helm-diff-$OS.tgz"
   else
@@ -99,9 +99,9 @@ installFile() {
   mkdir -p "$HELM_TMP"
   tar xf "$PLUGIN_TMP_FILE" -C "$HELM_TMP"
   HELM_TMP_BIN="$HELM_TMP/diff/bin/diff"
-  echo "Preparing to install into ${HELM_PLUGIN_PATH}"
-  mkdir -p "$HELM_PLUGIN_PATH/bin"
-  cp "$HELM_TMP_BIN" "$HELM_PLUGIN_PATH/bin"
+  echo "Preparing to install into ${HELM_PLUGIN_DIR}"
+  mkdir -p "$HELM_PLUGIN_DIR/bin"
+  cp "$HELM_TMP_BIN" "$HELM_PLUGIN_DIR/bin"
 }
 
 # fail_trap is executed if an error occurs.
@@ -117,8 +117,8 @@ fail_trap() {
 # testVersion tests the installed client to make sure it is working.
 testVersion() {
   set +e
-  echo "$PROJECT_NAME installed into $HELM_PLUGIN_PATH/$PROJECT_NAME"
-  "${HELM_PLUGIN_PATH}/bin/diff" -h
+  echo "$PROJECT_NAME installed into $HELM_PLUGIN_DIR/$PROJECT_NAME"
+  "${HELM_PLUGIN_DIR}/bin/diff" -h
   set -e
 }
 
