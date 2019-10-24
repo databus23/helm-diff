@@ -93,7 +93,7 @@ func (d *diffCmd) template() ([]byte, error) {
 
 func (d *diffCmd) existingValues(f *os.File) error {
 	cmd := exec.Command(os.Getenv("HELM_BIN"), "get", "values", d.release, "--all")
-	DebugPrint("Executing %s", strings.Join(cmd.Args, " "))
+	debugPrint("Executing %s", strings.Join(cmd.Args, " "))
 	defer f.Close()
 	cmd.Stdout = f
 	return cmd.Run()

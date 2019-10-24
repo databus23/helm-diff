@@ -36,7 +36,7 @@ func isHelm3() bool {
 func isDebug() bool {
 	return os.Getenv("HELM_DEBUG") == "true"
 }
-func DebugPrint(format string, a ...interface{}) {
+func debugPrint(format string, a ...interface{}) {
 	if isDebug() {
 		fmt.Printf(format+"\n", a...)
 	}
@@ -84,7 +84,7 @@ func expandTLSPaths() {
 }
 
 func outputWithRichError(cmd *exec.Cmd) ([]byte, error) {
-	DebugPrint("Executing %s", strings.Join(cmd.Args, " "))
+	debugPrint("Executing %s", strings.Join(cmd.Args, " "))
 	output, err := cmd.Output()
 	if exitError, ok := err.(*exec.ExitError); ok {
 		return output, fmt.Errorf("%s: %s", exitError.Error(), string(exitError.Stderr))
