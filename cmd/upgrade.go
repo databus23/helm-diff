@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -111,7 +110,7 @@ func (d *diffCmd) runHelm3() error {
 	releaseManifest, err := getRelease(d.release, d.namespace)
 
 	var newInstall bool
-	if err != nil && strings.Contains(string(err.(*exec.ExitError).Stderr), "release: not found") {
+	if err != nil && strings.Contains(err.Error(), "release: not found") {
 		if d.allowUnreleased {
 			fmt.Printf("********************\n\n\tRelease was not present in Helm.  Diff will show entire contents as new.\n\n********************\n")
 			err = nil
@@ -122,12 +121,12 @@ func (d *diffCmd) runHelm3() error {
 
 	}
 	if err != nil {
-		return err
+		return fmt.Errorf("Failed to get release %s in namespace %s: %s", d.release, d.namespace, err)
 	}
 
 	installManifest, err := d.template()
 	if err != nil {
-		return err
+		return fmt.Errorf("Failed to render chart: %s", err)
 	}
 
 	currentSpecs := make(map[string]*manifest.MappingResult)

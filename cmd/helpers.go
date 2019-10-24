@@ -3,7 +3,9 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 
 	flag "github.com/spf13/pflag"
 	"k8s.io/client-go/util/homedir"
@@ -29,6 +31,15 @@ var (
 
 func isHelm3() bool {
 	return os.Getenv("TILLER_HOST") == ""
+}
+
+func isDebug() bool {
+	return os.Getenv("HELM_DEBUG") == "true"
+}
+func DebugPrint(format string, a ...interface{}) {
+	if isDebug() {
+		fmt.Printf(format+"\n", a...)
+	}
 }
 
 func addCommonCmdOptions(f *flag.FlagSet) {
@@ -70,4 +81,13 @@ func expandTLSPaths() {
 	settings.TLSCaCertFile = os.ExpandEnv(settings.TLSCaCertFile)
 	settings.TLSCertFile = os.ExpandEnv(settings.TLSCertFile)
 	settings.TLSKeyFile = os.ExpandEnv(settings.TLSKeyFile)
+}
+
+func outputWithRichError(cmd *exec.Cmd) ([]byte, error) {
+	DebugPrint("Executing %s", strings.Join(cmd.Args, " "))
+	output, err := cmd.Output()
+	if exitError, ok := err.(*exec.ExitError); ok {
+		return output, fmt.Errorf("%s: %s", exitError.Error(), string(exitError.Stderr))
+	}
+	return output, err
 }

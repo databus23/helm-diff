@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"strings"
 )
 
 func getRelease(release, namespace string) ([]byte, error) {
@@ -13,7 +14,7 @@ func getRelease(release, namespace string) ([]byte, error) {
 		args = append(args, "--namespace", namespace)
 	}
 	cmd := exec.Command(os.Getenv("HELM_BIN"), args...)
-	return cmd.Output()
+	return outputWithRichError(cmd)
 }
 
 func getHooks(release, namespace string) ([]byte, error) {
@@ -22,7 +23,7 @@ func getHooks(release, namespace string) ([]byte, error) {
 		args = append(args, "--namespace", namespace)
 	}
 	cmd := exec.Command(os.Getenv("HELM_BIN"), args...)
-	return cmd.Output()
+	return outputWithRichError(cmd)
 }
 
 func getRevision(release string, revision int, namespace string) ([]byte, error) {
@@ -31,7 +32,7 @@ func getRevision(release string, revision int, namespace string) ([]byte, error)
 		args = append(args, "--namespace", namespace)
 	}
 	cmd := exec.Command(os.Getenv("HELM_BIN"), args...)
-	return cmd.Output()
+	return outputWithRichError(cmd)
 }
 
 func getChart(release, namespace string) (string, error) {
@@ -40,7 +41,7 @@ func getChart(release, namespace string) (string, error) {
 		args = append(args, "--namespace", namespace)
 	}
 	cmd := exec.Command(os.Getenv("HELM_BIN"), args...)
-	out, err := cmd.Output()
+	out, err := outputWithRichError(cmd)
 	if err != nil {
 		return "", err
 	}
@@ -87,11 +88,12 @@ func (d *diffCmd) template() ([]byte, error) {
 	args := []string{"template", d.release, d.chart}
 	args = append(args, flags...)
 	cmd := exec.Command(os.Getenv("HELM_BIN"), args...)
-	return cmd.Output()
+	return outputWithRichError(cmd)
 }
 
 func (d *diffCmd) existingValues(f *os.File) error {
 	cmd := exec.Command(os.Getenv("HELM_BIN"), "get", "values", d.release, "--all")
+	DebugPrint("Executing %s", strings.Join(cmd.Args, " "))
 	defer f.Close()
 	cmd.Stdout = f
 	return cmd.Run()
