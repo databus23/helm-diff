@@ -62,27 +62,32 @@ func (d *diffCmd) template() ([]byte, error) {
 	if d.namespace != "" {
 		flags = append(flags, "--namespace", d.namespace)
 	}
-	if !d.resetValues {
-		if d.reuseValues {
-			tmpfile, err := ioutil.TempFile("", "existing-values")
-			if err != nil {
-				return nil, err
-			}
-			defer os.Remove(tmpfile.Name())
-			flags = append(flags, "--values", tmpfile.Name())
+	// Helm automatically enable --reuse-values when there's no --set, --set-string, --set-values, --set-file present.
+	// Let's simulate that in helm-diff.
+	// See https://medium.com/@kcatstack/understand-helm-upgrade-flags-reset-values-reuse-values-6e58ac8f127e
+	shouldDefaultReusingValues := len(d.values) > 0 && len(d.stringValues) > 0 && len(d.valueFiles) > 0 && len(d.fileValues) > 0
+	if (d.reuseValues || shouldDefaultReusingValues) && !d.resetValues {
+		tmpfile, err := ioutil.TempFile("", "existing-values")
+		if err != nil {
+			return nil, err
 		}
-		for _, value := range d.values {
-			flags = append(flags, "--set", value)
+		defer os.Remove(tmpfile.Name())
+		if err := d.writeExistingValues(tmpfile); err != nil {
+			return nil, err
 		}
-		for _, stringValue := range d.stringValues {
-			flags = append(flags, "--set-string", stringValue)
-		}
-		for _, valueFile := range d.valueFiles {
-			flags = append(flags, "--values", valueFile)
-		}
-		for _, fileValue := range d.fileValues {
-			flags = append(flags, "--set-file", fileValue)
-		}
+		flags = append(flags, "--values", tmpfile.Name())
+	}
+	for _, value := range d.values {
+		flags = append(flags, "--set", value)
+	}
+	for _, stringValue := range d.stringValues {
+		flags = append(flags, "--set-string", stringValue)
+	}
+	for _, valueFile := range d.valueFiles {
+		flags = append(flags, "--values", valueFile)
+	}
+	for _, fileValue := range d.fileValues {
+		flags = append(flags, "--set-file", fileValue)
 	}
 
 	//This is a workaround until https://github.com/helm/helm/pull/6729 is released
@@ -98,8 +103,8 @@ func (d *diffCmd) template() ([]byte, error) {
 	return outputWithRichError(cmd)
 }
 
-func (d *diffCmd) existingValues(f *os.File) error {
-	cmd := exec.Command(os.Getenv("HELM_BIN"), "get", "values", d.release, "--all")
+func (d *diffCmd) writeExistingValues(f *os.File) error {
+	cmd := exec.Command(os.Getenv("HELM_BIN"), "get", "values", d.release, "--all", "--output", "yaml")
 	debugPrint("Executing %s", strings.Join(cmd.Args, " "))
 	defer f.Close()
 	cmd.Stdout = f
