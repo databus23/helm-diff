@@ -85,6 +85,13 @@ func (d *diffCmd) template() ([]byte, error) {
 		}
 	}
 
+	//This is a workaround until https://github.com/helm/helm/pull/6729 is released
+	for _, apiVersion := range strings.Split(os.Getenv("HELM_TEMPLATE_API_VERSIONS"), ",") {
+		if apiVersion != "" {
+			flags = append(flags, "--api-versions", strings.TrimSpace(apiVersion))
+		}
+	}
+
 	args := []string{"template", d.release, d.chart}
 	args = append(args, flags...)
 	cmd := exec.Command(os.Getenv("HELM_BIN"), args...)
