@@ -113,12 +113,12 @@ func (d *diffCmd) runHelm3() error {
 	if err != nil && strings.Contains(err.Error(), "release: not found") {
 		if d.allowUnreleased {
 			fmt.Printf("********************\n\n\tRelease was not present in Helm.  Diff will show entire contents as new.\n\n********************\n")
+			newInstall = true
 			err = nil
 		} else {
 			fmt.Printf("********************\n\n\tRelease was not present in Helm.  Include the `--allow-unreleased` to perform diff without exiting in error.\n\n********************\n")
 			return err
 		}
-
 	}
 	if err != nil {
 		return fmt.Errorf("Failed to get release %s in namespace %s: %s", d.release, d.namespace, err)
