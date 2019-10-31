@@ -84,7 +84,8 @@ func ParseRelease(release *release.Release, includeTests bool) map[string]*Mappi
 
 // Parse parses manifest strings into MappingResult
 func Parse(manifest string, defaultNamespace string, excludedHooks ...string) map[string]*MappingResult {
-	scanner := bufio.NewScanner(strings.NewReader(manifest))
+	// ensure we have a newline in front of the yaml seperator
+	scanner := bufio.NewScanner(strings.NewReader("\n" + manifest))
 	scanner.Split(scanYamlSpecs)
 	//Allow for tokens (specs) up to 1M in size
 	scanner.Buffer(make([]byte, bufio.MaxScanTokenSize), 1048576)
