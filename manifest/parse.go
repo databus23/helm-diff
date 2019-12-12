@@ -95,7 +95,7 @@ func Parse(manifest string, defaultNamespace string, excludedHooks ...string) ma
 	result := make(map[string]*MappingResult)
 
 	for scanner.Scan() {
-		content := strings.TrimSpace(scanner.Text())
+		content := fixMultiLineStrings(strings.TrimSpace(scanner.Text()))
 		if content == "" {
 			continue
 		}
@@ -140,6 +140,34 @@ func isHook(metadata metadata, hooks ...string) bool {
 		}
 	}
 	return false
+}
+
+func fixMultiLineStrings(in string) string {
+	out := ""
+	scanner := bufio.NewScanner(strings.NewReader(in))
+	scanner.Split(bufio.ScanLines)
+	//Allow for tokens (specs) up to 1M in size
+	scanner.Buffer(make([]byte, bufio.MaxScanTokenSize), 1048576)
+	//Discard the first result, we only care about everything after the first seperator
+	for scanner.Scan() {
+		raw := scanner.Text()
+		raw += "\n"
+		ni := strings.Index(raw, "\\n")
+		if ni < 0 {
+			out += raw
+			continue
+		}
+		// get indent
+		indent := raw[0:len(raw)-len(strings.TrimLeft(raw, " \t"))] + "  "
+		// replace first " after : with |\n
+		raw = strings.TrimSuffix(raw, "\\n\"\n") + "\n"
+		raw = strings.Replace(raw, ": \"", ": |\n"+indent, 1)
+		raw = strings.ReplaceAll(raw, "\\n", "\n"+indent)
+		// replace all \\n with \n + indent
+		//log.Printf("FINDME: [%s]%s", indent, raw)
+		out += raw
+	}
+	return out
 }
 
 func isTestHook(hookEvents []release.Hook_Event) bool {
