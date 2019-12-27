@@ -89,7 +89,9 @@ func (d *diffCmd) template() ([]byte, error) {
 	for _, fileValue := range d.fileValues {
 		flags = append(flags, "--set-file", fileValue)
 	}
-
+	for _, apiVersion := range d.apiVersions {
+		flags = append(flags, "--api-versions", apiVersion)
+	}
 	//This is a workaround until https://github.com/helm/helm/pull/6729 is released
 	for _, apiVersion := range strings.Split(os.Getenv("HELM_TEMPLATE_API_VERSIONS"), ",") {
 		if apiVersion != "" {

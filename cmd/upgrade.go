@@ -32,6 +32,7 @@ type diffCmd struct {
 	includeTests     bool
 	suppressedKinds  []string
 	outputContext    int
+	apiVersions      []string
 }
 
 const globalUsage = `Show a diff explaining what a helm upgrade would change.
@@ -94,6 +95,7 @@ func newChartCommand() *cobra.Command {
 	f.BoolVar(&diff.devel, "devel", false, "use development versions, too. Equivalent to version '>0.0.0-0'. If --version is set, this is ignored.")
 	f.StringArrayVar(&diff.suppressedKinds, "suppress", []string{}, "allows suppression of the values listed in the diff output")
 	f.IntVarP(&diff.outputContext, "context", "C", -1, "output NUM lines of context around changes")
+	f.StringArrayVar(&diff.apiVersions, "api-versions", []string{}, "API versions to pass to helm")
 	if !isHelm3() {
 		f.StringVar(&diff.namespace, "namespace", "default", "namespace to assume the release to be installed into")
 	}
