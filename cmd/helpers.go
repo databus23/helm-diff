@@ -3,7 +3,9 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 
 	flag "github.com/spf13/pflag"
 	"k8s.io/client-go/util/homedir"
@@ -16,6 +18,9 @@ const (
 	tlsCaCertDefault = "$HELM_HOME/ca.pem"
 	tlsCertDefault   = "$HELM_HOME/cert.pem"
 	tlsKeyDefault    = "$HELM_HOME/key.pem"
+
+	helm2TestSuccessHook = "test-success"
+	helm3TestHook        = "test"
 )
 
 var (
@@ -23,6 +28,19 @@ var (
 	// DefaultHelmHome to hold default home path of .helm dir
 	DefaultHelmHome = filepath.Join(homedir.HomeDir(), ".helm")
 )
+
+func isHelm3() bool {
+	return os.Getenv("TILLER_HOST") == ""
+}
+
+func isDebug() bool {
+	return os.Getenv("HELM_DEBUG") == "true"
+}
+func debugPrint(format string, a ...interface{}) {
+	if isDebug() {
+		fmt.Printf(format+"\n", a...)
+	}
+}
 
 func addCommonCmdOptions(f *flag.FlagSet) {
 	settings.AddFlagsTLS(f)
@@ -63,4 +81,13 @@ func expandTLSPaths() {
 	settings.TLSCaCertFile = os.ExpandEnv(settings.TLSCaCertFile)
 	settings.TLSCertFile = os.ExpandEnv(settings.TLSCertFile)
 	settings.TLSKeyFile = os.ExpandEnv(settings.TLSKeyFile)
+}
+
+func outputWithRichError(cmd *exec.Cmd) ([]byte, error) {
+	debugPrint("Executing %s", strings.Join(cmd.Args, " "))
+	output, err := cmd.Output()
+	if exitError, ok := err.(*exec.ExitError); ok {
+		return output, fmt.Errorf("%s: %s", exitError.Error(), string(exitError.Stderr))
+	}
+	return output, err
 }

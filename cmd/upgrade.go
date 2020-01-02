@@ -43,7 +43,9 @@ perform.
 `
 
 func newChartCommand() *cobra.Command {
-	diff := diffCmd{}
+	diff := diffCmd{
+		namespace: os.Getenv("HELM_NAMESPACE"),
+	}
 
 	cmd := &cobra.Command{
 		Use:     "upgrade [flags] [RELEASE] [CHART]",
@@ -66,6 +68,9 @@ func newChartCommand() *cobra.Command {
 
 			diff.release = args[0]
 			diff.chart = args[1]
+			if isHelm3() {
+				return diff.runHelm3()
+			}
 			if diff.client == nil {
 				diff.client = createHelmClient()
 			}
@@ -81,7 +86,7 @@ func newChartCommand() *cobra.Command {
 	f.StringArrayVar(&diff.values, "set", []string{}, "set values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)")
 	f.StringArrayVar(&diff.stringValues, "set-string", []string{}, "set STRING values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)")
 	f.StringArrayVar(&diff.fileValues, "set-file", []string{}, "set values from respective files specified via the command line (can specify multiple or separate values with commas: key1=path1,key2=path2)")
-	f.BoolVar(&diff.reuseValues, "reuse-values", false, "reuse the last release's values and merge in any new values")
+	f.BoolVar(&diff.reuseValues, "reuse-values", false, "reuse the last release's values and merge in any new values. If '--reset-values' is specified, this is ignored")
 	f.BoolVar(&diff.resetValues, "reset-values", false, "reset the values to the ones built into the chart and merge in any new values")
 	f.BoolVar(&diff.allowUnreleased, "allow-unreleased", false, "enables diffing of releases that are not yet deployed via Helm")
 	f.BoolVar(&diff.noHooks, "no-hooks", false, "disable diffing of hooks")
@@ -89,12 +94,73 @@ func newChartCommand() *cobra.Command {
 	f.BoolVar(&diff.devel, "devel", false, "use development versions, too. Equivalent to version '>0.0.0-0'. If --version is set, this is ignored.")
 	f.StringArrayVar(&diff.suppressedKinds, "suppress", []string{}, "allows suppression of the values listed in the diff output")
 	f.IntVarP(&diff.outputContext, "context", "C", -1, "output NUM lines of context around changes")
-	f.StringVar(&diff.namespace, "namespace", "default", "namespace to assume the release to be installed into")
+	if !isHelm3() {
+		f.StringVar(&diff.namespace, "namespace", "default", "namespace to assume the release to be installed into")
+	}
 
-	addCommonCmdOptions(f)
+	if !isHelm3() {
+		addCommonCmdOptions(f)
+	}
 
 	return cmd
 
+}
+
+func (d *diffCmd) runHelm3() error {
+	releaseManifest, err := getRelease(d.release, d.namespace)
+
+	var newInstall bool
+	if err != nil && strings.Contains(err.Error(), "release: not found") {
+		if d.allowUnreleased {
+			fmt.Printf("********************\n\n\tRelease was not present in Helm.  Diff will show entire contents as new.\n\n********************\n")
+			newInstall = true
+			err = nil
+		} else {
+			fmt.Printf("********************\n\n\tRelease was not present in Helm.  Include the `--allow-unreleased` to perform diff without exiting in error.\n\n********************\n")
+			return err
+		}
+	}
+	if err != nil {
+		return fmt.Errorf("Failed to get release %s in namespace %s: %s", d.release, d.namespace, err)
+	}
+
+	installManifest, err := d.template()
+	if err != nil {
+		return fmt.Errorf("Failed to render chart: %s", err)
+	}
+
+	currentSpecs := make(map[string]*manifest.MappingResult)
+	if !newInstall {
+		if !d.noHooks {
+			hooks, err := getHooks(d.release, d.namespace)
+			if err != nil {
+				return err
+			}
+			releaseManifest = append(releaseManifest, hooks...)
+		}
+		if d.includeTests {
+			currentSpecs = manifest.Parse(string(releaseManifest), d.namespace)
+		} else {
+			currentSpecs = manifest.Parse(string(releaseManifest), d.namespace, helm3TestHook, helm2TestSuccessHook)
+		}
+	}
+	var newSpecs map[string]*manifest.MappingResult
+	if d.includeTests {
+		newSpecs = manifest.Parse(string(installManifest), d.namespace)
+	} else {
+		newSpecs = manifest.Parse(string(installManifest), d.namespace, helm3TestHook, helm2TestSuccessHook)
+	}
+
+	seenAnyChanges := diff.Manifests(currentSpecs, newSpecs, d.suppressedKinds, d.outputContext, os.Stdout)
+
+	if d.detailedExitCode && seenAnyChanges {
+		return Error{
+			error: errors.New("identified at least one change, exiting with non-zero exit code (detailed-exitcode parameter enabled)"),
+			Code:  2,
+		}
+	}
+
+	return nil
 }
 
 func (d *diffCmd) run() error {

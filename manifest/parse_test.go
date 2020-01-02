@@ -39,6 +39,26 @@ func TestPodNamespace(t *testing.T) {
 	)
 }
 
+func TestPodHook(t *testing.T) {
+	spec, err := ioutil.ReadFile("testdata/pod_hook.yaml")
+	require.NoError(t, err)
+
+	require.Equal(t,
+		[]string{"default, nginx, Pod (v1)"},
+		foundObjects(Parse(string(spec), "default")),
+	)
+
+	require.Equal(t,
+		[]string{"default, nginx, Pod (v1)"},
+		foundObjects(Parse(string(spec), "default", "test-success")),
+	)
+
+	require.Equal(t,
+		[]string{},
+		foundObjects(Parse(string(spec), "default", "test")),
+	)
+}
+
 func TestDeployV1(t *testing.T) {
 	spec, err := ioutil.ReadFile("testdata/deploy_v1.yaml")
 	require.NoError(t, err)
