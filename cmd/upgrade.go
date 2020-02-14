@@ -32,6 +32,7 @@ type diffCmd struct {
 	includeTests     bool
 	suppressedKinds  []string
 	outputContext    int
+	showSecrets      bool
 }
 
 const globalUsage = `Show a diff explaining what a helm upgrade would change.
@@ -82,6 +83,7 @@ func newChartCommand() *cobra.Command {
 	f.StringVar(&diff.chartVersion, "version", "", "specify the exact chart version to use. If this is not specified, the latest version is used")
 	f.BoolVar(&diff.detailedExitCode, "detailed-exitcode", false, "return a non-zero exit code when there are changes")
 	f.BoolP("suppress-secrets", "q", false, "suppress secrets in the output")
+	f.BoolVar(&diff.showSecrets, "show-secrets", false, "do not redact secret values in the output")
 	f.VarP(&diff.valueFiles, "values", "f", "specify values in a YAML file (can specify multiple)")
 	f.StringArrayVar(&diff.values, "set", []string{}, "set values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)")
 	f.StringArrayVar(&diff.stringValues, "set-string", []string{}, "set STRING values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)")
@@ -155,7 +157,7 @@ func (d *diffCmd) runHelm3() error {
 		newSpecs = manifest.Parse(string(installManifest), d.namespace, helm3TestHook, helm2TestSuccessHook)
 	}
 
-	seenAnyChanges := diff.Manifests(currentSpecs, newSpecs, d.suppressedKinds, d.outputContext, os.Stdout)
+	seenAnyChanges := diff.Manifests(currentSpecs, newSpecs, d.suppressedKinds, d.showSecrets, d.outputContext, os.Stdout)
 
 	if d.detailedExitCode && seenAnyChanges {
 		return Error{
@@ -241,7 +243,7 @@ func (d *diffCmd) run() error {
 		}
 	}
 
-	seenAnyChanges := diff.Manifests(currentSpecs, newSpecs, d.suppressedKinds, d.outputContext, os.Stdout)
+	seenAnyChanges := diff.Manifests(currentSpecs, newSpecs, d.suppressedKinds, d.showSecrets, d.outputContext, os.Stdout)
 
 	if d.detailedExitCode && seenAnyChanges {
 		return Error{

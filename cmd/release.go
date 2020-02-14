@@ -19,6 +19,7 @@ type release struct {
 	releases         []string
 	outputContext    int
 	includeTests     bool
+	showSecrets      bool
 }
 
 const releaseCmdLongUsage = `
@@ -71,6 +72,7 @@ func releaseCmd() *cobra.Command {
 	}
 
 	releaseCmd.Flags().BoolP("suppress-secrets", "q", false, "suppress secrets in the output")
+	releaseCmd.Flags().BoolVar(&diff.showSecrets, "show-secrets", false, "do not redact secret values in the output")
 	releaseCmd.Flags().StringArrayVar(&diff.suppressedKinds, "suppress", []string{}, "allows suppression of the values listed in the diff output")
 	releaseCmd.Flags().IntVarP(&diff.outputContext, "context", "C", -1, "output NUM lines of context around changes")
 	releaseCmd.Flags().BoolVar(&diff.includeTests, "include-tests", false, "enable the diffing of the helm test hooks")
@@ -112,6 +114,7 @@ func (d *release) differentiateHelm3() error {
 			manifest.Parse(string(releaseResponse1), namespace, excludes...),
 			manifest.Parse(string(releaseResponse2), namespace, excludes...),
 			d.suppressedKinds,
+			d.showSecrets,
 			d.outputContext,
 			os.Stdout)
 
@@ -144,6 +147,7 @@ func (d *release) differentiate() error {
 			manifest.ParseRelease(releaseResponse1.Release, d.includeTests),
 			manifest.ParseRelease(releaseResponse2.Release, d.includeTests),
 			d.suppressedKinds,
+			d.showSecrets,
 			d.outputContext,
 			os.Stdout)
 

@@ -1,6 +1,7 @@
 package diff
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"math"
@@ -9,12 +10,16 @@ import (
 
 	"github.com/aryann/difflib"
 	"github.com/mgutz/ansi"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime/serializer/json"
+	"k8s.io/apimachinery/pkg/util/yaml"
+	"k8s.io/client-go/kubernetes/scheme"
 
 	"github.com/databus23/helm-diff/manifest"
 )
 
 // Manifests diff on manifests
-func Manifests(oldIndex, newIndex map[string]*manifest.MappingResult, suppressedKinds []string, context int, to io.Writer) bool {
+func Manifests(oldIndex, newIndex map[string]*manifest.MappingResult, suppressedKinds []string, showSecrets bool, context int, to io.Writer) bool {
 	seenAnyChanges := false
 	emptyMapping := &manifest.MappingResult{}
 	for key, oldContent := range oldIndex {
@@ -22,6 +27,10 @@ func Manifests(oldIndex, newIndex map[string]*manifest.MappingResult, suppressed
 			if oldContent.Content != newContent.Content {
 				// modified
 				fmt.Fprintf(to, ansi.Color("%s has changed:", "yellow")+"\n", key)
+				if !showSecrets {
+					redactSecrets(oldContent, newContent)
+				}
+
 				diffs := diffMappingResults(oldContent, newContent)
 				if len(diffs) > 0 {
 					seenAnyChanges = true
@@ -31,6 +40,10 @@ func Manifests(oldIndex, newIndex map[string]*manifest.MappingResult, suppressed
 		} else {
 			// removed
 			fmt.Fprintf(to, ansi.Color("%s has been removed:", "yellow")+"\n", key)
+			if !showSecrets {
+				redactSecrets(oldContent, nil)
+
+			}
 			diffs := diffMappingResults(oldContent, emptyMapping)
 			if len(diffs) > 0 {
 				seenAnyChanges = true
@@ -43,6 +56,9 @@ func Manifests(oldIndex, newIndex map[string]*manifest.MappingResult, suppressed
 		if _, ok := oldIndex[key]; !ok {
 			// added
 			fmt.Fprintf(to, ansi.Color("%s has been added:", "yellow")+"\n", key)
+			if !showSecrets {
+				redactSecrets(nil, newContent)
+			}
 			diffs := diffMappingResults(emptyMapping, newContent)
 			if len(diffs) > 0 {
 				seenAnyChanges = true
@@ -53,11 +69,79 @@ func Manifests(oldIndex, newIndex map[string]*manifest.MappingResult, suppressed
 	return seenAnyChanges
 }
 
+func redactSecrets(old, new *manifest.MappingResult) {
+	if old != nil && old.Kind != "Secret" && new != nil && new.Kind != "Secret" {
+		return
+	}
+	serializer := json.NewYAMLSerializer(json.DefaultMetaFactory, scheme.Scheme,
+		scheme.Scheme)
+	var oldSecret, newSecret v1.Secret
+
+	if old != nil {
+		if err := yaml.NewYAMLToJSONDecoder(bytes.NewBufferString(old.Content)).Decode(&oldSecret); err != nil {
+			old.Content = fmt.Sprintf("Error parsing old secret: %s", err)
+		}
+	}
+	if new != nil {
+		if err := yaml.NewYAMLToJSONDecoder(bytes.NewBufferString(new.Content)).Decode(&newSecret); err != nil {
+			new.Content = fmt.Sprintf("Error parsing new secret: %s", err)
+		}
+	}
+	if old != nil {
+		oldSecret.StringData = make(map[string]string, len(oldSecret.Data))
+		for k, v := range oldSecret.Data {
+			if new != nil && bytes.Equal(v, newSecret.Data[k]) {
+				oldSecret.StringData[k] = fmt.Sprintf("REDACTED # (%d bytes)", len(v))
+			} else {
+				oldSecret.StringData[k] = fmt.Sprintf("-------- # (%d bytes)", len(v))
+			}
+		}
+	}
+	if new != nil {
+		newSecret.StringData = make(map[string]string, len(newSecret.Data))
+		for k, v := range newSecret.Data {
+			if old != nil && bytes.Equal(v, oldSecret.Data[k]) {
+				newSecret.StringData[k] = fmt.Sprintf("REDACTED # (%d bytes)", len(v))
+			} else {
+				newSecret.StringData[k] = fmt.Sprintf("++++++++ # (%d bytes)", len(v))
+			}
+		}
+	}
+	// remove Data field now that we are using StringData for serialization
+	var buf bytes.Buffer
+	if old != nil {
+		oldSecret.Data = nil
+		if err := serializer.Encode(&oldSecret, &buf); err != nil {
+
+		}
+		old.Content = getComment(old.Content) + strings.Replace(strings.Replace(buf.String(), "stringData", "data", 1), "  creationTimestamp: null\n", "", 1)
+		buf.Reset() //reuse buffer for new secret
+	}
+	if new != nil {
+		newSecret.Data = nil
+		if err := serializer.Encode(&newSecret, &buf); err != nil {
+
+		}
+		new.Content = getComment(new.Content) + strings.Replace(strings.Replace(buf.String(), "stringData", "data", 1), "  creationTimestamp: null\n", "", 1)
+	}
+}
+
+// return the first line of a string if its a comment.
+// This gives as the # Source: lines from the rendering
+func getComment(s string) string {
+	i := strings.Index(s, "\n")
+	if i < 0 || !strings.HasPrefix(s, "#") {
+		return ""
+	}
+	return s[:i+1]
+
+}
+
 // Releases reindex the content  based on the template names and pass it to Manifests
-func Releases(oldIndex, newIndex map[string]*manifest.MappingResult, suppressedKinds []string, context int, to io.Writer) bool {
+func Releases(oldIndex, newIndex map[string]*manifest.MappingResult, suppressedKinds []string, showSecrets bool, context int, to io.Writer) bool {
 	oldIndex = reIndexForRelease(oldIndex)
 	newIndex = reIndexForRelease(newIndex)
-	return Manifests(oldIndex, newIndex, suppressedKinds, context, to)
+	return Manifests(oldIndex, newIndex, suppressedKinds, showSecrets, context, to)
 }
 
 func diffMappingResults(oldContent *manifest.MappingResult, newContent *manifest.MappingResult) []difflib.DiffRecord {
@@ -71,6 +155,7 @@ func diffStrings(before, after string) []difflib.DiffRecord {
 
 func printDiffRecords(suppressedKinds []string, kind string, context int, diffs []difflib.DiffRecord, to io.Writer) {
 	for _, ckind := range suppressedKinds {
+
 		if ckind == kind {
 			str := fmt.Sprintf("+ Changes suppressed on sensitive content of type %s\n", kind)
 			fmt.Fprintf(to, ansi.Color(str, "yellow"))

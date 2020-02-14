@@ -21,6 +21,7 @@ type rollback struct {
 	revisions        []string
 	outputContext    int
 	includeTests     bool
+	showSecrets      bool
 }
 
 const rollbackCmdLongUsage = `
@@ -73,6 +74,7 @@ func rollbackCmd() *cobra.Command {
 	}
 
 	rollbackCmd.Flags().BoolP("suppress-secrets", "q", false, "suppress secrets in the output")
+	rollbackCmd.Flags().BoolVar(&diff.showSecrets, "show-secrets", false, "do not redact secret values in the output")
 	rollbackCmd.Flags().StringArrayVar(&diff.suppressedKinds, "suppress", []string{}, "allows suppression of the values listed in the diff output")
 	rollbackCmd.Flags().IntVarP(&diff.outputContext, "context", "C", -1, "output NUM lines of context around changes")
 	rollbackCmd.Flags().BoolVar(&diff.includeTests, "include-tests", false, "enable the diffing of the helm test hooks")
@@ -110,6 +112,7 @@ func (d *rollback) backcastHelm3() error {
 		manifest.Parse(string(releaseResponse), namespace, excludes...),
 		manifest.Parse(string(revisionResponse), namespace, excludes...),
 		d.suppressedKinds,
+		d.showSecrets,
 		d.outputContext,
 		os.Stdout)
 
@@ -144,6 +147,7 @@ func (d *rollback) backcast() error {
 		manifest.ParseRelease(releaseResponse.Release, d.includeTests),
 		manifest.ParseRelease(revisionResponse.Release, d.includeTests),
 		d.suppressedKinds,
+		d.showSecrets,
 		d.outputContext,
 		os.Stdout)
 
