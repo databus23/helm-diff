@@ -1,13 +1,46 @@
 package cmd
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/Masterminds/semver"
 )
 
+var (
+	helmVersionRE  = regexp.MustCompile(`Version:\s*"([^"]+)"`)
+	minHelmVersion = semver.MustParse("v3.1.0-rc.1")
+)
+
+func compatibleHelm3Version() error {
+	cmd := exec.Command(os.Getenv("HELM_BIN"), "version")
+	debugPrint("Executing %s", strings.Join(cmd.Args, " "))
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("Failed to run `%s version`: %v", os.Getenv("HELM_BIN"), err)
+	}
+	versionOutput := string(output)
+
+	matches := helmVersionRE.FindStringSubmatch(versionOutput)
+	if matches == nil {
+		return fmt.Errorf("Failed to find version in output %#v", versionOutput)
+	}
+	helmVersion, err := semver.NewVersion(matches[1])
+	if err != nil {
+		return fmt.Errorf("Failed to parse version %#v: %v", matches[1], err)
+	}
+
+	if minHelmVersion.GreaterThan(helmVersion) {
+		return fmt.Errorf("helm diff upgrade requires at least helm version %s", minHelmVersion.String())
+	}
+	return nil
+
+}
 func getRelease(release, namespace string) ([]byte, error) {
 	args := []string{"get", "manifest", release}
 	if namespace != "" {
@@ -48,7 +81,7 @@ func getChart(release, namespace string) (string, error) {
 	return string(out), nil
 }
 
-func (d *diffCmd) template() ([]byte, error) {
+func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 	flags := []string{}
 	if d.devel {
 		flags = append(flags, "--devel")
@@ -90,11 +123,10 @@ func (d *diffCmd) template() ([]byte, error) {
 		flags = append(flags, "--set-file", fileValue)
 	}
 
-	//This is a workaround until https://github.com/helm/helm/pull/6729 is released
-	for _, apiVersion := range strings.Split(os.Getenv("HELM_TEMPLATE_API_VERSIONS"), ",") {
-		if apiVersion != "" {
-			flags = append(flags, "--api-versions", strings.TrimSpace(apiVersion))
-		}
+	flags = append(flags, "--validate")
+
+	if isUpgrade {
+		flags = append(flags, "--is-upgrade")
 	}
 
 	args := []string{"template", d.release, d.chart}
