@@ -4,6 +4,7 @@
 
 PROJECT_NAME="helm-diff"
 PROJECT_GH="databus23/$PROJECT_NAME"
+GREP_COLOR="never"
 
 : ${HELM_PLUGIN_DIR:="$(helm home --debug=false)/plugins/helm-diff"}
 
