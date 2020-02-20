@@ -17,14 +17,19 @@ imports:
   - syntax/lexer
   - util/runes
   - util/strings
-- name: github.com/gogo/protobuf
-  version: 5628607bb4c51c3157aacc3a50f0ab707582b805
+- name: github.com/golang/protobuf
+  version: b4deda0973fb4c70b50d226b1af49f3da59f5265
   subpackages:
   - proto
   - ptypes
   - ptypes/any
   - ptypes/duration
   - ptypes/timestamp
+- name: github.com/gogo/protobuf
+  version: 5628607bb4c51c3157aacc3a50f0ab707582b805
+  subpackages:
+  - proto
+  - sortkeys
 - name: github.com/golang/glog
   version: 23def4e6c14b4da8ac2ed8007337bc5eb5007998
 - name: github.com/google/gofuzz
