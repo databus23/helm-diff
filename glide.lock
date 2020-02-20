@@ -17,14 +17,22 @@ imports:
   - syntax/lexer
   - util/runes
   - util/strings
-- name: github.com/golang/protobuf
-  version: b4deda0973fb4c70b50d226b1af49f3da59f5265
+- name: github.com/gogo/protobuf
+  version: 5628607bb4c51c3157aacc3a50f0ab707582b805
   subpackages:
   - proto
   - ptypes
   - ptypes/any
   - ptypes/duration
   - ptypes/timestamp
+- name: github.com/golang/glog
+  version: 23def4e6c14b4da8ac2ed8007337bc5eb5007998
+- name: github.com/google/gofuzz
+  version: 1868c06f7fd92d7b8635996f597f048d5ab709aa
+- name: github.com/json-iterator/go
+  version: 7acbb404a45be33f136d6f16fe8f86ca30f1008d
+- name: gopkg.in/inf.v0
+  version: d2d2541c53f18d2a059457998ce2876cc8e67cbf
 - name: github.com/google/uuid
   version: 064e2069ce9c359c118179501254f67d7d37ba24
 - name: github.com/huandu/xstrings
