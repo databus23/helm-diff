@@ -84,12 +84,12 @@ func ParseRelease(release *release.Release, includeTests bool) map[string]*Mappi
 
 // Parse parses manifest strings into MappingResult
 func Parse(manifest string, defaultNamespace string, excludedHooks ...string) map[string]*MappingResult {
-	// ensure we have a newline in front of the yaml seperator
+	// Ensure we have a newline in front of the yaml seperator
 	scanner := bufio.NewScanner(strings.NewReader("\n" + manifest))
 	scanner.Split(scanYamlSpecs)
-	//Allow for tokens (specs) up to 1M in size
-	scanner.Buffer(make([]byte, bufio.MaxScanTokenSize), 1048576)
-	//Discard the first result, we only care about everything after the first separator
+	// Allow for tokens (specs) up to 10MiB in size
+	scanner.Buffer(make([]byte, bufio.MaxScanTokenSize), 10485760)
+	// Discard the first result, we only care about everything after the first separator
 	scanner.Scan()
 
 	result := make(map[string]*MappingResult)
@@ -104,8 +104,8 @@ func Parse(manifest string, defaultNamespace string, excludedHooks ...string) ma
 			log.Fatalf("YAML unmarshal error: %s\nCan't unmarshal %s", err, content)
 		}
 
-		//Skip content without any metadata.  It is probably a template that
-		//only contains comments in the current state.
+		// Skip content without any metadata. It is probably a template that
+		// only contains comments in the current state.
 		if parsedMetadata.APIVersion == "" && parsedMetadata.Kind == "" {
 			continue
 		}
