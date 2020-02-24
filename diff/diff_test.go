@@ -158,7 +158,7 @@ metadata:
 
 		var buf1 bytes.Buffer
 
-		if changesSeen := Manifests(specBeta, specRelease, []string{}, 10, &buf1); !changesSeen {
+		if changesSeen := Manifests(specBeta, specRelease, []string{}, true, 10, &buf1); !changesSeen {
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
 		}
 
@@ -176,7 +176,7 @@ metadata:
 	t.Run("OnNoChange", func(t *testing.T) {
 		var buf2 bytes.Buffer
 
-		if changesSeen := Manifests(specRelease, specRelease, []string{}, 10, &buf2); changesSeen {
+		if changesSeen := Manifests(specRelease, specRelease, []string{}, true, 10, &buf2); changesSeen {
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `false` to indicate that it has NOT seen any change(s), but was `true`")
 		}
 
