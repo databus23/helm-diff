@@ -70,7 +70,7 @@ func Manifests(oldIndex, newIndex map[string]*manifest.MappingResult, suppressed
 }
 
 func redactSecrets(old, new *manifest.MappingResult) {
-	if old != nil && old.Kind != "Secret" && new != nil && new.Kind != "Secret" {
+	if (old != nil && old.Kind != "Secret") || (new != nil && new.Kind != "Secret") {
 		return
 	}
 	serializer := json.NewYAMLSerializer(json.DefaultMetaFactory, scheme.Scheme,
