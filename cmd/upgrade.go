@@ -33,6 +33,7 @@ type diffCmd struct {
 	suppressedKinds  []string
 	outputContext    int
 	showSecrets      bool
+	postRenderer     string
 }
 
 const globalUsage = `Show a diff explaining what a helm upgrade would change.
@@ -104,6 +105,9 @@ func newChartCommand() *cobra.Command {
 		addCommonCmdOptions(f)
 	}
 
+	if isHelm3() {
+		f.StringVar(&diff.postRenderer, "post-renderer", "", "the path to an executable to be used for post rendering")
+	}
 	return cmd
 
 }

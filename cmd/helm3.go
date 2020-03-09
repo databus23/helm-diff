@@ -122,6 +122,9 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 	for _, fileValue := range d.fileValues {
 		flags = append(flags, "--set-file", fileValue)
 	}
+	if d.postRenderer != "" {
+		flags = append(flags, "--post-renderer", d.postRenderer)
+	}
 
 	flags = append(flags, "--validate")
 

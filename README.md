@@ -79,15 +79,24 @@ Examples:
   helm diff upgrade my-release stable/postgresql --values values.yaml
 
 Flags:
-  -h, --help                   help for upgrade
-      --detailed-exitcode      return a non-zero exit code when there are changes
-      --reset-values           reset the values to the ones built into the chart and merge in any new values
-      --reuse-values           reuse the last release's values and merge in any new values
-      --set stringArray        set values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)
-      --suppress stringArray   allows suppression of the values listed in the diff output
-  -q, --suppress-secrets       suppress secrets in the output
-  -f, --values valueFiles      specify values in a YAML file (can specify multiple) (default [])
-      --version string         specify the exact chart version to use. If this is not specified, the latest version is used
+      --allow-unreleased         enables diffing of releases that are not yet deployed via Helm
+  -C, --context int              output NUM lines of context around changes (default -1)
+      --detailed-exitcode        return a non-zero exit code when there are changes
+      --devel                    use development versions, too. Equivalent to version '>0.0.0-0'. If --version is set, this is ignored.
+  -h, --help                     help for upgrade
+      --include-tests            enable the diffing of the helm test hooks
+      --no-hooks                 disable diffing of hooks
+      --post-renderer string     the path to an executable to be used for post rendering
+      --reset-values             reset the values to the ones built into the chart and merge in any new values
+      --reuse-values             reuse the last release's values and merge in any new values. If '--reset-values' is specified, this is ignored
+      --set stringArray          set values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)
+      --set-file stringArray     set values from respective files specified via the command line (can specify multiple or separate values with commas: key1=path1,key2=path2)
+      --set-string stringArray   set STRING values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)
+      --show-secrets             do not redact secret values in the output
+      --suppress stringArray     allows suppression of the values listed in the diff output
+  -q, --suppress-secrets         suppress secrets in the output
+  -f, --values valueFiles        specify values in a YAML file (can specify multiple) (default [])
+      --version string           specify the exact chart version to use. If this is not specified, the latest version is used
 
 Global Flags:
       --no-color   remove colors from the output
