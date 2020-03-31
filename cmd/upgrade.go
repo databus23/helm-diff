@@ -80,6 +80,8 @@ func newChartCommand() *cobra.Command {
 	}
 
 	f := cmd.Flags()
+	var kubeconfig string
+	f.StringVar(&kubeconfig, "kubeconfig", "", "This flag is ignored, to allow passing of this top level flag to helm")
 	f.StringVar(&diff.chartVersion, "version", "", "specify the exact chart version to use. If this is not specified, the latest version is used")
 	f.BoolVar(&diff.detailedExitCode, "detailed-exitcode", false, "return a non-zero exit code when there are changes")
 	f.BoolP("suppress-secrets", "q", false, "suppress secrets in the output")
