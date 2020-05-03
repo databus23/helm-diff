@@ -14,25 +14,26 @@ import (
 )
 
 type diffCmd struct {
-	release          string
-	chart            string
-	chartVersion     string
-	client           helm.Interface
-	detailedExitCode bool
-	devel            bool
-	namespace        string // namespace to assume the release to be installed into. Defaults to the current kube config namespace.
-	valueFiles       valueFiles
-	values           []string
-	stringValues     []string
-	fileValues       []string
-	reuseValues      bool
-	resetValues      bool
-	allowUnreleased  bool
-	noHooks          bool
-	includeTests     bool
-	suppressedKinds  []string
-	outputContext    int
-	showSecrets      bool
+	release                  string
+	chart                    string
+	chartVersion             string
+	client                   helm.Interface
+	detailedExitCode         bool
+	devel                    bool
+	disableOpenAPIValidation bool
+	namespace                string // namespace to assume the release to be installed into. Defaults to the current kube config namespace.
+	valueFiles               valueFiles
+	values                   []string
+	stringValues             []string
+	fileValues               []string
+	reuseValues              bool
+	resetValues              bool
+	allowUnreleased          bool
+	noHooks                  bool
+	includeTests             bool
+	suppressedKinds          []string
+	outputContext            int
+	showSecrets              bool
 }
 
 const globalUsage = `Show a diff explaining what a helm upgrade would change.
@@ -96,6 +97,7 @@ func newChartCommand() *cobra.Command {
 	f.BoolVar(&diff.devel, "devel", false, "use development versions, too. Equivalent to version '>0.0.0-0'. If --version is set, this is ignored.")
 	f.StringArrayVar(&diff.suppressedKinds, "suppress", []string{}, "allows suppression of the values listed in the diff output")
 	f.IntVarP(&diff.outputContext, "context", "C", -1, "output NUM lines of context around changes")
+	f.BoolVar(&diff.disableOpenAPIValidation, "disable-openapi-validation", false, "disables rendered templates validation against the Kubernetes OpenAPI Schema")
 	if !isHelm3() {
 		f.StringVar(&diff.namespace, "namespace", "default", "namespace to assume the release to be installed into")
 	}
@@ -130,7 +132,7 @@ func (d *diffCmd) runHelm3() error {
 		return fmt.Errorf("Failed to get release %s in namespace %s: %s", d.release, d.namespace, err)
 	}
 
-	installManifest, err := d.template(!newInstall)
+	installManifest, err := d.template(!newInstall, d.disableOpenAPIValidation)
 	if err != nil {
 		return fmt.Errorf("Failed to render chart: %s", err)
 	}

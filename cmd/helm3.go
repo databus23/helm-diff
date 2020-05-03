@@ -81,7 +81,7 @@ func getChart(release, namespace string) (string, error) {
 	return string(out), nil
 }
 
-func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
+func (d *diffCmd) template(isUpgrade bool, disableOpenAPIValidation bool) ([]byte, error) {
 	flags := []string{}
 	if d.devel {
 		flags = append(flags, "--devel")
@@ -127,6 +127,10 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 
 	if isUpgrade {
 		flags = append(flags, "--is-upgrade")
+	}
+
+	if disableOpenAPIValidation {
+		flags = append(flags, "--disable-openapi-validation")
 	}
 
 	args := []string{"template", d.release, d.chart}
