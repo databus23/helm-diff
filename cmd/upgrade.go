@@ -33,6 +33,7 @@ type diffCmd struct {
 	suppressedKinds  []string
 	outputContext    int
 	showSecrets      bool
+	postRenderer     string
 }
 
 const globalUsage = `Show a diff explaining what a helm upgrade would change.
@@ -96,6 +97,7 @@ func newChartCommand() *cobra.Command {
 	f.BoolVar(&diff.devel, "devel", false, "use development versions, too. Equivalent to version '>0.0.0-0'. If --version is set, this is ignored.")
 	f.StringArrayVar(&diff.suppressedKinds, "suppress", []string{}, "allows suppression of the values listed in the diff output")
 	f.IntVarP(&diff.outputContext, "context", "C", -1, "output NUM lines of context around changes")
+	f.StringVar(&diff.postRenderer, "post-renderer", "", "the path to an executable to be used for post rendering. If it exists in $PATH, the binary will be used, otherwise it will try to look for the executable at the given path")
 	if !isHelm3() {
 		f.StringVar(&diff.namespace, "namespace", "default", "namespace to assume the release to be installed into")
 	}
