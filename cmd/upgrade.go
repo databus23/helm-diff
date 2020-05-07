@@ -14,26 +14,27 @@ import (
 )
 
 type diffCmd struct {
-	release          string
-	chart            string
-	chartVersion     string
-	client           helm.Interface
-	detailedExitCode bool
-	devel            bool
-	namespace        string // namespace to assume the release to be installed into. Defaults to the current kube config namespace.
-	valueFiles       valueFiles
-	values           []string
-	stringValues     []string
-	fileValues       []string
-	reuseValues      bool
-	resetValues      bool
-	allowUnreleased  bool
-	noHooks          bool
-	includeTests     bool
-	suppressedKinds  []string
-	outputContext    int
-	showSecrets      bool
-	postRenderer     string
+	release                  string
+	chart                    string
+	chartVersion             string
+	client                   helm.Interface
+	detailedExitCode         bool
+	devel                    bool
+	disableOpenAPIValidation bool
+	namespace                string // namespace to assume the release to be installed into. Defaults to the current kube config namespace.
+	valueFiles               valueFiles
+	values                   []string
+	stringValues             []string
+	fileValues               []string
+	reuseValues              bool
+	resetValues              bool
+	allowUnreleased          bool
+	noHooks                  bool
+	includeTests             bool
+	suppressedKinds          []string
+	outputContext            int
+	showSecrets              bool
+	postRenderer             string
 }
 
 const globalUsage = `Show a diff explaining what a helm upgrade would change.
@@ -97,6 +98,7 @@ func newChartCommand() *cobra.Command {
 	f.BoolVar(&diff.devel, "devel", false, "use development versions, too. Equivalent to version '>0.0.0-0'. If --version is set, this is ignored.")
 	f.StringArrayVar(&diff.suppressedKinds, "suppress", []string{}, "allows suppression of the values listed in the diff output")
 	f.IntVarP(&diff.outputContext, "context", "C", -1, "output NUM lines of context around changes")
+	f.BoolVar(&diff.disableOpenAPIValidation, "disable-openapi-validation", false, "disables rendered templates validation against the Kubernetes OpenAPI Schema")
 	f.StringVar(&diff.postRenderer, "post-renderer", "", "the path to an executable to be used for post rendering. If it exists in $PATH, the binary will be used, otherwise it will try to look for the executable at the given path")
 	if !isHelm3() {
 		f.StringVar(&diff.namespace, "namespace", "default", "namespace to assume the release to be installed into")

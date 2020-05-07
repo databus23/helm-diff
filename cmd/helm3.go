@@ -132,6 +132,10 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 		flags = append(flags, "--is-upgrade")
 	}
 
+	if d.disableOpenAPIValidation {
+		flags = append(flags, "--disable-openapi-validation")
+	}
+
 	args := []string{"template", d.release, d.chart}
 	args = append(args, flags...)
 	cmd := exec.Command(os.Getenv("HELM_BIN"), args...)
