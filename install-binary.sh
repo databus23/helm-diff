@@ -1,4 +1,4 @@
-#!/usr/bin/sh sh
+#!/usr/bin/env sh
 
 # Shamelessly copied from https://github.com/technosophos/helm-template
 
@@ -8,7 +8,7 @@ export GREP_COLOR="never"
 
 HELM_MAJOR_VERSION=$(helm version --client --short | awk -F '.' '{print $1}')
 
-if [ "$HELM_MAJOR_VERSION" = "v2" ]; then
+if [ "$HELM_MAJOR_VERSION" = "Client: v2" ]; then
   : ${HELM_PLUGIN_DIR:="$(helm home --debug=false)/plugins/helm-diff"}
 fi
 
