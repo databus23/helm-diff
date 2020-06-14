@@ -6,6 +6,12 @@ PROJECT_NAME="helm-diff"
 PROJECT_GH="databus23/$PROJECT_NAME"
 export GREP_COLOR="never"
 
+HELM_MAJOR_VERSION=$(helm version --client --short | awk -F '.' '{print $1}')
+
+if [ "$HELM_MAJOR_VERSION" = "v2" ]; then
+  : ${HELM_PLUGIN_DIR:="$(helm home --debug=false)/plugins/helm-diff"}
+fi
+
 # Convert the HELM_PLUGIN_DIR to unix if cygpath is
 # available. This is the case when using MSYS2 or Cygwin
 # on Windows where helm returns a Windows path but we
