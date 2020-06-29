@@ -20,6 +20,7 @@ type release struct {
 	outputContext    int
 	includeTests     bool
 	showSecrets      bool
+	output           string
 }
 
 const releaseCmdLongUsage = `
@@ -77,6 +78,8 @@ func releaseCmd() *cobra.Command {
 	releaseCmd.Flags().StringArrayVar(&diff.suppressedKinds, "suppress", []string{}, "allows suppression of the values listed in the diff output")
 	releaseCmd.Flags().IntVarP(&diff.outputContext, "context", "C", -1, "output NUM lines of context around changes")
 	releaseCmd.Flags().BoolVar(&diff.includeTests, "include-tests", false, "enable the diffing of the helm test hooks")
+	releaseCmd.Flags().StringVar(&diff.output, "output", "diff", "Possible values: diff, simple, template. When set to \"template\", use the env var HELM_DIFF_TPL to specify the template.")
+
 	releaseCmd.SuggestionsMinimumDistance = 1
 
 	if !isHelm3() {
@@ -117,6 +120,7 @@ func (d *release) differentiateHelm3() error {
 			d.suppressedKinds,
 			d.showSecrets,
 			d.outputContext,
+			d.output,
 			os.Stdout)
 
 		if d.detailedExitCode && seenAnyChanges {
@@ -150,6 +154,7 @@ func (d *release) differentiate() error {
 			d.suppressedKinds,
 			d.showSecrets,
 			d.outputContext,
+			d.output,
 			os.Stdout)
 
 		if d.detailedExitCode && seenAnyChanges {

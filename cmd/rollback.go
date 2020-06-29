@@ -22,6 +22,7 @@ type rollback struct {
 	outputContext    int
 	includeTests     bool
 	showSecrets      bool
+	output           string
 }
 
 const rollbackCmdLongUsage = `
@@ -79,6 +80,8 @@ func rollbackCmd() *cobra.Command {
 	rollbackCmd.Flags().StringArrayVar(&diff.suppressedKinds, "suppress", []string{}, "allows suppression of the values listed in the diff output")
 	rollbackCmd.Flags().IntVarP(&diff.outputContext, "context", "C", -1, "output NUM lines of context around changes")
 	rollbackCmd.Flags().BoolVar(&diff.includeTests, "include-tests", false, "enable the diffing of the helm test hooks")
+	rollbackCmd.Flags().StringVar(&diff.output, "output", "diff", "Possible values: diff, simple, template. When set to \"template\", use the env var HELM_DIFF_TPL to specify the template.")
+
 	rollbackCmd.SuggestionsMinimumDistance = 1
 
 	if !isHelm3() {
@@ -115,6 +118,7 @@ func (d *rollback) backcastHelm3() error {
 		d.suppressedKinds,
 		d.showSecrets,
 		d.outputContext,
+		d.output,
 		os.Stdout)
 
 	if d.detailedExitCode && seenAnyChanges {
@@ -150,6 +154,7 @@ func (d *rollback) backcast() error {
 		d.suppressedKinds,
 		d.showSecrets,
 		d.outputContext,
+		d.output,
 		os.Stdout)
 
 	if d.detailedExitCode && seenAnyChanges {
