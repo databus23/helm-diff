@@ -33,7 +33,7 @@ type ReportEntry struct {
 
 // ReportFormat to the context to make a changes report
 type ReportFormat struct {
-	output       string
+	output       func(r *Report, to io.Writer)
 	changestyles map[string]ChangeStyle
 }
 
@@ -61,6 +61,8 @@ func (r *Report) setupReportFormat(format string) {
 		setupSimpleReport(&report)
 	case "template":
 		setupTemplateReport(&report)
+	case "json":
+		setupJSONReport(&report)
 	default:
 		setupDiffReport(&report)
 	}
@@ -81,14 +83,7 @@ func (r *Report) addEntry(key string, suppressedKinds []string, kind string, con
 
 // print: prints entries added to the report.
 func (r *Report) print(to io.Writer) {
-	switch r.format.output {
-	case "simple":
-		printSimpleReport(r, to)
-	case "template":
-		printTemplateReport(r, to)
-	default:
-		printDiffReport(r, to)
-	}
+	r.format.output(r, to)
 }
 
 // clean: needed for testing
@@ -98,7 +93,7 @@ func (r *Report) clean() {
 
 // setup report for default output: diff
 func setupDiffReport(r *Report) {
-	r.format.output = "diff"
+	r.format.output = printDiffReport
 	r.format.changestyles = make(map[string]ChangeStyle)
 	r.format.changestyles["ADD"] = ChangeStyle{color: "green", message: "has been added:"}
 	r.format.changestyles["REMOVE"] = ChangeStyle{color: "red", message: "has been removed:"}
@@ -116,7 +111,7 @@ func printDiffReport(r *Report, to io.Writer) {
 
 // setup report for simple output.
 func setupSimpleReport(r *Report) {
-	r.format.output = "simple"
+	r.format.output = printSimpleReport
 	r.format.changestyles = make(map[string]ChangeStyle)
 	r.format.changestyles["ADD"] = ChangeStyle{color: "green", message: "to be added."}
 	r.format.changestyles["REMOVE"] = ChangeStyle{color: "red", message: "to be removed."}
@@ -140,9 +135,55 @@ func printSimpleReport(r *Report, to io.Writer) {
 	fmt.Fprintf(to, "Plan: %d to add, %d to change, %d to destroy.\n", summary["ADD"], summary["MODIFY"], summary["REMOVE"])
 }
 
+func newTemplate(name string) *template.Template {
+	// Prepare template functions
+	var funcsMap = template.FuncMap{
+		"last": func(x int, a interface{}) bool {
+			return x == reflect.ValueOf(a).Len()-1
+		},
+	}
+
+	return template.New(name).Funcs(funcsMap)
+}
+
+// setup report for json output
+func setupJSONReport(r *Report) {
+	t, err := newTemplate("entries").Parse(defaultTemplateReport)
+	if err != nil {
+		log.Fatalf("Error loadding default template: %v", err)
+	}
+
+	r.format.output = templateReportPrinter(t)
+	r.format.changestyles = make(map[string]ChangeStyle)
+	r.format.changestyles["ADD"] = ChangeStyle{color: "green", message: ""}
+	r.format.changestyles["REMOVE"] = ChangeStyle{color: "red", message: ""}
+	r.format.changestyles["MODIFY"] = ChangeStyle{color: "yellow", message: ""}
+}
+
 // setup report for template output
 func setupTemplateReport(r *Report) {
-	r.format.output = "template"
+	var tpl *template.Template
+
+	{
+		tplFile, present := os.LookupEnv("HELM_DIFF_TPL")
+		if present {
+			t, err := newTemplate(filepath.Base(tplFile)).ParseFiles(tplFile)
+			if err != nil {
+				fmt.Println(err)
+				log.Fatalf("Error loadding custom template")
+			}
+			tpl = t
+		} else {
+			// Render
+			t, err := newTemplate("entries").Parse(defaultTemplateReport)
+			if err != nil {
+				log.Fatalf("Error loadding default template")
+			}
+			tpl = t
+		}
+	}
+
+	r.format.output = templateReportPrinter(tpl)
 	r.format.changestyles = make(map[string]ChangeStyle)
 	r.format.changestyles["ADD"] = ChangeStyle{color: "green", message: ""}
 	r.format.changestyles["REMOVE"] = ChangeStyle{color: "red", message: ""}
@@ -165,42 +206,22 @@ func (t *ReportTemplateSpec) loadFromKey(key string) error {
 }
 
 // load and print report for template output
-func printTemplateReport(r *Report, to io.Writer) {
-	var templateDataArray []ReportTemplateSpec
+func templateReportPrinter(t *template.Template) func(r *Report, to io.Writer) {
+	return func(r *Report, to io.Writer) {
+		var templateDataArray []ReportTemplateSpec
 
-	for _, entry := range r.entries {
-		templateData := ReportTemplateSpec{}
-		err := templateData.loadFromKey(entry.key)
-		if err != nil {
-			log.Println("error processing report entry")
-		} else {
-			templateData.Change = entry.changeType
-			templateDataArray = append(templateDataArray, templateData)
+		for _, entry := range r.entries {
+			templateData := ReportTemplateSpec{}
+			err := templateData.loadFromKey(entry.key)
+			if err != nil {
+				log.Println("error processing report entry")
+			} else {
+				templateData.Change = entry.changeType
+				templateDataArray = append(templateDataArray, templateData)
+			}
 		}
-	}
 
-	// Prepare template functions
-	var funcsMap = template.FuncMap{
-		"last": func(x int, a interface{}) bool {
-			return x == reflect.ValueOf(a).Len()-1
-		},
-	}
-
-	tplFile, present := os.LookupEnv("HELM_DIFF_TPL")
-	if present {
-		t, err := template.New(filepath.Base(tplFile)).Funcs(funcsMap).ParseFiles(tplFile)
-		if err != nil {
-			fmt.Println(err)
-			log.Fatalf("Error loadding custom template")
-		}
 		t.Execute(to, templateDataArray)
-	} else {
-		// Render
-		t, err := template.New("entries").Funcs(funcsMap).Parse(defaultTemplateReport)
-		if err != nil {
-			log.Fatalf("Error loadding default template")
-		} else {
-			t.Execute(to, templateDataArray)
-		}
+		_, _ = to.Write([]byte("\n"))
 	}
 }

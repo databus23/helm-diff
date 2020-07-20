@@ -5,13 +5,13 @@ PKG:= github.com/databus23/helm-diff
 LDFLAGS := -X $(PKG)/cmd.Version=$(VERSION)
 
 # Clear the "unreleased" string in BuildMetadata
-LDFLAGS += -X $(PKG)/vendor/k8s.io/helm/pkg/version.BuildMetadata=
-LDFLAGS += -X $(PKG)/vendor/k8s.io/helm/pkg/version.Version=$(shell grep -A1 "package: k8s.io/helm" go.mod | sed -n -e 's/[ ]*version:.*\(v[.0-9]*\).*/\1/p')
+LDFLAGS += -X k8s.io/helm/pkg/version.BuildMetadata=
+LDFLAGS += -X k8s.io/helm/pkg/version.Version=$(shell ./scripts/dep-helm-version.sh)
 
 .PHONY: format
 format:
-	test -z "$$(find . -path ./vendor -prune -type f -o -name '*.go' -exec gofmt -d {} + | tee /dev/stderr)" || \
-	test -z "$$(find . -path ./vendor -prune -type f -o -name '*.go' -exec gofmt -w {} + | tee /dev/stderr)"
+	test -z "$$(find . -type f -o -name '*.go' -exec gofmt -d {} + | tee /dev/stderr)" || \
+	test -z "$$(find . -type f -o -name '*.go' -exec gofmt -w {} + | tee /dev/stderr)"
 
 .PHONY: install
 install: build

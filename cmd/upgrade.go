@@ -112,7 +112,7 @@ func newChartCommand() *cobra.Command {
 	f.IntVarP(&diff.outputContext, "context", "C", -1, "output NUM lines of context around changes")
 	f.BoolVar(&diff.disableOpenAPIValidation, "disable-openapi-validation", false, "disables rendered templates validation against the Kubernetes OpenAPI Schema")
 	f.StringVar(&diff.postRenderer, "post-renderer", "", "the path to an executable to be used for post rendering. If it exists in $PATH, the binary will be used, otherwise it will try to look for the executable at the given path")
-	f.StringVar(&diff.output, "output", "diff", "Possible values: diff, simple, template. When set to \"template\", use the env var HELM_DIFF_TPL to specify the template.")
+	f.StringVar(&diff.output, "output", "diff", "Possible values: diff, simple, json, template. When set to \"template\", use the env var HELM_DIFF_TPL to specify the template.")
 	if !isHelm3() {
 		f.StringVar(&diff.namespace, "namespace", "default", "namespace to assume the release to be installed into")
 	}
