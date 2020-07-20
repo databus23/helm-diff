@@ -22,6 +22,7 @@ type revision struct {
 	outputContext    int
 	includeTests     bool
 	showSecrets      bool
+	output           string
 }
 
 const revisionCmdLongUsage = `
@@ -87,6 +88,8 @@ func revisionCmd() *cobra.Command {
 	revisionCmd.Flags().StringArrayVar(&diff.suppressedKinds, "suppress", []string{}, "allows suppression of the values listed in the diff output")
 	revisionCmd.Flags().IntVarP(&diff.outputContext, "context", "C", -1, "output NUM lines of context around changes")
 	revisionCmd.Flags().BoolVar(&diff.includeTests, "include-tests", false, "enable the diffing of the helm test hooks")
+	revisionCmd.Flags().StringVar(&diff.output, "output", "diff", "Possible values: diff, simple, template. When set to \"template\", use the env var HELM_DIFF_TPL to specify the template.")
+
 	revisionCmd.SuggestionsMinimumDistance = 1
 
 	if !isHelm3() {
@@ -122,6 +125,7 @@ func (d *revision) differentiateHelm3() error {
 			d.suppressedKinds,
 			d.showSecrets,
 			d.outputContext,
+			d.output,
 			os.Stdout)
 
 	case 2:
@@ -147,6 +151,7 @@ func (d *revision) differentiateHelm3() error {
 			d.suppressedKinds,
 			d.showSecrets,
 			d.outputContext,
+			d.output,
 			os.Stdout)
 
 		if d.detailedExitCode && seenAnyChanges {
@@ -185,6 +190,7 @@ func (d *revision) differentiate() error {
 			d.suppressedKinds,
 			d.showSecrets,
 			d.outputContext,
+			d.output,
 			os.Stdout)
 
 	case 2:
@@ -210,6 +216,7 @@ func (d *revision) differentiate() error {
 			d.suppressedKinds,
 			d.showSecrets,
 			d.outputContext,
+			d.output,
 			os.Stdout)
 
 		if d.detailedExitCode && seenAnyChanges {

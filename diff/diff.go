@@ -19,14 +19,14 @@ import (
 )
 
 // Manifests diff on manifests
-func Manifests(oldIndex, newIndex map[string]*manifest.MappingResult, suppressedKinds []string, showSecrets bool, context int, to io.Writer) bool {
+func Manifests(oldIndex, newIndex map[string]*manifest.MappingResult, suppressedKinds []string, showSecrets bool, context int, output string, to io.Writer) bool {
+	report.setupReportFormat(output)
 	seenAnyChanges := false
 	emptyMapping := &manifest.MappingResult{}
 	for key, oldContent := range oldIndex {
 		if newContent, ok := newIndex[key]; ok {
 			if oldContent.Content != newContent.Content {
 				// modified
-				fmt.Fprintf(to, ansi.Color("%s has changed:", "yellow")+"\n", key)
 				if !showSecrets {
 					redactSecrets(oldContent, newContent)
 				}
@@ -35,11 +35,10 @@ func Manifests(oldIndex, newIndex map[string]*manifest.MappingResult, suppressed
 				if len(diffs) > 0 {
 					seenAnyChanges = true
 				}
-				printDiffRecords(suppressedKinds, oldContent.Kind, context, diffs, to)
+				report.addEntry(key, suppressedKinds, oldContent.Kind, context, diffs, "MODIFY")
 			}
 		} else {
 			// removed
-			fmt.Fprintf(to, ansi.Color("%s has been removed:", "yellow")+"\n", key)
 			if !showSecrets {
 				redactSecrets(oldContent, nil)
 
@@ -48,14 +47,13 @@ func Manifests(oldIndex, newIndex map[string]*manifest.MappingResult, suppressed
 			if len(diffs) > 0 {
 				seenAnyChanges = true
 			}
-			printDiffRecords(suppressedKinds, oldContent.Kind, context, diffs, to)
+			report.addEntry(key, suppressedKinds, oldContent.Kind, context, diffs, "REMOVE")
 		}
 	}
 
 	for key, newContent := range newIndex {
 		if _, ok := oldIndex[key]; !ok {
 			// added
-			fmt.Fprintf(to, ansi.Color("%s has been added:", "yellow")+"\n", key)
 			if !showSecrets {
 				redactSecrets(nil, newContent)
 			}
@@ -63,9 +61,11 @@ func Manifests(oldIndex, newIndex map[string]*manifest.MappingResult, suppressed
 			if len(diffs) > 0 {
 				seenAnyChanges = true
 			}
-			printDiffRecords(suppressedKinds, newContent.Kind, context, diffs, to)
+			report.addEntry(key, suppressedKinds, newContent.Kind, context, diffs, "ADD")
 		}
 	}
+	report.print(to)
+	report.clean()
 	return seenAnyChanges
 }
 
@@ -138,10 +138,10 @@ func getComment(s string) string {
 }
 
 // Releases reindex the content  based on the template names and pass it to Manifests
-func Releases(oldIndex, newIndex map[string]*manifest.MappingResult, suppressedKinds []string, showSecrets bool, context int, to io.Writer) bool {
+func Releases(oldIndex, newIndex map[string]*manifest.MappingResult, suppressedKinds []string, showSecrets bool, context int, output string, to io.Writer) bool {
 	oldIndex = reIndexForRelease(oldIndex)
 	newIndex = reIndexForRelease(newIndex)
-	return Manifests(oldIndex, newIndex, suppressedKinds, showSecrets, context, to)
+	return Manifests(oldIndex, newIndex, suppressedKinds, showSecrets, context, output, to)
 }
 
 func diffMappingResults(oldContent *manifest.MappingResult, newContent *manifest.MappingResult) []difflib.DiffRecord {
