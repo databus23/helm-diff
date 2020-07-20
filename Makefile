@@ -1,5 +1,4 @@
 HELM_HOME ?= $(shell helm home)
-HAS_GLIDE := $(shell command -v glide;)
 VERSION := $(shell sed -n -e 's/version:[ "]*\([^"]*\).*/\1/p' plugin.yaml)
 
 PKG:= github.com/databus23/helm-diff
@@ -7,7 +6,7 @@ LDFLAGS := -X $(PKG)/cmd.Version=$(VERSION)
 
 # Clear the "unreleased" string in BuildMetadata
 LDFLAGS += -X $(PKG)/vendor/k8s.io/helm/pkg/version.BuildMetadata=
-LDFLAGS += -X $(PKG)/vendor/k8s.io/helm/pkg/version.Version=$(shell grep -A1 "package: k8s.io/helm" glide.yaml | sed -n -e 's/[ ]*version:.*\(v[.0-9]*\).*/\1/p')
+LDFLAGS += -X $(PKG)/vendor/k8s.io/helm/pkg/version.Version=$(shell grep -A1 "package: k8s.io/helm" go.mod | sed -n -e 's/[ ]*version:.*\(v[.0-9]*\).*/\1/p')
 
 .PHONY: format
 format:
@@ -38,11 +37,8 @@ test:
 
 .PHONY: bootstrap
 bootstrap:
-ifndef HAS_GLIDE
-	go get -u github.com/Masterminds/glide
-endif
-	glide install --strip-vendor
-	command -v golint || go get -u golang.org/x/lint/golint
+	go mod download
+	command -v golint || GO111MODULE=off go get -u golang.org/x/lint/golint
 
 .PHONY: docker-run-release
 docker-run-release: export pkg=/go/src/github.com/databus23/helm-diff
