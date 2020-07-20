@@ -35,6 +35,14 @@ type diffCmd struct {
 	outputContext            int
 	showSecrets              bool
 	postRenderer             string
+	install                  bool
+}
+
+func (d *diffCmd) isAllowUnreleased() bool {
+	// helm update --install is effectively the same as helm-diff's --allow-unreleased option,
+	// support both so that helm diff plugin can be applied on the same command
+	// https://github.com/databus23/helm-diff/issues/108
+	return d.allowUnreleased || d.install
 }
 
 const globalUsage = `Show a diff explaining what a helm upgrade would change.
@@ -93,6 +101,7 @@ func newChartCommand() *cobra.Command {
 	f.BoolVar(&diff.reuseValues, "reuse-values", false, "reuse the last release's values and merge in any new values. If '--reset-values' is specified, this is ignored")
 	f.BoolVar(&diff.resetValues, "reset-values", false, "reset the values to the ones built into the chart and merge in any new values")
 	f.BoolVar(&diff.allowUnreleased, "allow-unreleased", false, "enables diffing of releases that are not yet deployed via Helm")
+	f.BoolVar(&diff.install, "install", false, "enables diffing of releases that are not yet deployed via Helm (equivalent to --allow-unreleased, added to match \"helm upgrade --install\" command")
 	f.BoolVar(&diff.noHooks, "no-hooks", false, "disable diffing of hooks")
 	f.BoolVar(&diff.includeTests, "include-tests", false, "enable the diffing of the helm test hooks")
 	f.BoolVar(&diff.devel, "devel", false, "use development versions, too. Equivalent to version '>0.0.0-0'. If --version is set, this is ignored.")
@@ -121,7 +130,7 @@ func (d *diffCmd) runHelm3() error {
 
 	var newInstall bool
 	if err != nil && strings.Contains(err.Error(), "release: not found") {
-		if d.allowUnreleased {
+		if d.isAllowUnreleased() {
 			fmt.Printf("********************\n\n\tRelease was not present in Helm.  Diff will show entire contents as new.\n\n********************\n")
 			newInstall = true
 			err = nil
@@ -196,7 +205,7 @@ func (d *diffCmd) run() error {
 
 	var newInstall bool
 	if err != nil && strings.Contains(err.Error(), fmt.Sprintf("release: %q not found", d.release)) {
-		if d.allowUnreleased {
+		if d.isAllowUnreleased() {
 			fmt.Printf("********************\n\n\tRelease was not present in Helm.  Diff will show entire contents as new.\n\n********************\n")
 			newInstall = true
 			err = nil
