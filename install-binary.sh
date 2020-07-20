@@ -69,7 +69,7 @@ verifySupported() {
 
 # getDownloadURL checks the latest available version.
 getDownloadURL() {
-  version=$(git -C "$HELM_PLUGIN_DIR" describe --tags --exact-match 2>/dev/null)
+  version=$(git -C "$HELM_PLUGIN_DIR" describe --tags --exact-match 2>/dev/null || :)
   if [ -n "$version" ]; then
     DOWNLOAD_URL="https://github.com/$PROJECT_GH/releases/download/$version/helm-diff-$OS.tgz"
   else
