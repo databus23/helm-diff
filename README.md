@@ -221,8 +221,6 @@ The above will install this plugin into your `$HELM_HOME/plugins` directory.
 ### Prerequisites
 
 - You need to have [Go](http://golang.org) installed. Make sure to set `$GOPATH`
-- If you don't have [Glide](http://glide.sh) installed, this will install it into
-  `$GOPATH/bin` for you.
 
 ### Running Tests
 Automated tests are implemented with [*testing*](https://golang.org/pkg/testing/).
