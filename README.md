@@ -10,6 +10,25 @@ revisions/versions of your helm release.
 
 <a href="https://asciinema.org/a/105326" target="_blank"><img src="https://asciinema.org/a/105326.png" /></a>
 
+## Install
+
+### Using Helm plugin manager (> 2.3.x)
+
+```shell
+helm plugin install https://github.com/databus23/helm-diff
+```
+
+### Pre Helm 2.3.0 Installation
+Pick a release tarball from the [releases](https://github.com/databus23/helm-diff/releases) page.
+
+Unpack the tarball in your helm plugins directory (`$(helm home)/plugins`).
+
+E.g.
+```
+curl -L $TARBALL_URL | tar -C $(helm home)/plugins -xzv
+```
+
+
 ## Usage
 
 ```
@@ -183,25 +202,6 @@ Flags:
 
 Global Flags:
       --no-color   remove colors from the output
-```
-
-
-## Install
-
-### Using Helm plugin manager (> 2.3.x)
-
-```shell
-helm plugin install https://github.com/databus23/helm-diff --version master
-```
-
-### Pre Helm 2.3.0 Installation
-Pick a release tarball from the [releases](https://github.com/databus23/helm-diff/releases) page.
-
-Unpack the tarball in your helm plugins directory (`$(helm home)/plugins`).
-
-E.g.
-```
-curl -L $TARBALL_URL | tar -C $(helm home)/plugins -xzv
 ```
 
 ## Build
