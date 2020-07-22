@@ -126,7 +126,9 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 		flags = append(flags, "--set-file", fileValue)
 	}
 
-	flags = append(flags, "--validate")
+	if !d.disableValidation {
+		flags = append(flags, "--validate")
+	}
 
 	if isUpgrade {
 		flags = append(flags, "--is-upgrade")
