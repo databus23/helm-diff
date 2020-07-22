@@ -1,6 +1,8 @@
 HELM_HOME ?= $(shell helm home)
 VERSION := $(shell sed -n -e 's/version:[ "]*\([^"]*\).*/\1/p' plugin.yaml)
 
+HELM_3_PLUGINS := $(shell bash -c 'eval $$(helm env); echo $$HELM_PLUGINS')
+
 PKG:= github.com/databus23/helm-diff
 LDFLAGS := -X $(PKG)/cmd.Version=$(VERSION)
 
@@ -18,6 +20,12 @@ install: build
 	mkdir -p $(HELM_HOME)/plugins/helm-diff/bin
 	cp bin/diff $(HELM_HOME)/plugins/helm-diff/bin
 	cp plugin.yaml $(HELM_HOME)/plugins/helm-diff/
+
+.PHONY: install/helm3
+install/helm3:
+	mkdir -p $(HELM_3_PLUGINS)/helm-diff/bin
+	cp bin/diff $(HELM_3_PLUGINS)/helm-diff/bin
+	cp plugin.yaml $(HELM_3_PLUGINS)/helm-diff/
 
 .PHONY: lint
 lint:
@@ -70,3 +78,9 @@ ifndef GITHUB_TOKEN
 	$(error GITHUB_TOKEN is undefined)
 endif
 	scripts/release.sh v$(VERSION) master
+
+# Test for the plugin installation with `helm plugin install -v THIS_BRANCH` works
+# Useful for verifying modified `install-binary.sh` still works against various environments
+.PHONY: test-plugin-installation
+test-plugin-installation:
+	docker build -f testdata/Dockerfile.install .
