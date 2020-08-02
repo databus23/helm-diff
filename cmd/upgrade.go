@@ -22,6 +22,7 @@ type diffCmd struct {
 	devel                    bool
 	disableValidation        bool
 	disableOpenAPIValidation bool
+	dryRun                   bool
 	namespace                string // namespace to assume the release to be installed into. Defaults to the current kube config namespace.
 	valueFiles               valueFiles
 	values                   []string
@@ -113,6 +114,7 @@ func newChartCommand() *cobra.Command {
 	f.IntVarP(&diff.outputContext, "context", "C", -1, "output NUM lines of context around changes")
 	f.BoolVar(&diff.disableValidation, "disable-validation", false, "disables rendered templates validation against the Kubernetes cluster you are currently pointing to. This is the same validation performed on an install")
 	f.BoolVar(&diff.disableOpenAPIValidation, "disable-openapi-validation", false, "disables rendered templates validation against the Kubernetes OpenAPI Schema")
+	f.BoolVar(&diff.dryRun, "dry-run", false, "disables cluster access and show diff as if it was install. Implies --install, --reset-values, and --disable-validation")
 	f.StringVar(&diff.postRenderer, "post-renderer", "", "the path to an executable to be used for post rendering. If it exists in $PATH, the binary will be used, otherwise it will try to look for the executable at the given path")
 	f.StringVar(&diff.output, "output", "diff", "Possible values: diff, simple, json, template. When set to \"template\", use the env var HELM_DIFF_TPL to specify the template.")
 	if !isHelm3() {
@@ -132,7 +134,14 @@ func (d *diffCmd) runHelm3() error {
 	if err := compatibleHelm3Version(); err != nil {
 		return err
 	}
-	releaseManifest, err := getRelease(d.release, d.namespace)
+
+	var releaseManifest []byte
+
+	var err error
+
+	if !d.dryRun {
+		releaseManifest, err = getRelease(d.release, d.namespace)
+	}
 
 	var newInstall bool
 	if err != nil && strings.Contains(err.Error(), "release: not found") {
@@ -155,7 +164,7 @@ func (d *diffCmd) runHelm3() error {
 	}
 
 	currentSpecs := make(map[string]*manifest.MappingResult)
-	if !newInstall {
+	if !newInstall && !d.dryRun {
 		if !d.noHooks {
 			hooks, err := getHooks(d.release, d.namespace)
 			if err != nil {
