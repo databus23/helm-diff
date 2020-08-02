@@ -102,7 +102,7 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 	// Let's simulate that in helm-diff.
 	// See https://medium.com/@kcatstack/understand-helm-upgrade-flags-reset-values-reuse-values-6e58ac8f127e
 	shouldDefaultReusingValues := isUpgrade && len(d.values) == 0 && len(d.stringValues) == 0 && len(d.valueFiles) == 0 && len(d.fileValues) == 0
-	if (d.reuseValues || shouldDefaultReusingValues) && !d.resetValues {
+	if (d.reuseValues || shouldDefaultReusingValues) && !d.resetValues && !d.dryRun {
 		tmpfile, err := ioutil.TempFile("", "existing-values")
 		if err != nil {
 			return nil, err
@@ -126,7 +126,7 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 		flags = append(flags, "--set-file", fileValue)
 	}
 
-	if !d.disableValidation {
+	if !d.disableValidation && !d.dryRun {
 		flags = append(flags, "--validate")
 	}
 
