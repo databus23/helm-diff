@@ -99,31 +99,19 @@ func Parse(manifest string, defaultNamespace string, excludedHooks ...string) ma
 		if content == "" {
 			continue
 		}
-		var parsedMetadata metadata
-		if err := yaml.Unmarshal([]byte(content), &parsedMetadata); err != nil {
-			log.Fatalf("YAML unmarshal error: %s\nCan't unmarshal %s", err, content)
+
+		parsed, err := parseContent(content, defaultNamespace, excludedHooks...)
+		if err != nil {
+			log.Fatalf("%v", err)
 		}
 
-		// Skip content without any metadata. It is probably a template that
-		// only contains comments in the current state.
-		if parsedMetadata.APIVersion == "" && parsedMetadata.Kind == "" {
-			continue
-		}
-		if isHook(parsedMetadata, excludedHooks...) {
-			continue
-		}
+		for _, p := range parsed {
+			name := p.Name
 
-		if parsedMetadata.Metadata.Namespace == "" {
-			parsedMetadata.Metadata.Namespace = defaultNamespace
-		}
-		name := parsedMetadata.String()
-		if _, ok := result[name]; ok {
-			log.Printf("Error: Found duplicate key %#v in manifest", name)
-		} else {
-			result[name] = &MappingResult{
-				Name:    name,
-				Kind:    parsedMetadata.Kind,
-				Content: content,
+			if _, ok := result[name]; ok {
+				log.Printf("Error: Found duplicate key %#v in manifest", name)
+			} else {
+				result[name] = p
 			}
 		}
 	}
@@ -131,6 +119,66 @@ func Parse(manifest string, defaultNamespace string, excludedHooks ...string) ma
 		log.Fatalf("Error reading input: %s", err)
 	}
 	return result
+}
+
+func parseContent(content string, defaultNamespace string, excludedHooks ...string) ([]*MappingResult, error) {
+	var parsedMetadata metadata
+	if err := yaml.Unmarshal([]byte(content), &parsedMetadata); err != nil {
+		log.Fatalf("YAML unmarshal error: %s\nCan't unmarshal %s", err, content)
+	}
+
+	// Skip content without any metadata. It is probably a template that
+	// only contains comments in the current state.
+	if parsedMetadata.APIVersion == "" && parsedMetadata.Kind == "" {
+		return nil, nil
+	}
+
+	if parsedMetadata.Kind == "List" {
+		type ListV1 struct {
+			Items []yaml.MapSlice `yaml:"items"`
+		}
+
+		var list ListV1
+
+		if err := yaml.Unmarshal([]byte(content), &list); err != nil {
+			log.Fatalf("YAML unmarshal error: %s\nCan't unmarshal %s", err, content)
+		}
+
+		var result []*MappingResult
+
+		for _, item := range list.Items {
+			subcontent, err := yaml.Marshal(item)
+			if err != nil {
+				log.Printf("YAML marshal error: %s\nCan't marshal %v", err, item)
+			}
+
+			subs, err := parseContent(string(subcontent), defaultNamespace, excludedHooks...)
+			if err != nil {
+				return nil, fmt.Errorf("Parsing YAML list item: %v", err)
+			}
+
+			result = append(result, subs...)
+		}
+
+		return result, nil
+	}
+
+	if isHook(parsedMetadata, excludedHooks...) {
+		return nil, nil
+	}
+
+	if parsedMetadata.Metadata.Namespace == "" {
+		parsedMetadata.Metadata.Namespace = defaultNamespace
+	}
+
+	name := parsedMetadata.String()
+	return []*MappingResult{
+		{
+			Name:    name,
+			Kind:    parsedMetadata.Kind,
+			Content: content,
+		},
+	}, nil
 }
 
 func isHook(metadata metadata, hooks ...string) bool {

@@ -1,0 +1,50 @@
+
+---
+# Source: prometheus-operator/templates/prometheus/additionalPrometheusRules.yaml
+apiVersion: v1
+kind: List
+items:
+  - apiVersion: monitoring.coreos.com/v1
+    kind: PrometheusRule
+    metadata:
+      name: prometheus-operator-example
+      namespace: default
+      labels:
+        app: prometheus-operator
+        chart: prometheus-operator-9.3.0
+        release: "foo"
+        heritage: "Helm"
+    spec:
+      groups:
+        - name: mygroup
+          rules:
+          - annotations:
+              summary: Container {{ $labels.container }} in Pod {{$labels.namespace}}/{{$labels.pod}}
+                restarting
+            expr: count(sum by (pod)(delta(kube_pod_container_status_restarts_total[15m])
+              > 0))
+            labels:
+              severity: warning
+            record: ContainerRestarted
+  - apiVersion: monitoring.coreos.com/v1
+    kind: PrometheusRule
+    metadata:
+      name: prometheus-operator-example2
+      namespace: default
+      labels:
+        app: prometheus-operator
+        chart: prometheus-operator-9.3.0
+        release: "foo"
+        heritage: "Helm"
+    spec:
+      groups:
+        - name: mygroup2
+          rules:
+          - annotations:
+              summary: Container {{ $labels.container }} in Pod {{$labels.namespace}}/{{$labels.pod}}
+                restarting
+            expr: count(sum by (pod)(delta(kube_pod_container_status_restarts_total[15m])
+              > 0))
+            labels:
+              severity: warning
+            record: ContainerRestarted
