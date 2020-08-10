@@ -15,7 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/kubernetes/scheme"
 
-	"github.com/databus23/helm-diff/manifest"
+	"github.com/databus23/helm-diff/v3/manifest"
 )
 
 // Manifests diff on manifests
