@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/databus23/helm-diff/cmd"
+	"github.com/databus23/helm-diff/v3/cmd"
 )
 
 func main() {

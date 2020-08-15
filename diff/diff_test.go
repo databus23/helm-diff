@@ -8,7 +8,7 @@ import (
 	"github.com/mgutz/ansi"
 	"github.com/stretchr/testify/require"
 
-	"github.com/databus23/helm-diff/manifest"
+	"github.com/databus23/helm-diff/v3/manifest"
 )
 
 var text1 = "" +
