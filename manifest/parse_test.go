@@ -79,6 +79,19 @@ func TestDeployV1Beta1(t *testing.T) {
 	)
 }
 
+func TestList(t *testing.T) {
+	spec, err := ioutil.ReadFile("testdata/list.yaml")
+	require.NoError(t, err)
+
+	require.Equal(t,
+		[]string{
+			"default, prometheus-operator-example, PrometheusRule (monitoring.coreos.com)",
+			"default, prometheus-operator-example2, PrometheusRule (monitoring.coreos.com)",
+		},
+		foundObjects(Parse(string(spec), "default")),
+	)
+}
+
 func TestEmpty(t *testing.T) {
 	spec, err := ioutil.ReadFile("testdata/empty.yaml")
 	require.NoError(t, err)
