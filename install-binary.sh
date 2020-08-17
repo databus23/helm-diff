@@ -5,6 +5,7 @@
 PROJECT_NAME="helm-diff"
 PROJECT_GH="databus23/$PROJECT_NAME"
 export GREP_COLOR="never"
+unset GREP_OPTIONS
 
 HELM_MAJOR_VERSION=$(helm version --client --short | awk -F '.' '{print $1}')
 
