@@ -39,6 +39,7 @@ type diffCmd struct {
 	postRenderer             string
 	output                   string
 	install                  bool
+	stripTrailingCR          bool
 }
 
 func (d *diffCmd) isAllowUnreleased() bool {
@@ -117,6 +118,7 @@ func newChartCommand() *cobra.Command {
 	f.BoolVar(&diff.dryRun, "dry-run", false, "disables cluster access and show diff as if it was install. Implies --install, --reset-values, and --disable-validation")
 	f.StringVar(&diff.postRenderer, "post-renderer", "", "the path to an executable to be used for post rendering. If it exists in $PATH, the binary will be used, otherwise it will try to look for the executable at the given path")
 	f.StringVar(&diff.output, "output", "diff", "Possible values: diff, simple, json, template. When set to \"template\", use the env var HELM_DIFF_TPL to specify the template.")
+	f.BoolVar(&diff.stripTrailingCR, "strip-trailing-cr", false, "strip trailing carriage return on input")
 	if !isHelm3() {
 		f.StringVar(&diff.namespace, "namespace", "default", "namespace to assume the release to be installed into")
 	}
@@ -184,7 +186,7 @@ func (d *diffCmd) runHelm3() error {
 	} else {
 		newSpecs = manifest.Parse(string(installManifest), d.namespace, helm3TestHook, helm2TestSuccessHook)
 	}
-	seenAnyChanges := diff.Manifests(currentSpecs, newSpecs, d.suppressedKinds, d.showSecrets, d.outputContext, d.output, os.Stdout)
+	seenAnyChanges := diff.Manifests(currentSpecs, newSpecs, d.suppressedKinds, d.showSecrets, d.outputContext, d.output, d.stripTrailingCR, os.Stdout)
 
 	if d.detailedExitCode && seenAnyChanges {
 		return Error{
@@ -270,7 +272,8 @@ func (d *diffCmd) run() error {
 		}
 	}
 
-	seenAnyChanges := diff.Manifests(currentSpecs, newSpecs, d.suppressedKinds, d.showSecrets, d.outputContext, d.output, os.Stdout)
+	println("#######################################################################################################################################*******************************************************")
+	seenAnyChanges := diff.Manifests(currentSpecs, newSpecs, d.suppressedKinds, d.showSecrets, d.outputContext, d.output, d.stripTrailingCR, os.Stdout)
 
 	if d.detailedExitCode && seenAnyChanges {
 		return Error{

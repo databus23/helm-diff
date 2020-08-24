@@ -103,6 +103,7 @@ Flags:
       --post-renderer string   the path to an executable to be used for post rendering. If it exists in $PATH, the binary will be used, otherwise it will try to look for the executable at the given path
       --reset-values           reset the values to the ones built into the chart and merge in any new values
       --reuse-values           reuse the last release's values and merge in any new values
+      --strip-trailing-cr      strip trailing carriage return on input
       --set stringArray        set values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)
       --suppress stringArray   allows suppression of the values listed in the diff output
   -q, --suppress-secrets       suppress secrets in the output
@@ -135,6 +136,7 @@ Flags:
   -h, --help                   help for release
       --home string            location of your Helm config. Overrides $HELM_HOME (default "/home/aananth/.helm")
       --include-tests          enable the diffing of the helm test hooks
+      --strip-trailing-cr      strip trailing carriage return on input
       --suppress stringArray   allows suppression of the values listed in the diff output
   -q, --suppress-secrets       suppress secrets in the output
       --tls                    enable TLS for request
@@ -172,6 +174,7 @@ Usage:
 
 Flags:
   -h, --help                   help for revision
+      --strip-trailing-cr      strip trailing carriage return on input
       --suppress stringArray   allows suppression of the values listed in the diff output
   -q, --suppress-secrets       suppress secrets in the output
 
@@ -197,6 +200,7 @@ Examples:
 
 Flags:
   -h, --help                   help for rollback
+      --strip-trailing-cr      strip trailing carriage return on input
       --suppress stringArray   allows suppression of the values listed in the diff output
   -q, --suppress-secrets       suppress secrets in the output
 
