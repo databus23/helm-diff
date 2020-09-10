@@ -1,10 +1,11 @@
 package cmd
 
 import (
+	"os"
+
 	"github.com/mgutz/ansi"
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/ssh/terminal"
-	"os"
 )
 
 const rootCmdLongUsage = `
