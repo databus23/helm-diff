@@ -90,6 +90,9 @@ func newChartCommand() *cobra.Command {
 			}
 			return diff.run()
 		},
+		FParseErrWhitelist: cobra.FParseErrWhitelist{
+			UnknownFlags: true,
+		},
 	}
 
 	f := cmd.Flags()
