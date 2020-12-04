@@ -145,7 +145,7 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 }
 
 func (d *diffCmd) writeExistingValues(f *os.File) error {
-	cmd := exec.Command(os.Getenv("HELM_BIN"), "get", "values", d.release, "--all", "--output", "yaml")
+	cmd := exec.Command(os.Getenv("HELM_BIN"), "get", "values", d.release, "--output", "yaml")
 	debugPrint("Executing %s", strings.Join(cmd.Args, " "))
 	defer f.Close()
 	cmd.Stdout = f
