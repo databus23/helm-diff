@@ -52,19 +52,17 @@ type ReportTemplateSpec struct {
 	Change    string
 }
 
-var report Report
-
 // setupReportFormat: process output argument.
 func (r *Report) setupReportFormat(format string) {
 	switch format {
 	case "simple":
-		setupSimpleReport(&report)
+		setupSimpleReport(r)
 	case "template":
-		setupTemplateReport(&report)
+		setupTemplateReport(r)
 	case "json":
-		setupJSONReport(&report)
+		setupJSONReport(r)
 	default:
-		setupDiffReport(&report)
+		setupDiffReport(r)
 	}
 }
 
@@ -126,7 +124,7 @@ func printSimpleReport(r *Report, to io.Writer) {
 		"MODIFY": 0,
 	}
 	for _, entry := range r.entries {
-		fmt.Fprintf(to, ansi.Color("%s %s", report.format.changestyles[entry.changeType].color)+"\n",
+		fmt.Fprintf(to, ansi.Color("%s %s", r.format.changestyles[entry.changeType].color)+"\n",
 			entry.key,
 			r.format.changestyles[entry.changeType].message,
 		)
