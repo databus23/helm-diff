@@ -23,7 +23,7 @@ The Helm Diff Plugin
 
 * Shows a diff explaining what a helm rollback would change:
     This fetches the currently deployed version of a release
-  and compares it to adeployed versions of a release, that you 
+  and compares it to deployed versions of a release, that you 
   want to rollback. This can be used visualize what changes a 
   helm rollback will perform.
 `
