@@ -202,7 +202,7 @@ func (t *ReportTemplateSpec) loadFromKey(key string) error {
 		t.API = matches[4]
 		return nil
 	}
-	return errors.New("key string did't match regexp")
+	return errors.New("key string didn't match regexp")
 }
 
 // load and print report for template output
