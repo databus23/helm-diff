@@ -17,6 +17,7 @@ type diffCmd struct {
 	release                  string
 	chart                    string
 	chartVersion             string
+	chartRepo                string
 	client                   helm.Interface
 	detailedExitCode         bool
 	devel                    bool
@@ -96,6 +97,7 @@ func newChartCommand() *cobra.Command {
 	var kubeconfig string
 	f.StringVar(&kubeconfig, "kubeconfig", "", "This flag is ignored, to allow passing of this top level flag to helm")
 	f.StringVar(&diff.chartVersion, "version", "", "specify the exact chart version to use. If this is not specified, the latest version is used")
+	f.StringVar(&diff.chartRepo, "repo", "", "specify the chart repository url to locate the requested chart")
 	f.BoolVar(&diff.detailedExitCode, "detailed-exitcode", false, "return a non-zero exit code when there are changes")
 	f.BoolP("suppress-secrets", "q", false, "suppress secrets in the output")
 	f.BoolVar(&diff.showSecrets, "show-secrets", false, "do not redact secret values in the output")
