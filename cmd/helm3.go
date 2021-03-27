@@ -120,7 +120,31 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 		flags = append(flags, "--set-string", stringValue)
 	}
 	for _, valueFile := range d.valueFiles {
-		flags = append(flags, "--values", valueFile)
+		if strings.TrimSpace(valueFile) == "-" {
+			bytes, err := ioutil.ReadAll(os.Stdin)
+			if err != nil {
+				return nil, err
+			}
+
+			tmpfile, err := ioutil.TempFile("", "helm-diff-stdin-values")
+			if err != nil {
+				return nil, err
+			}
+			defer os.Remove(tmpfile.Name())
+
+			if _, err := tmpfile.Write(bytes); err != nil {
+				tmpfile.Close()
+				return nil, err
+			}
+
+			if err := tmpfile.Close(); err != nil {
+				return nil, err
+			}
+
+			flags = append(flags, "--values", tmpfile.Name())
+		} else {
+			flags = append(flags, "--values", valueFile)
+		}
 	}
 	for _, fileValue := range d.fileValues {
 		flags = append(flags, "--set-file", fileValue)
