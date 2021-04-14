@@ -135,7 +135,7 @@ func parseContent(content string, defaultNamespace string, excludedHooks ...stri
 
 	if parsedMetadata.Kind == "List" {
 		type ListV1 struct {
-			Items []yaml.MapSlice `yaml:"items"`
+			Items []map[interface{}]interface{} `yaml:"items"`
 		}
 
 		var list ListV1
@@ -162,6 +162,16 @@ func parseContent(content string, defaultNamespace string, excludedHooks ...stri
 
 		return result, nil
 	}
+
+	var object map[interface{}]interface{}
+	if err := yaml.Unmarshal([]byte(content), &object); err != nil {
+		log.Fatalf("YAML unmarshal error: %s\nCan't unmarshal %s", err, content)
+	}
+	normalizedContent, err := yaml.Marshal(object)
+	if err != nil {
+		log.Fatalf("YAML marshal error: %s\nCan't marshal %v", err, object)
+	}
+	content = string(normalizedContent)
 
 	if isHook(parsedMetadata, excludedHooks...) {
 		return nil, nil
