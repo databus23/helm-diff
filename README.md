@@ -28,7 +28,6 @@ E.g.
 curl -L $TARBALL_URL | tar -C $(helm home)/plugins -xzv
 ```
 
-
 ### From Source
 #### Prerequisites
  - GoLang `>= 1.14`
@@ -41,7 +40,6 @@ The first step is to download the repository and enter the directory. You can do
 Next, depending on which helm version you have, install the plugin into helm.
 
 ##### Helm 2
-
 ```bash
 make install
 ```
