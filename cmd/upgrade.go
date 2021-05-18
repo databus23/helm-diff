@@ -272,7 +272,6 @@ func (d *diffCmd) run() error {
 		}
 	}
 
-	println("#######################################################################################################################################*******************************************************")
 	seenAnyChanges := diff.Manifests(currentSpecs, newSpecs, d.suppressedKinds, d.showSecrets, d.outputContext, d.output, d.stripTrailingCR, os.Stdout)
 
 	if d.detailedExitCode && seenAnyChanges {
