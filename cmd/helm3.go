@@ -92,6 +92,9 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 	if d.chartVersion != "" {
 		flags = append(flags, "--version", d.chartVersion)
 	}
+	if d.chartRepo != "" {
+		flags = append(flags, "--repo", d.chartRepo)
+	}
 	if d.namespace != "" {
 		flags = append(flags, "--namespace", d.namespace)
 	}
