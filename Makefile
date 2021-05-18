@@ -22,7 +22,7 @@ install: build
 	cp plugin.yaml $(HELM_HOME)/plugins/helm-diff/
 
 .PHONY: install/helm3
-install/helm3:
+install/helm3: build
 	mkdir -p $(HELM_3_PLUGINS)/helm-diff/bin
 	cp bin/diff $(HELM_3_PLUGINS)/helm-diff/bin
 	cp plugin.yaml $(HELM_3_PLUGINS)/helm-diff/

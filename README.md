@@ -28,6 +28,27 @@ E.g.
 curl -L $TARBALL_URL | tar -C $(helm home)/plugins -xzv
 ```
 
+### From Source
+#### Prerequisites
+ - GoLang `>= 1.14`
+
+Make sure you do not have a verison of `helm-diff` installed. You can remove it by running `helm plugin uninstall diff`
+
+#### Installation Steps
+The first step is to download the repository and enter the directory. You can do this via `git clone` or downloaing and extracting the release. If you clone via git, remember to checkout the latest tag for the latest release.
+
+Next, depending on which helm version you have, install the plugin into helm.
+
+##### Helm 2
+```bash
+make install
+```
+
+##### Helm 3
+```bash
+make install/helm3
+```
+
 
 ## Usage
 
