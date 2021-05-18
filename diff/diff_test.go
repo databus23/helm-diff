@@ -35,10 +35,22 @@ var text2 = "" +
 	"line9\n" +
 	"line10"
 
+var text3 = "" +
+	"line1\r\n" +
+	"line2\r\n" +
+	"line3\r\n" +
+	"line4\r\n" +
+	"line5\r\n" +
+	"line6\r\n" +
+	"line7\r\n" +
+	"line8\r\n" +
+	"line9\r\n" +
+	"line10"
+
 func TestPrintDiffWithContext(t *testing.T) {
 
 	t.Run("context-disabled", func(t *testing.T) {
-		assertDiff(t, text1, text2, -1, ""+
+		assertDiff(t, text1, text2, -1, false, ""+
 			"- line1\n"+
 			"- line2\n"+
 			"+ line1 - different!\n"+
@@ -55,7 +67,7 @@ func TestPrintDiffWithContext(t *testing.T) {
 	})
 
 	t.Run("context-0", func(t *testing.T) {
-		assertDiff(t, text1, text2, 0, ""+
+		assertDiff(t, text1, text2, 0, false, ""+
 			"- line1\n"+
 			"- line2\n"+
 			"+ line1 - different!\n"+
@@ -66,8 +78,36 @@ func TestPrintDiffWithContext(t *testing.T) {
 			"...\n")
 	})
 
+	t.Run("context-0-no-strip-cr", func(t *testing.T) {
+		assertDiff(t, text1, text3, 0, false, ""+
+			"- line1\n"+
+			"- line2\n"+
+			"- line3\n"+
+			"- line4\n"+
+			"- line5\n"+
+			"- line6\n"+
+			"- line7\n"+
+			"- line8\n"+
+			"- line9\n"+
+			"+ line1\r\n"+
+			"+ line2\r\n"+
+			"+ line3\r\n"+
+			"+ line4\r\n"+
+			"+ line5\r\n"+
+			"+ line6\r\n"+
+			"+ line7\r\n"+
+			"+ line8\r\n"+
+			"+ line9\r\n"+
+			"...\n")
+	})
+
+	t.Run("context-0-strip-cr", func(t *testing.T) {
+		assertDiff(t, text1, text3, 0, true, ""+
+			"...\n")
+	})
+
 	t.Run("context-1", func(t *testing.T) {
-		assertDiff(t, text1, text2, 1, ""+
+		assertDiff(t, text1, text2, 1, false, ""+
 			"- line1\n"+
 			"- line2\n"+
 			"+ line1 - different!\n"+
@@ -82,7 +122,7 @@ func TestPrintDiffWithContext(t *testing.T) {
 	})
 
 	t.Run("context-2", func(t *testing.T) {
-		assertDiff(t, text1, text2, 2, ""+
+		assertDiff(t, text1, text2, 2, false, ""+
 			"- line1\n"+
 			"- line2\n"+
 			"+ line1 - different!\n"+
@@ -99,7 +139,7 @@ func TestPrintDiffWithContext(t *testing.T) {
 	})
 
 	t.Run("context-3", func(t *testing.T) {
-		assertDiff(t, text1, text2, 3, ""+
+		assertDiff(t, text1, text2, 3, false, ""+
 			"- line1\n"+
 			"- line2\n"+
 			"+ line1 - different!\n"+
@@ -117,10 +157,10 @@ func TestPrintDiffWithContext(t *testing.T) {
 
 }
 
-func assertDiff(t *testing.T, before, after string, context int, expected string) {
+func assertDiff(t *testing.T, before, after string, context int, stripTrailingCR bool, expected string) {
 	ansi.DisableColors(true)
 	var output bytes.Buffer
-	diffs := diffStrings(before, after)
+	diffs := diffStrings(before, after, stripTrailingCR)
 	printDiffRecords([]string{}, "some-resource", context, diffs, &output)
 	actual := output.String()
 	if actual != expected {
@@ -159,7 +199,7 @@ metadata:
 
 		var buf1 bytes.Buffer
 
-		if changesSeen := Manifests(specBeta, specRelease, []string{}, true, 10, "diff", &buf1); !changesSeen {
+		if changesSeen := Manifests(specBeta, specRelease, []string{}, true, 10, "diff", false, &buf1); !changesSeen {
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
 		}
 
@@ -177,7 +217,7 @@ metadata:
 	t.Run("OnNoChange", func(t *testing.T) {
 		var buf2 bytes.Buffer
 
-		if changesSeen := Manifests(specRelease, specRelease, []string{}, true, 10, "diff", &buf2); changesSeen {
+		if changesSeen := Manifests(specRelease, specRelease, []string{}, true, 10, "diff", false, &buf2); changesSeen {
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `false` to indicate that it has NOT seen any change(s), but was `true`")
 		}
 
@@ -188,7 +228,7 @@ metadata:
 
 		var buf1 bytes.Buffer
 
-		if changesSeen := Manifests(specBeta, specRelease, []string{}, true, 10, "simple", &buf1); !changesSeen {
+		if changesSeen := Manifests(specBeta, specRelease, []string{}, true, 10, "simple", false, &buf1); !changesSeen {
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
 		}
 
@@ -200,7 +240,7 @@ Plan: 0 to add, 1 to change, 0 to destroy.
 	t.Run("OnNoChangeSimple", func(t *testing.T) {
 		var buf2 bytes.Buffer
 
-		if changesSeen := Manifests(specRelease, specRelease, []string{}, true, 10, "simple", &buf2); changesSeen {
+		if changesSeen := Manifests(specRelease, specRelease, []string{}, true, 10, "simple", false, &buf2); changesSeen {
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `false` to indicate that it has NOT seen any change(s), but was `true`")
 		}
 
@@ -211,7 +251,7 @@ Plan: 0 to add, 1 to change, 0 to destroy.
 
 		var buf1 bytes.Buffer
 
-		if changesSeen := Manifests(specBeta, specRelease, []string{}, true, 10, "template", &buf1); !changesSeen {
+		if changesSeen := Manifests(specBeta, specRelease, []string{}, true, 10, "template", false, &buf1); !changesSeen {
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
 		}
 
@@ -229,7 +269,7 @@ Plan: 0 to add, 1 to change, 0 to destroy.
 
 		var buf1 bytes.Buffer
 
-		if changesSeen := Manifests(specBeta, specRelease, []string{}, true, 10, "json", &buf1); !changesSeen {
+		if changesSeen := Manifests(specBeta, specRelease, []string{}, true, 10, "json", false, &buf1); !changesSeen {
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
 		}
 
@@ -246,7 +286,7 @@ Plan: 0 to add, 1 to change, 0 to destroy.
 	t.Run("OnNoChangeTemplate", func(t *testing.T) {
 		var buf2 bytes.Buffer
 
-		if changesSeen := Manifests(specRelease, specRelease, []string{}, true, 10, "template", &buf2); changesSeen {
+		if changesSeen := Manifests(specRelease, specRelease, []string{}, true, 10, "template", false, &buf2); changesSeen {
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `false` to indicate that it has NOT seen any change(s), but was `true`")
 		}
 
@@ -256,7 +296,7 @@ Plan: 0 to add, 1 to change, 0 to destroy.
 	t.Run("OnChangeCustomTemplate", func(t *testing.T) {
 		var buf1 bytes.Buffer
 		os.Setenv("HELM_DIFF_TPL", "testdata/customTemplate.tpl")
-		if changesSeen := Manifests(specBeta, specRelease, []string{}, true, 10, "template", &buf1); !changesSeen {
+		if changesSeen := Manifests(specBeta, specRelease, []string{}, true, 10, "template", false, &buf1); !changesSeen {
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `false` to indicate that it has NOT seen any change(s), but was `true`")
 		}
 
