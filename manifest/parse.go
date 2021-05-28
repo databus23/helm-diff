@@ -84,6 +84,10 @@ func ParseRelease(release *release.Release, includeTests bool) map[string]*Mappi
 
 // Parse parses manifest strings into MappingResult
 func Parse(manifest string, defaultNamespace string, excludedHooks ...string) map[string]*MappingResult {
+	// Ensure we have an initial yaml separator
+	if manifest[0:4] != "---\n" {
+		manifest = "---\n" + manifest
+	}
 	// Ensure we have a newline in front of the yaml seperator
 	scanner := bufio.NewScanner(strings.NewReader("\n" + manifest))
 	scanner.Split(scanYamlSpecs)
