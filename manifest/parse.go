@@ -68,7 +68,7 @@ func splitSpec(token string) (string, string) {
 }
 
 // ParseRelease parses release objects into MappingResult
-func ParseRelease(release *release.Release, includeTests bool) map[string]*MappingResult {
+func ParseRelease(release *release.Release, includeTests bool, normalizeManifests bool) map[string]*MappingResult {
 	manifest := release.Manifest
 	for _, hook := range release.Hooks {
 		if !includeTests && isTestHook(hook.Events) {
@@ -79,11 +79,11 @@ func ParseRelease(release *release.Release, includeTests bool) map[string]*Mappi
 		manifest += fmt.Sprintf("# Source: %s\n", hook.Path)
 		manifest += hook.Manifest
 	}
-	return Parse(manifest, release.Namespace)
+	return Parse(manifest, release.Namespace, normalizeManifests)
 }
 
 // Parse parses manifest strings into MappingResult
-func Parse(manifest string, defaultNamespace string, excludedHooks ...string) map[string]*MappingResult {
+func Parse(manifest string, defaultNamespace string, normalizeManifests bool, excludedHooks ...string) map[string]*MappingResult {
 	// Ensure we have a newline in front of the yaml seperator
 	scanner := bufio.NewScanner(strings.NewReader("\n" + manifest))
 	scanner.Split(scanYamlSpecs)
@@ -100,7 +100,7 @@ func Parse(manifest string, defaultNamespace string, excludedHooks ...string) ma
 			continue
 		}
 
-		parsed, err := parseContent(content, defaultNamespace, excludedHooks...)
+		parsed, err := parseContent(content, defaultNamespace, normalizeManifests, excludedHooks...)
 		if err != nil {
 			log.Fatalf("%v", err)
 		}
@@ -121,7 +121,7 @@ func Parse(manifest string, defaultNamespace string, excludedHooks ...string) ma
 	return result
 }
 
-func parseContent(content string, defaultNamespace string, excludedHooks ...string) ([]*MappingResult, error) {
+func parseContent(content string, defaultNamespace string, normalizeManifests bool, excludedHooks ...string) ([]*MappingResult, error) {
 	var parsedMetadata metadata
 	if err := yaml.Unmarshal([]byte(content), &parsedMetadata); err != nil {
 		log.Fatalf("YAML unmarshal error: %s\nCan't unmarshal %s", err, content)
@@ -135,7 +135,7 @@ func parseContent(content string, defaultNamespace string, excludedHooks ...stri
 
 	if parsedMetadata.Kind == "List" {
 		type ListV1 struct {
-			Items []map[interface{}]interface{} `yaml:"items"`
+			Items []yaml.MapSlice `yaml:"items"`
 		}
 
 		var list ListV1
@@ -152,7 +152,7 @@ func parseContent(content string, defaultNamespace string, excludedHooks ...stri
 				log.Printf("YAML marshal error: %s\nCan't marshal %v", err, item)
 			}
 
-			subs, err := parseContent(string(subcontent), defaultNamespace, excludedHooks...)
+			subs, err := parseContent(string(subcontent), defaultNamespace, normalizeManifests, excludedHooks...)
 			if err != nil {
 				return nil, fmt.Errorf("Parsing YAML list item: %v", err)
 			}
@@ -163,15 +163,20 @@ func parseContent(content string, defaultNamespace string, excludedHooks ...stri
 		return result, nil
 	}
 
-	var object map[interface{}]interface{}
-	if err := yaml.Unmarshal([]byte(content), &object); err != nil {
-		log.Fatalf("YAML unmarshal error: %s\nCan't unmarshal %s", err, content)
+	if normalizeManifests {
+		// Unmarshal and marshal again content to normalize yaml structure
+		// This avoids style differences to show up as diffs but it can
+		// make the output different from the original template (since it is in normalized form)
+		var object map[interface{}]interface{}
+		if err := yaml.Unmarshal([]byte(content), &object); err != nil {
+			log.Fatalf("YAML unmarshal error: %s\nCan't unmarshal %s", err, content)
+		}
+		normalizedContent, err := yaml.Marshal(object)
+		if err != nil {
+			log.Fatalf("YAML marshal error: %s\nCan't marshal %v", err, object)
+		}
+		content = string(normalizedContent)
 	}
-	normalizedContent, err := yaml.Marshal(object)
-	if err != nil {
-		log.Fatalf("YAML marshal error: %s\nCan't marshal %v", err, object)
-	}
-	content = string(normalizedContent)
 
 	if isHook(parsedMetadata, excludedHooks...) {
 		return nil, nil
