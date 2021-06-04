@@ -14,16 +14,17 @@ import (
 )
 
 type rollback struct {
-	release          string
-	client           helm.Interface
-	detailedExitCode bool
-	suppressedKinds  []string
-	revisions        []string
-	outputContext    int
-	includeTests     bool
-	showSecrets      bool
-	output           string
-	stripTrailingCR  bool
+	release            string
+	client             helm.Interface
+	detailedExitCode   bool
+	suppressedKinds    []string
+	revisions          []string
+	outputContext      int
+	includeTests       bool
+	showSecrets        bool
+	output             string
+	stripTrailingCR    bool
+	normalizeManifests bool
 }
 
 const rollbackCmdLongUsage = `
@@ -83,6 +84,7 @@ func rollbackCmd() *cobra.Command {
 	rollbackCmd.Flags().BoolVar(&diff.includeTests, "include-tests", false, "enable the diffing of the helm test hooks")
 	rollbackCmd.Flags().StringVar(&diff.output, "output", "diff", "Possible values: diff, simple, template. When set to \"template\", use the env var HELM_DIFF_TPL to specify the template.")
 	rollbackCmd.Flags().BoolVar(&diff.stripTrailingCR, "strip-trailing-cr", false, "strip trailing carriage return on input")
+	rollbackCmd.Flags().BoolVar(&diff.normalizeManifests, "normalize-manifests", false, "normalize manifests before running diff to exclude style differences from the output")
 
 	rollbackCmd.SuggestionsMinimumDistance = 1
 
@@ -115,8 +117,8 @@ func (d *rollback) backcastHelm3() error {
 
 	// create a diff between the current manifest and the version of the manifest that a user is intended to rollback
 	seenAnyChanges := diff.Manifests(
-		manifest.Parse(string(releaseResponse), namespace, excludes...),
-		manifest.Parse(string(revisionResponse), namespace, excludes...),
+		manifest.Parse(string(releaseResponse), namespace, d.normalizeManifests, excludes...),
+		manifest.Parse(string(revisionResponse), namespace, d.normalizeManifests, excludes...),
 		d.suppressedKinds,
 		d.showSecrets,
 		d.outputContext,
@@ -152,8 +154,8 @@ func (d *rollback) backcast() error {
 
 	// create a diff between the current manifest and the version of the manifest that a user is intended to rollback
 	seenAnyChanges := diff.Manifests(
-		manifest.ParseRelease(releaseResponse.Release, d.includeTests),
-		manifest.ParseRelease(revisionResponse.Release, d.includeTests),
+		manifest.ParseRelease(releaseResponse.Release, d.includeTests, d.normalizeManifests),
+		manifest.ParseRelease(revisionResponse.Release, d.includeTests, d.normalizeManifests),
 		d.suppressedKinds,
 		d.showSecrets,
 		d.outputContext,

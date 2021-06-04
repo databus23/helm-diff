@@ -41,6 +41,7 @@ type diffCmd struct {
 	output                   string
 	install                  bool
 	stripTrailingCR          bool
+	normalizeManifests       bool
 }
 
 func (d *diffCmd) isAllowUnreleased() bool {
@@ -121,6 +122,7 @@ func newChartCommand() *cobra.Command {
 	f.StringVar(&diff.postRenderer, "post-renderer", "", "the path to an executable to be used for post rendering. If it exists in $PATH, the binary will be used, otherwise it will try to look for the executable at the given path")
 	f.StringVar(&diff.output, "output", "diff", "Possible values: diff, simple, json, template. When set to \"template\", use the env var HELM_DIFF_TPL to specify the template.")
 	f.BoolVar(&diff.stripTrailingCR, "strip-trailing-cr", false, "strip trailing carriage return on input")
+	f.BoolVar(&diff.normalizeManifests, "normalize-manifests", false, "normalize manifests before running diff to exclude style differences from the output")
 	if !isHelm3() {
 		f.StringVar(&diff.namespace, "namespace", "default", "namespace to assume the release to be installed into")
 	}
@@ -177,16 +179,16 @@ func (d *diffCmd) runHelm3() error {
 			releaseManifest = append(releaseManifest, hooks...)
 		}
 		if d.includeTests {
-			currentSpecs = manifest.Parse(string(releaseManifest), d.namespace)
+			currentSpecs = manifest.Parse(string(releaseManifest), d.namespace, d.normalizeManifests)
 		} else {
-			currentSpecs = manifest.Parse(string(releaseManifest), d.namespace, helm3TestHook, helm2TestSuccessHook)
+			currentSpecs = manifest.Parse(string(releaseManifest), d.namespace, d.normalizeManifests, helm3TestHook, helm2TestSuccessHook)
 		}
 	}
 	var newSpecs map[string]*manifest.MappingResult
 	if d.includeTests {
-		newSpecs = manifest.Parse(string(installManifest), d.namespace)
+		newSpecs = manifest.Parse(string(installManifest), d.namespace, d.normalizeManifests)
 	} else {
-		newSpecs = manifest.Parse(string(installManifest), d.namespace, helm3TestHook, helm2TestSuccessHook)
+		newSpecs = manifest.Parse(string(installManifest), d.namespace, d.normalizeManifests, helm3TestHook, helm2TestSuccessHook)
 	}
 	seenAnyChanges := diff.Manifests(currentSpecs, newSpecs, d.suppressedKinds, d.showSecrets, d.outputContext, d.output, d.stripTrailingCR, os.Stdout)
 
@@ -251,7 +253,7 @@ func (d *diffCmd) run() error {
 		}
 
 		currentSpecs = make(map[string]*manifest.MappingResult)
-		newSpecs = manifest.Parse(installResponse.Release.Manifest, installResponse.Release.Namespace)
+		newSpecs = manifest.Parse(installResponse.Release.Manifest, installResponse.Release.Namespace, d.normalizeManifests)
 	} else {
 		upgradeResponse, err := d.client.UpdateRelease(
 			d.release,
@@ -266,11 +268,11 @@ func (d *diffCmd) run() error {
 		}
 
 		if d.noHooks {
-			currentSpecs = manifest.Parse(releaseResponse.Release.Manifest, releaseResponse.Release.Namespace)
-			newSpecs = manifest.Parse(upgradeResponse.Release.Manifest, upgradeResponse.Release.Namespace)
+			currentSpecs = manifest.Parse(releaseResponse.Release.Manifest, releaseResponse.Release.Namespace, d.normalizeManifests)
+			newSpecs = manifest.Parse(upgradeResponse.Release.Manifest, upgradeResponse.Release.Namespace, d.normalizeManifests)
 		} else {
-			currentSpecs = manifest.ParseRelease(releaseResponse.Release, d.includeTests)
-			newSpecs = manifest.ParseRelease(upgradeResponse.Release, d.includeTests)
+			currentSpecs = manifest.ParseRelease(releaseResponse.Release, d.includeTests, d.normalizeManifests)
+			newSpecs = manifest.ParseRelease(upgradeResponse.Release, d.includeTests, d.normalizeManifests)
 		}
 	}
 
