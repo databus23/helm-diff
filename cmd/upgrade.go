@@ -164,7 +164,12 @@ func (d *diffCmd) runHelm3() error {
 		return fmt.Errorf("Failed to get release %s in namespace %s: %s", d.release, d.namespace, err)
 	}
 
-	installManifest, err := d.template(!newInstall)
+	render := d.upgrade
+	if d.dryRun || d.disableValidation {
+		render = d.template
+	}
+	installManifest, err := render(!newInstall)
+
 	if err != nil {
 		return fmt.Errorf("Failed to render chart: %s", err)
 	}
@@ -186,9 +191,9 @@ func (d *diffCmd) runHelm3() error {
 	}
 	var newSpecs map[string]*manifest.MappingResult
 	if d.includeTests {
-		newSpecs = manifest.Parse(string(installManifest), d.namespace, d.normalizeManifests)
+		newSpecs = manifest.Parse(installManifest, d.namespace, d.normalizeManifests)
 	} else {
-		newSpecs = manifest.Parse(string(installManifest), d.namespace, d.normalizeManifests, helm3TestHook, helm2TestSuccessHook)
+		newSpecs = manifest.Parse(installManifest, d.namespace, d.normalizeManifests, helm3TestHook, helm2TestSuccessHook)
 	}
 	seenAnyChanges := diff.Manifests(currentSpecs, newSpecs, d.suppressedKinds, d.showSecrets, d.outputContext, d.output, d.stripTrailingCR, os.Stdout)
 
