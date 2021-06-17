@@ -81,8 +81,7 @@ func getChart(release, namespace string) (string, error) {
 	return string(out), nil
 }
 
-func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
-	flags := []string{}
+func templateAndUpgradeArguments(flags []string, d *diffCmd) []string {
 	if d.devel {
 		flags = append(flags, "--devel")
 	}
@@ -101,21 +100,6 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 	if d.postRenderer != "" {
 		flags = append(flags, "--post-renderer", d.postRenderer)
 	}
-	// Helm automatically enable --reuse-values when there's no --set, --set-string, --set-values, --set-file present.
-	// Let's simulate that in helm-diff.
-	// See https://medium.com/@kcatstack/understand-helm-upgrade-flags-reset-values-reuse-values-6e58ac8f127e
-	shouldDefaultReusingValues := isUpgrade && len(d.values) == 0 && len(d.stringValues) == 0 && len(d.valueFiles) == 0 && len(d.fileValues) == 0
-	if (d.reuseValues || shouldDefaultReusingValues) && !d.resetValues && !d.dryRun {
-		tmpfile, err := ioutil.TempFile("", "existing-values")
-		if err != nil {
-			return nil, err
-		}
-		defer os.Remove(tmpfile.Name())
-		if err := d.writeExistingValues(tmpfile); err != nil {
-			return nil, err
-		}
-		flags = append(flags, "--values", tmpfile.Name())
-	}
 	for _, value := range d.values {
 		flags = append(flags, "--set", value)
 	}
@@ -129,6 +113,32 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 		flags = append(flags, "--set-file", fileValue)
 	}
 
+	if d.disableOpenAPIValidation {
+		flags = append(flags, "--disable-openapi-validation")
+	}
+
+	return flags
+}
+
+func (d *diffCmd) template(isUpgrade bool) (string, error) {
+	flags := templateAndUpgradeArguments([]string{}, d)
+
+	// Helm automatically enable --reuse-values when there's no --set, --set-string, --set-values, --set-file present.
+	// Let's simulate that in helm-diff.
+	// See https://medium.com/@kcatstack/understand-helm-upgrade-flags-reset-values-reuse-values-6e58ac8f127e
+	shouldDefaultReusingValues := isUpgrade && len(d.values) == 0 && len(d.stringValues) == 0 && len(d.valueFiles) == 0 && len(d.fileValues) == 0
+	if (d.reuseValues || shouldDefaultReusingValues) && !d.resetValues && !d.dryRun {
+		tmpfile, err := ioutil.TempFile("", "existing-values")
+		if err != nil {
+			return "", err
+		}
+		defer os.Remove(tmpfile.Name())
+		if err := d.writeExistingValues(tmpfile); err != nil {
+			return "", err
+		}
+		flags = append(flags, "--values", tmpfile.Name())
+	}
+
 	if !d.disableValidation && !d.dryRun {
 		flags = append(flags, "--validate")
 	}
@@ -137,14 +147,63 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 		flags = append(flags, "--is-upgrade")
 	}
 
-	if d.disableOpenAPIValidation {
-		flags = append(flags, "--disable-openapi-validation")
-	}
-
 	args := []string{"template", d.release, d.chart}
 	args = append(args, flags...)
 	cmd := exec.Command(os.Getenv("HELM_BIN"), args...)
-	return outputWithRichError(cmd)
+	output, err := outputWithRichError(cmd)
+	return string(output), err
+}
+
+func (d *diffCmd) upgrade(isUpgrade bool) (string, error) {
+	flags := templateAndUpgradeArguments([]string{}, d)
+	flags = append(flags, "--dry-run")
+
+	var onlyManifestAndHooks = func(str string) string {
+		var splitByKey = func() map[string]string {
+			var getContent = func(key string, keys []string) string {
+				content := str[strings.Index(str, key)+len(key):]
+
+				for i := range keys {
+					keyIndex := strings.Index(content, keys[i])
+					if keyIndex > 0 {
+						content = content[:keyIndex]
+					}
+				}
+
+				return content
+			}
+
+			keyedContent := map[string]string{}
+			sectionKeys := regexp.MustCompile("(?m)^[A-Z][A-Z| ]+:.*$").FindAllString(str, -1)
+			for i := range sectionKeys {
+				keyedContent[strings.Replace(sectionKeys[i], ":", "", -1)] = getContent(sectionKeys[i], sectionKeys)
+			}
+
+			return keyedContent
+		}
+
+		sections := splitByKey()
+		return strings.TrimSpace(strings.Join([]string{sections["HOOKS"], sections["MANIFEST"]}, "")) + "\n\n"
+	}
+
+	if !isUpgrade {
+		flags = append(flags, "--install")
+		flags = append(flags, "--create-namespace")
+	}
+
+	if d.reuseValues {
+		flags = append(flags, "--reuse-values")
+	}
+
+	if d.resetValues {
+		flags = append(flags, "--reset-values")
+	}
+
+	args := []string{"upgrade", d.release, d.chart}
+	args = append(args, flags...)
+	cmd := exec.Command(os.Getenv("HELM_BIN"), args...)
+	output, err := outputWithRichError(cmd)
+	return onlyManifestAndHooks(string(output)), err
 }
 
 func (d *diffCmd) writeExistingValues(f *os.File) error {
