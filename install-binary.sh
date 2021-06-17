@@ -83,10 +83,20 @@ getDownloadURL() {
   fi
 }
 
+# Temporary dir
+mkTempDir() {
+  HELM_TMP="$(mktemp -d -t "${PROJECT_NAME}-XXXX")"
+}
+rmTempDir() {
+  if [ -d "${HELM_TMP:-/tmp/helm-diff-tmp}" ]; then
+    rm -rf "${HELM_TMP:-/tmp/helm-diff-tmp}"
+  fi
+}
+
 # downloadFile downloads the latest binary package and also the checksum
 # for that binary.
 downloadFile() {
-  PLUGIN_TMP_FILE="/tmp/${PROJECT_NAME}.tgz"
+  PLUGIN_TMP_FILE="${HELM_TMP}/${PROJECT_NAME}.tgz"
   echo "Downloading $DOWNLOAD_URL"
   if type "curl" >/dev/null; then
     curl -L "$DOWNLOAD_URL" -o "$PLUGIN_TMP_FILE"
@@ -98,8 +108,6 @@ downloadFile() {
 # installFile verifies the SHA256 for the file, then unpacks and
 # installs it.
 installFile() {
-  HELM_TMP="/tmp/$PROJECT_NAME"
-  mkdir -p "$HELM_TMP"
   tar xf "$PLUGIN_TMP_FILE" -C "$HELM_TMP"
   HELM_TMP_BIN="$HELM_TMP/diff/bin/diff"
   echo "Preparing to install into ${HELM_PLUGIN_DIR}"
@@ -110,6 +118,7 @@ installFile() {
 # fail_trap is executed if an error occurs.
 fail_trap() {
   result=$?
+  rmTempDir
   if [ "$result" != "0" ]; then
     echo "Failed to install $PROJECT_NAME"
     printf '\tFor support, go to https://github.com/databus23/helm-diff.\n'
@@ -134,6 +143,7 @@ initArch
 initOS
 verifySupported
 getDownloadURL
+mkTempDir
 downloadFile
 installFile
 testVersion
