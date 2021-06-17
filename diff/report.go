@@ -193,7 +193,7 @@ func setupTemplateReport(r *Report) {
 // report with template output will only have access to ReportTemplateSpec.
 // This function reverts parsedMetadata.String()
 func (t *ReportTemplateSpec) loadFromKey(key string) error {
-	pattern := regexp.MustCompile(`(?P<namespace>[a-z0-9-]+), (?P<name>[a-z0-9-]+), (?P<kind>\w+) \((?P<api>[a-z0-9.]+)\)`)
+	pattern := regexp.MustCompile(`(?P<namespace>[a-z0-9-]+), (?P<name>[a-z0-9-.]+), (?P<kind>\w+) \((?P<api>[a-z0-9.]+)\)`)
 	matches := pattern.FindStringSubmatch(key)
 	if len(matches) > 1 {
 		t.Namespace = matches[1]
