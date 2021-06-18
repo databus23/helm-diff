@@ -6,18 +6,20 @@ PROJECT_NAME="helm-diff"
 PROJECT_GH="databus23/$PROJECT_NAME"
 export GREP_COLOR="never"
 
-HELM_MAJOR_VERSION=$("${HELM_BIN}" version --client --short | awk -F '.' '{print $1}')
 
-: ${HELM_PLUGIN_DIR:="$("${HELM_BIN}" home --debug=false)/plugins/helm-diff"}
-
-# Convert the HELM_PLUGIN_DIR to unix if cygpath is
+# Convert HELM_BIN and HELM_PLUGIN_DIR to unix if cygpath is
 # available. This is the case when using MSYS2 or Cygwin
 # on Windows where helm returns a Windows path but we
 # need a Unix path
 
 if type cygpath >/dev/null 2>&1; then
-  HELM_PLUGIN_DIR=$(cygpath -u $HELM_PLUGIN_DIR)
+  HELM_BIN="$(cygpath -u "${HELM_BIN}")"
+  HELM_PLUGIN_DIR="$(cygpath -u "${HELM_PLUGIN_DIR}")"
 fi
+
+HELM_MAJOR_VERSION=$("${HELM_BIN}" version --client --short | awk -F '.' '{print $1}')
+
+: ${HELM_PLUGIN_DIR:="$("${HELM_BIN}" home --debug=false)/plugins/helm-diff"}
 
 if [ "$SKIP_BIN_INSTALL" = "1" ]; then
   echo "Skipping binary install"
