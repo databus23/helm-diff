@@ -6,9 +6,16 @@ PROJECT_NAME="helm-diff"
 PROJECT_GH="databus23/$PROJECT_NAME"
 export GREP_COLOR="never"
 
+[ -z "$HELM_BIN" ] && HELM_BIN=$(which helm)
+
 HELM_MAJOR_VERSION=$("${HELM_BIN}" version --client --short | awk -F '.' '{print $1}')
 
-: ${HELM_PLUGIN_DIR:="$("${HELM_BIN}" home --debug=false)/plugins/helm-diff"}
+HELM_HOME=$("${HELM_BIN}" home --debug=false)
+[ -z "$HELM_HOME" ] && HELM_HOME="$HOME/.helm"
+
+mkdir -p "$HELM_HOME"
+
+: ${HELM_PLUGIN_DIR:="$HELM_HOME/plugins/helm-diff"}
 
 # Convert the HELM_PLUGIN_DIR to unix if cygpath is
 # available. This is the case when using MSYS2 or Cygwin
@@ -100,7 +107,7 @@ downloadFile() {
 installFile() {
   HELM_TMP="/tmp/$PROJECT_NAME"
   mkdir -p "$HELM_TMP"
-  tar xf "$PLUGIN_TMP_FILE" -C "$HELM_TMP"
+  tar xvzf "$PLUGIN_TMP_FILE" -C "$HELM_TMP"
   HELM_TMP_BIN="$HELM_TMP/diff/bin/diff"
   echo "Preparing to install into ${HELM_PLUGIN_DIR}"
   mkdir -p "$HELM_PLUGIN_DIR/bin"
