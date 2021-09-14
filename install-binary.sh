@@ -7,11 +7,10 @@ PROJECT_GH="databus23/$PROJECT_NAME"
 export GREP_COLOR="never"
 
 [ -z "$HELM_BIN" ] && HELM_BIN=$(which helm)
-
 HELM_MAJOR_VERSION=$("${HELM_BIN}" version --client --short | awk -F '.' '{print $1}')
 
 HELM_HOME=$("${HELM_BIN}" home --debug=false)
-[ -z "$HELM_HOME" ] && HELM_HOME="$HOME/.helm"
+[ -z "$HELM_HOME" ] && HELM_HOME=$(helm env | grep 'HELM_DATA_HOME' | cut -d '=' -f2 | tr -d '"')
 
 mkdir -p "$HELM_HOME"
 
