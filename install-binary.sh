@@ -24,6 +24,12 @@ if [ "$SKIP_BIN_INSTALL" = "1" ]; then
   exit
 fi
 
+# which mode is the common installer script running in
+SCRIPT_MODE="install"
+if [ "$1" = "-u" ]; then
+  SCRIPT_MODE="update"
+fi
+
 # initArch discovers the architecture for this system.
 initArch() {
   ARCH=$(uname -m)
@@ -67,19 +73,27 @@ verifySupported() {
   fi
 }
 
+getLatestDownloadURL(){
+  # Use the GitHub API to find the download url for this project.
+  url="https://api.github.com/repos/$PROJECT_GH/releases/latest"
+  if type "curl" >/dev/null; then
+    DOWNLOAD_URL=$(curl -s $url | grep $OS | awk '/\"browser_download_url\":/{gsub( /[,\"]/,"", $2); print $2}')
+  elif type "wget" >/dev/null; then
+    DOWNLOAD_URL=$(wget -q -O - $url | grep $OS | awk '/\"browser_download_url\":/{gsub( /[,\"]/,"", $2); print $2}')
+  fi
+}
+
 # getDownloadURL checks the latest available version.
 getDownloadURL() {
-  version=$(git -C "$HELM_PLUGIN_DIR" describe --tags --exact-match 2>/dev/null || :)
-  if [ -n "$version" ]; then
-    DOWNLOAD_URL="https://github.com/$PROJECT_GH/releases/download/$version/helm-diff-$OS.tgz"
-  else
-    # Use the GitHub API to find the download url for this project.
-    url="https://api.github.com/repos/$PROJECT_GH/releases/latest"
-    if type "curl" >/dev/null; then
-      DOWNLOAD_URL=$(curl -s $url | grep $OS | awk '/\"browser_download_url\":/{gsub( /[,\"]/,"", $2); print $2}')
-    elif type "wget" >/dev/null; then
-      DOWNLOAD_URL=$(wget -q -O - $url | grep $OS | awk '/\"browser_download_url\":/{gsub( /[,\"]/,"", $2); print $2}')
+  if [ "$SCRIPT_MODE" = "install" ]; then
+    version=$(git -C "$HELM_PLUGIN_DIR" describe --tags --exact-match 2>/dev/null || :)
+    if [ -n "$version" ]; then
+      DOWNLOAD_URL="https://github.com/$PROJECT_GH/releases/download/$version/helm-diff-$OS.tgz"
+    else
+      getLatestDownloadURL
     fi
+  else
+    getLatestDownloadURL
   fi
 }
 
