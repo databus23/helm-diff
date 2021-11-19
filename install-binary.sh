@@ -55,7 +55,7 @@ initOS() {
 # verifySupported checks that the os/arch combination is supported for
 # binary builds.
 verifySupported() {
-  supported="linux-amd64\nfreebsd-amd64\nmacos-amd64\nwindows-amd64"
+  supported="linux-amd64\nlinux-arm64\nfreebsd-amd64\nmacos-amd64\nwindows-amd64"
   if ! echo "${supported}" | grep -q "${OS}-${ARCH}"; then
     echo "No prebuild binary for ${OS}-${ARCH}."
     exit 1
@@ -71,14 +71,14 @@ verifySupported() {
 getDownloadURL() {
   version=$(git -C "$HELM_PLUGIN_DIR" describe --tags --exact-match 2>/dev/null || :)
   if [ -n "$version" ]; then
-    DOWNLOAD_URL="https://github.com/$PROJECT_GH/releases/download/$version/helm-diff-$OS.tgz"
+    DOWNLOAD_URL="https://github.com/$PROJECT_GH/releases/download/$version/helm-diff-$OS-$ARCH.tgz"
   else
     # Use the GitHub API to find the download url for this project.
     url="https://api.github.com/repos/$PROJECT_GH/releases/latest"
     if type "curl" >/dev/null; then
       DOWNLOAD_URL=$(curl -s $url | grep $OS | awk '/\"browser_download_url\":/{gsub( /[,\"]/,"", $2); print $2}')
     elif type "wget" >/dev/null; then
-      DOWNLOAD_URL=$(wget -q -O - $url | grep $OS | awk '/\"browser_download_url\":/{gsub( /[,\"]/,"", $2); print $2}')
+      DOWNLOAD_URL=$(wget -q -O - $url | grep $OS | grep $ARCH | awk '/\"browser_download_url\":/{gsub( /[,\"]/,"", $2); print $2}')
     fi
   fi
 }
