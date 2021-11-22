@@ -3,7 +3,7 @@ VERSION := $(shell sed -n -e 's/version:[ "]*\([^"]*\).*/\1/p' plugin.yaml)
 
 HELM_3_PLUGINS := $(shell bash -c 'eval $$(helm env); echo $$HELM_PLUGINS')
 
-PKG:= github.com/databus23/helm-diff
+PKG:= github.com/tmspicer/helm-diff
 LDFLAGS := -X $(PKG)/cmd.Version=$(VERSION)
 
 # Clear the "unreleased" string in BuildMetadata
@@ -49,10 +49,10 @@ bootstrap:
 	command -v golint || GO111MODULE=off go get -u golang.org/x/lint/golint
 
 .PHONY: docker-run-release
-docker-run-release: export pkg=/go/src/github.com/databus23/helm-diff
+docker-run-release: export pkg=/go/src/github.com/tmspicer/helm-diff
 docker-run-release:
-	git checkout master
-	git push
+	#git checkout master
+	#git push
 	docker run -it --rm -e GITHUB_TOKEN -v $(shell pwd):$(pkg) -w $(pkg) golang:1.13.3 make bootstrap release
 
 .PHONY: dist
@@ -79,7 +79,7 @@ release: lint dist
 ifndef GITHUB_TOKEN
 	$(error GITHUB_TOKEN is undefined)
 endif
-	scripts/release.sh v$(VERSION) master
+	scripts/release.sh v$(VERSION) add_arm_support
 
 # Test for the plugin installation with `helm plugin install -v THIS_BRANCH` works
 # Useful for verifying modified `install-binary.sh` still works against various environments
