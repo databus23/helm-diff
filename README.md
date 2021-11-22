@@ -28,6 +28,27 @@ E.g.
 curl -L $TARBALL_URL | tar -C $(helm home)/plugins -xzv
 ```
 
+### From Source
+#### Prerequisites
+ - GoLang `>= 1.14`
+
+Make sure you do not have a verison of `helm-diff` installed. You can remove it by running `helm plugin uninstall diff`
+
+#### Installation Steps
+The first step is to download the repository and enter the directory. You can do this via `git clone` or downloaing and extracting the release. If you clone via git, remember to checkout the latest tag for the latest release.
+
+Next, depending on which helm version you have, install the plugin into helm.
+
+##### Helm 2
+```bash
+make install
+```
+
+##### Helm 3
+```bash
+make install/helm3
+```
+
 
 ## Usage
 
@@ -103,6 +124,7 @@ Flags:
       --post-renderer string   the path to an executable to be used for post rendering. If it exists in $PATH, the binary will be used, otherwise it will try to look for the executable at the given path
       --reset-values           reset the values to the ones built into the chart and merge in any new values
       --reuse-values           reuse the last release's values and merge in any new values
+      --strip-trailing-cr      strip trailing carriage return on input
       --set stringArray        set values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)
       --suppress stringArray   allows suppression of the values listed in the diff output
   -q, --suppress-secrets       suppress secrets in the output
@@ -135,6 +157,7 @@ Flags:
   -h, --help                   help for release
       --home string            location of your Helm config. Overrides $HELM_HOME (default "/home/aananth/.helm")
       --include-tests          enable the diffing of the helm test hooks
+      --strip-trailing-cr      strip trailing carriage return on input
       --suppress stringArray   allows suppression of the values listed in the diff output
   -q, --suppress-secrets       suppress secrets in the output
       --tls                    enable TLS for request
@@ -157,7 +180,7 @@ This command compares the manifests details of a named release.
 
 It can be used to compare the manifests of 
  
- - lastest REVISION with specified REVISION
+ - latest REVISION with specified REVISION
 	$ helm diff revision [flags] RELEASE REVISION1
    Example: 
 	$ helm diff revision my-release 2
@@ -172,6 +195,7 @@ Usage:
 
 Flags:
   -h, --help                   help for revision
+      --strip-trailing-cr      strip trailing carriage return on input
       --suppress stringArray   allows suppression of the values listed in the diff output
   -q, --suppress-secrets       suppress secrets in the output
 
@@ -197,6 +221,7 @@ Examples:
 
 Flags:
   -h, --help                   help for rollback
+      --strip-trailing-cr      strip trailing carriage return on input
       --suppress stringArray   allows suppression of the values listed in the diff output
   -q, --suppress-secrets       suppress secrets in the output
 

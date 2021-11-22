@@ -6,9 +6,9 @@ PROJECT_NAME="helm-diff"
 PROJECT_GH="tmspicer/$PROJECT_NAME"
 export GREP_COLOR="never"
 
-HELM_MAJOR_VERSION=$(helm version --client --short | awk -F '.' '{print $1}')
+HELM_MAJOR_VERSION=$("${HELM_BIN}" version --client --short | awk -F '.' '{print $1}')
 
-: ${HELM_PLUGIN_DIR:="$(helm home --debug=false)/plugins/helm-diff"}
+: ${HELM_PLUGIN_DIR:="$("${HELM_BIN}" home --debug=false)/plugins/helm-diff"}
 
 # Convert the HELM_PLUGIN_DIR to unix if cygpath is
 # available. This is the case when using MSYS2 or Cygwin

@@ -22,7 +22,7 @@ install: build
 	cp plugin.yaml $(HELM_HOME)/plugins/helm-diff/
 
 .PHONY: install/helm3
-install/helm3:
+install/helm3: build
 	mkdir -p $(HELM_3_PLUGINS)/helm-diff/bin
 	cp bin/diff $(HELM_3_PLUGINS)/helm-diff/bin
 	cp plugin.yaml $(HELM_3_PLUGINS)/helm-diff/
@@ -62,16 +62,16 @@ dist:
 	rm -rf build/diff/* release/*
 	mkdir -p build/diff/bin release/
 	cp README.md LICENSE plugin.yaml build/diff
-	GOOS=linux GOARCH=amd64 go build -o build/diff/bin/diff -ldflags="$(LDFLAGS)"
+	GOOS=linux GOARCH=amd64 go build -o build/diff/bin/diff -trimpath -ldflags="$(LDFLAGS)"
 	tar -C build/ -zcvf $(CURDIR)/release/helm-diff-linux.tgz diff/
 	GOOS=linux GOARCH=arm64 go build -o build/diff/bin/diff -trimpath -ldflags="$(LDFLAGS)"
 	tar -C build/ -zcvf $(CURDIR)/release/helm-diff-linux-arm64.tgz diff/
-	GOOS=freebsd GOARCH=amd64 go build -o build/diff/bin/diff -ldflags="$(LDFLAGS)"
+	GOOS=freebsd GOARCH=amd64 go build -o build/diff/bin/diff -trimpath -ldflags="$(LDFLAGS)"
 	tar -C build/ -zcvf $(CURDIR)/release/helm-diff-freebsd.tgz diff/
-	GOOS=darwin GOARCH=amd64 go build -o build/diff/bin/diff -ldflags="$(LDFLAGS)"
+	GOOS=darwin GOARCH=amd64 go build -o build/diff/bin/diff -trimpath -ldflags="$(LDFLAGS)"
 	tar -C build/ -zcvf $(CURDIR)/release/helm-diff-macos.tgz diff/
 	rm build/diff/bin/diff
-	GOOS=windows GOARCH=amd64 go build -o build/diff/bin/diff.exe -ldflags="$(LDFLAGS)"
+	GOOS=windows GOARCH=amd64 go build -o build/diff/bin/diff.exe -trimpath -ldflags="$(LDFLAGS)"
 	tar -C build/ -zcvf $(CURDIR)/release/helm-diff-windows.tgz diff/
 
 .PHONY: release

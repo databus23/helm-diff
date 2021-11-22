@@ -19,7 +19,7 @@ import (
 )
 
 // Manifests diff on manifests
-func Manifests(oldIndex, newIndex map[string]*manifest.MappingResult, suppressedKinds []string, showSecrets bool, context int, output string, to io.Writer) bool {
+func Manifests(oldIndex, newIndex map[string]*manifest.MappingResult, suppressedKinds []string, showSecrets bool, context int, output string, stripTrailingCR bool, to io.Writer) bool {
 	report.setupReportFormat(output)
 	seenAnyChanges := false
 	emptyMapping := &manifest.MappingResult{}
@@ -33,7 +33,7 @@ func Manifests(oldIndex, newIndex map[string]*manifest.MappingResult, suppressed
 					redactSecrets(oldContent, newContent)
 				}
 
-				diffs := diffMappingResults(oldContent, newContent)
+				diffs := diffMappingResults(oldContent, newContent, stripTrailingCR)
 				if len(diffs) > 0 {
 					seenAnyChanges = true
 				}
@@ -45,7 +45,7 @@ func Manifests(oldIndex, newIndex map[string]*manifest.MappingResult, suppressed
 				redactSecrets(oldContent, nil)
 
 			}
-			diffs := diffMappingResults(oldContent, emptyMapping)
+			diffs := diffMappingResults(oldContent, emptyMapping, stripTrailingCR)
 			if len(diffs) > 0 {
 				seenAnyChanges = true
 			}
@@ -61,7 +61,7 @@ func Manifests(oldIndex, newIndex map[string]*manifest.MappingResult, suppressed
 			if !showSecrets {
 				redactSecrets(nil, newContent)
 			}
-			diffs := diffMappingResults(emptyMapping, newContent)
+			diffs := diffMappingResults(emptyMapping, newContent, stripTrailingCR)
 			if len(diffs) > 0 {
 				seenAnyChanges = true
 			}
@@ -142,19 +142,31 @@ func getComment(s string) string {
 }
 
 // Releases reindex the content  based on the template names and pass it to Manifests
-func Releases(oldIndex, newIndex map[string]*manifest.MappingResult, suppressedKinds []string, showSecrets bool, context int, output string, to io.Writer) bool {
+func Releases(oldIndex, newIndex map[string]*manifest.MappingResult, suppressedKinds []string, showSecrets bool, context int, output string, stripTrailingCR bool, to io.Writer) bool {
 	oldIndex = reIndexForRelease(oldIndex)
 	newIndex = reIndexForRelease(newIndex)
-	return Manifests(oldIndex, newIndex, suppressedKinds, showSecrets, context, output, to)
+	return Manifests(oldIndex, newIndex, suppressedKinds, showSecrets, context, output, stripTrailingCR, to)
 }
 
-func diffMappingResults(oldContent *manifest.MappingResult, newContent *manifest.MappingResult) []difflib.DiffRecord {
-	return diffStrings(oldContent.Content, newContent.Content)
+func diffMappingResults(oldContent *manifest.MappingResult, newContent *manifest.MappingResult, stripTrailingCR bool ) []difflib.DiffRecord {
+	return diffStrings(oldContent.Content, newContent.Content, stripTrailingCR)
 }
 
-func diffStrings(before, after string) []difflib.DiffRecord {
+func diffStrings(before, after string, stripTrailingCR bool) []difflib.DiffRecord {
+	return difflib.Diff(split(before, stripTrailingCR), split(after, stripTrailingCR))
+}
+
+func split(value string, stripTrailingCR bool) []string {
 	const sep = "\n"
-	return difflib.Diff(strings.Split(before, sep), strings.Split(after, sep))
+	split := strings.Split(value, sep)
+	if !stripTrailingCR {
+		return split
+	}
+	var stripped []string
+	for _, s := range split {
+		stripped = append(stripped, strings.TrimSuffix(s, "\r"))
+	}
+	return stripped
 }
 
 func printDiffRecords(suppressedKinds []string, kind string, context int, diffs []difflib.DiffRecord, to io.Writer) {
