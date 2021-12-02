@@ -115,8 +115,8 @@ installFile() {
   cp "$HELM_TMP_BIN" "$HELM_PLUGIN_DIR/bin"
 }
 
-# fail_trap is executed if an error occurs.
-fail_trap() {
+# exit_trap is executed if on exit (error or not).
+exit_trap() {
   result=$?
   rmTempDir
   if [ "$result" != "0" ]; then
@@ -137,7 +137,7 @@ testVersion() {
 # Execution
 
 #Stop execution on any error
-trap "fail_trap" EXIT
+trap "exit_trap" EXIT
 set -e
 initArch
 initOS
