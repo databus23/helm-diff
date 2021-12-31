@@ -25,12 +25,15 @@ type Options struct {
 	StripTrailingCR bool
 	ShowSecrets     bool
 	SuppressedKinds []string
+	FindRenames     float32
 }
 
 // Manifests diff on manifests
 func Manifests(oldIndex, newIndex map[string]*manifest.MappingResult, options *Options, to io.Writer) bool {
 	report := Report{}
 	report.setupReportFormat(options.OutputFormat)
+	var possiblyRemoved []string
+
 	for _, key := range sortedKeys(oldIndex) {
 		oldContent := oldIndex[key]
 
@@ -38,17 +41,27 @@ func Manifests(oldIndex, newIndex map[string]*manifest.MappingResult, options *O
 			// modified?
 			doDiff(&report, key, oldContent, newContent, options)
 		} else {
-			// removed
-			doDiff(&report, key, oldContent, nil, options)
+			possiblyRemoved = append(possiblyRemoved, key)
 		}
 	}
 
+	var possiblyAdded []string
 	for _, key := range sortedKeys(newIndex) {
-		newContent := newIndex[key]
-
 		if _, ok := oldIndex[key]; !ok {
-			doDiff(&report, key, nil, newContent, options)
+			possiblyAdded = append(possiblyAdded, key)
 		}
+	}
+
+	removed, added := contentSearch(&report, possiblyRemoved, oldIndex, possiblyAdded, newIndex, options)
+
+	for _, key := range removed {
+		oldContent := oldIndex[key]
+		doDiff(&report, key, oldContent, nil, options)
+	}
+
+	for _, key := range added {
+		newContent := newIndex[key]
+		doDiff(&report, key, nil, newContent, options)
 	}
 
 	seenAnyChanges := len(report.entries) > 0
@@ -65,6 +78,52 @@ func actualChanges(diff []difflib.DiffRecord) int {
 		}
 	}
 	return changes
+}
+
+func contentSearch(report *Report, possiblyRemoved []string, oldIndex map[string]*manifest.MappingResult, possiblyAdded []string, newIndex map[string]*manifest.MappingResult, options *Options) ([]string, []string) {
+	if options.FindRenames <= 0 {
+		return possiblyRemoved, possiblyAdded
+	}
+
+	var removed []string
+
+	for _, removedKey := range possiblyRemoved {
+		oldContent := oldIndex[removedKey]
+		var smallestKey string
+		var smallestFraction float32 = math.MaxFloat32
+		for _, addedKey := range possiblyAdded {
+			newContent := newIndex[addedKey]
+			if oldContent.Kind != newContent.Kind {
+				continue
+			}
+
+			if !options.ShowSecrets {
+				redactSecrets(oldContent, newContent)
+			}
+
+			diff := diffMappingResults(oldContent, newContent, options.StripTrailingCR)
+			delta := actualChanges(diff)
+			if delta == 0 || len(diff) == 0 {
+				continue // Should never happen, but better safe than sorry
+			}
+			fraction := float32(delta) / float32(len(diff))
+			if fraction > 0 && fraction < smallestFraction {
+				smallestKey = addedKey
+				smallestFraction = fraction
+			}
+		}
+
+		if smallestFraction < options.FindRenames {
+			index := sort.SearchStrings(possiblyAdded, smallestKey)
+			possiblyAdded = append(possiblyAdded[:index], possiblyAdded[index+1:]...)
+			newContent := newIndex[smallestKey]
+			doDiff(report, removedKey, oldContent, newContent, options)
+		} else {
+			removed = append(removed, removedKey)
+		}
+	}
+
+	return removed, possiblyAdded
 }
 
 func doDiff(report *Report, key string, oldContent *manifest.MappingResult, newContent *manifest.MappingResult, options *Options) {
