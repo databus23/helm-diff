@@ -195,9 +195,72 @@ metadata:
 `,
 		}}
 
+	specReleaseSpec := map[string]*manifest.MappingResult{
+		"default, nginx, Deployment (apps)": {
+
+			Name: "default, nginx, Deployment (apps)",
+			Kind: "Deployment",
+			Content: `
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx
+spec:
+  replicas: 3
+`,
+		}}
+
+	specReleaseRenamed := map[string]*manifest.MappingResult{
+		"default, nginx-renamed, Deployment (apps)": {
+
+			Name: "default, nginx-renamed, Deployment (apps)",
+			Kind: "Deployment",
+			Content: `
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-renamed
+spec:
+  replicas: 3
+`,
+		}}
+
+	specReleaseRenamedAndUpdated := map[string]*manifest.MappingResult{
+		"default, nginx-renamed, Deployment (apps)": {
+
+			Name: "default, nginx-renamed, Deployment (apps)",
+			Kind: "Deployment",
+			Content: `
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-renamed
+spec:
+  replicas: 1
+`,
+		}}
+
+	specReleaseRenamedAndAdded := map[string]*manifest.MappingResult{
+		"default, nginx-renamed, Deployment (apps)": {
+
+			Name: "default, nginx-renamed, Deployment (apps)",
+			Kind: "Deployment",
+			Content: `
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-renamed
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx-renamed
+`,
+		}}
+
 	t.Run("OnChange", func(t *testing.T) {
 		var buf1 bytes.Buffer
-		diffOptions := Options{"diff", 10, false, true, []string{}}
+		diffOptions := Options{"diff", 10, false, true, []string{}, 0.0}
 
 		if changesSeen := Manifests(specBeta, specRelease, &diffOptions, &buf1); !changesSeen {
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
@@ -214,9 +277,100 @@ metadata:
 `, buf1.String())
 	})
 
+	t.Run("OnChangeRename", func(t *testing.T) {
+		var buf1 bytes.Buffer
+		diffOptions := Options{"diff", 10, false, true, []string{}, 0.5}
+
+		if changesSeen := Manifests(specReleaseSpec, specReleaseRenamed, &diffOptions, &buf1); !changesSeen {
+			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
+		}
+
+		require.Equal(t, `default, nginx, Deployment (apps) has changed:
+
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+-   name: nginx
++   name: nginx-renamed
+  spec:
+    replicas: 3
+
+`, buf1.String())
+	})
+
+	t.Run("OnChangeRenameAndUpdate", func(t *testing.T) {
+		var buf1 bytes.Buffer
+		diffOptions := Options{"diff", 10, false, true, []string{}, 0.5}
+
+		if changesSeen := Manifests(specReleaseSpec, specReleaseRenamedAndUpdated, &diffOptions, &buf1); !changesSeen {
+			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
+		}
+
+		require.Equal(t, `default, nginx, Deployment (apps) has changed:
+
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+-   name: nginx
++   name: nginx-renamed
+  spec:
+-   replicas: 3
++   replicas: 1
+
+`, buf1.String())
+	})
+
+	t.Run("OnChangeRenameAndAdded", func(t *testing.T) {
+		var buf1 bytes.Buffer
+		diffOptions := Options{"diff", 10, false, true, []string{}, 0.5}
+
+		if changesSeen := Manifests(specReleaseSpec, specReleaseRenamedAndAdded, &diffOptions, &buf1); !changesSeen {
+			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
+		}
+
+		require.Equal(t, `default, nginx, Deployment (apps) has changed:
+
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+-   name: nginx
++   name: nginx-renamed
+  spec:
+    replicas: 3
++   selector:
++     matchLabels:
++       app: nginx-renamed
+
+`, buf1.String())
+	})
+
+	t.Run("OnChangeRenameAndRemoved", func(t *testing.T) {
+		var buf1 bytes.Buffer
+		diffOptions := Options{"diff", 10, false, true, []string{}, 0.5}
+
+		if changesSeen := Manifests(specReleaseRenamedAndAdded, specReleaseSpec, &diffOptions, &buf1); !changesSeen {
+			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
+		}
+
+		require.Equal(t, `default, nginx-renamed, Deployment (apps) has changed:
+
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+-   name: nginx-renamed
++   name: nginx
+  spec:
+    replicas: 3
+-   selector:
+-     matchLabels:
+-       app: nginx-renamed
+
+`, buf1.String())
+	})
+
 	t.Run("OnNoChange", func(t *testing.T) {
 		var buf2 bytes.Buffer
-		diffOptions := Options{"diff", 10, false, true, []string{}}
+		diffOptions := Options{"diff", 10, false, true, []string{}, 0.0}
 
 		if changesSeen := Manifests(specRelease, specRelease, &diffOptions, &buf2); changesSeen {
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `false` to indicate that it has NOT seen any change(s), but was `true`")
@@ -227,7 +381,7 @@ metadata:
 
 	t.Run("OnChangeSimple", func(t *testing.T) {
 		var buf1 bytes.Buffer
-		diffOptions := Options{"simple", 10, false, true, []string{}}
+		diffOptions := Options{"simple", 10, false, true, []string{}, 0.0}
 
 		if changesSeen := Manifests(specBeta, specRelease, &diffOptions, &buf1); !changesSeen {
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
@@ -240,7 +394,7 @@ Plan: 0 to add, 1 to change, 0 to destroy.
 
 	t.Run("OnNoChangeSimple", func(t *testing.T) {
 		var buf2 bytes.Buffer
-		diffOptions := Options{"simple", 10, false, true, []string{}}
+		diffOptions := Options{"simple", 10, false, true, []string{}, 0.0}
 		if changesSeen := Manifests(specRelease, specRelease, &diffOptions, &buf2); changesSeen {
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `false` to indicate that it has NOT seen any change(s), but was `true`")
 		}
@@ -250,7 +404,7 @@ Plan: 0 to add, 1 to change, 0 to destroy.
 
 	t.Run("OnChangeTemplate", func(t *testing.T) {
 		var buf1 bytes.Buffer
-		diffOptions := Options{"template", 10, false, true, []string{}}
+		diffOptions := Options{"template", 10, false, true, []string{}, 0.0}
 
 		if changesSeen := Manifests(specBeta, specRelease, &diffOptions, &buf1); !changesSeen {
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
@@ -268,7 +422,7 @@ Plan: 0 to add, 1 to change, 0 to destroy.
 
 	t.Run("OnChangeJSON", func(t *testing.T) {
 		var buf1 bytes.Buffer
-		diffOptions := Options{"json", 10, false, true, []string{}}
+		diffOptions := Options{"json", 10, false, true, []string{}, 0.0}
 
 		if changesSeen := Manifests(specBeta, specRelease, &diffOptions, &buf1); !changesSeen {
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
@@ -286,7 +440,7 @@ Plan: 0 to add, 1 to change, 0 to destroy.
 
 	t.Run("OnNoChangeTemplate", func(t *testing.T) {
 		var buf2 bytes.Buffer
-		diffOptions := Options{"template", 10, false, true, []string{}}
+		diffOptions := Options{"template", 10, false, true, []string{}, 0.0}
 
 		if changesSeen := Manifests(specRelease, specRelease, &diffOptions, &buf2); changesSeen {
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `false` to indicate that it has NOT seen any change(s), but was `true`")
@@ -298,7 +452,7 @@ Plan: 0 to add, 1 to change, 0 to destroy.
 	t.Run("OnChangeCustomTemplate", func(t *testing.T) {
 		var buf1 bytes.Buffer
 		os.Setenv("HELM_DIFF_TPL", "testdata/customTemplate.tpl")
-		diffOptions := Options{"template", 10, false, true, []string{}}
+		diffOptions := Options{"template", 10, false, true, []string{}, 0.0}
 
 		if changesSeen := Manifests(specBeta, specRelease, &diffOptions, &buf1); !changesSeen {
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `false` to indicate that it has NOT seen any change(s), but was `true`")
