@@ -148,7 +148,7 @@ func Releases(oldIndex, newIndex map[string]*manifest.MappingResult, suppressedK
 	return Manifests(oldIndex, newIndex, suppressedKinds, showSecrets, context, output, stripTrailingCR, to)
 }
 
-func diffMappingResults(oldContent *manifest.MappingResult, newContent *manifest.MappingResult, stripTrailingCR bool ) []difflib.DiffRecord {
+func diffMappingResults(oldContent *manifest.MappingResult, newContent *manifest.MappingResult, stripTrailingCR bool) []difflib.DiffRecord {
 	return diffStrings(oldContent.Content, newContent.Content, stripTrailingCR)
 }
 
