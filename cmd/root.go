@@ -1,8 +1,11 @@
 package cmd
 
 import (
+	"os"
+
 	"github.com/mgutz/ansi"
 	"github.com/spf13/cobra"
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 const rootCmdLongUsage = `
@@ -40,6 +43,8 @@ func New() *cobra.Command {
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			if nc, _ := cmd.Flags().GetBool("no-color"); nc {
 				ansi.DisableColors(true)
+			} else if !cmd.Flags().Changed("no-color") {
+				ansi.DisableColors(!terminal.IsTerminal(int(os.Stdout.Fd())))
 			}
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -6,9 +6,9 @@ PROJECT_NAME="helm-diff"
 PROJECT_GH="databus23/$PROJECT_NAME"
 export GREP_COLOR="never"
 
-HELM_MAJOR_VERSION=$(helm version --client --short | awk -F '.' '{print $1}')
+HELM_MAJOR_VERSION=$("${HELM_BIN}" version --client --short | awk -F '.' '{print $1}')
 
-: ${HELM_PLUGIN_DIR:="$(helm home --debug=false)/plugins/helm-diff"}
+: ${HELM_PLUGIN_DIR:="$("${HELM_BIN}" home --debug=false)/plugins/helm-diff"}
 
 # Convert the HELM_PLUGIN_DIR to unix if cygpath is
 # available. This is the case when using MSYS2 or Cygwin
@@ -55,7 +55,7 @@ initOS() {
 # verifySupported checks that the os/arch combination is supported for
 # binary builds.
 verifySupported() {
-  supported="linux-amd64\nlinux-arm64\nfreebsd-amd64\nmacos-amd64\nwindows-amd64"
+  supported="linux-amd64\nlinux-arm64\nfreebsd-amd64\nmacos-amd64\nmacos-arm64\nwindows-amd64"
   if ! echo "${supported}" | grep -q "${OS}-${ARCH}"; then
     echo "No prebuild binary for ${OS}-${ARCH}."
     exit 1
