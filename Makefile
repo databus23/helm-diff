@@ -70,6 +70,8 @@ dist:
 	tar -C build/ -zcvf $(CURDIR)/release/helm-diff-freebsd-amd64.tgz diff/
 	GOOS=darwin GOARCH=amd64 go build -o build/diff/bin/diff -trimpath -ldflags="$(LDFLAGS)"
 	tar -C build/ -zcvf $(CURDIR)/release/helm-diff-macos-amd64.tgz diff/
+	GOOS=darwin GOARCH=arm64 go build -o build/diff/bin/diff -trimpath -ldflags="$(LDFLAGS)"
+	tar -C build/ -zcvf $(CURDIR)/release/helm-diff-macos-arm64.tgz diff/
 	rm build/diff/bin/diff
 	GOOS=windows GOARCH=amd64 go build -o build/diff/bin/diff.exe -trimpath -ldflags="$(LDFLAGS)"
 	tar -C build/ -zcvf $(CURDIR)/release/helm-diff-windows-amd64.tgz diff/
