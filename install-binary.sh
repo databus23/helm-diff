@@ -70,10 +70,8 @@ verifySupported() {
 # getDownloadURL checks the latest available version.
 getDownloadURL() {
   version=$(git -C "$HELM_PLUGIN_DIR" describe --tags --exact-match 2>/dev/null || :)
-  if [ -n "$version" ] && [ "$version" -gt "3.1.3" ]; then
+  if [ -n "$version" ]; then
     DOWNLOAD_URL="https://github.com/$PROJECT_GH/releases/download/$version/helm-diff-$OS-$ARCH.tgz"
-  elif [ -n "$version" ]; then
-    DOWNLOAD_URL="https://github.com/$PROJECT_GH/releases/download/$version/helm-diff-$OS.tgz"
   else
     # Use the GitHub API to find the download url for this project.
     url="https://api.github.com/repos/$PROJECT_GH/releases/latest"
