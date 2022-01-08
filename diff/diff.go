@@ -20,6 +20,7 @@ import (
 
 // Manifests diff on manifests
 func Manifests(oldIndex, newIndex map[string]*manifest.MappingResult, suppressedKinds []string, showSecrets bool, context int, output string, stripTrailingCR bool, to io.Writer) bool {
+	report := Report{}
 	report.setupReportFormat(output)
 	seenAnyChanges := false
 	emptyMapping := &manifest.MappingResult{}
