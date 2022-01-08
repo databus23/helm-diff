@@ -30,6 +30,12 @@ if [ "$SKIP_BIN_INSTALL" = "1" ]; then
   exit
 fi
 
+# which mode is the common installer script running in
+SCRIPT_MODE="install"
+if [ "$1" = "-u" ]; then
+  SCRIPT_MODE="update"
+fi
+
 # initArch discovers the architecture for this system.
 initArch() {
   ARCH=$(uname -m)
@@ -76,7 +82,7 @@ verifySupported() {
 # getDownloadURL checks the latest available version.
 getDownloadURL() {
   version=$(git -C "$HELM_PLUGIN_DIR" describe --tags --exact-match 2>/dev/null || :)
-  if [ -n "$version" ]; then
+  if [ "$SCRIPT_MODE" = "install" -a -n "$version" ]; then
     DOWNLOAD_URL="https://github.com/$PROJECT_GH/releases/download/$version/helm-diff-$OS-$ARCH.tgz"
   else
     DOWNLOAD_URL="https://github.com/$PROJECT_GH/releases/latest/download/helm-diff-$OS-$ARCH.tgz"
