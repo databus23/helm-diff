@@ -150,7 +150,7 @@ func newTemplate(name string) *template.Template {
 func setupJSONReport(r *Report) {
 	t, err := newTemplate("entries").Parse(defaultTemplateReport)
 	if err != nil {
-		log.Fatalf("Error loadding default template: %v", err)
+		log.Fatalf("Error loading default template: %v", err)
 	}
 
 	r.format.output = templateReportPrinter(t)
@@ -170,14 +170,14 @@ func setupTemplateReport(r *Report) {
 			t, err := newTemplate(filepath.Base(tplFile)).ParseFiles(tplFile)
 			if err != nil {
 				fmt.Println(err)
-				log.Fatalf("Error loadding custom template")
+				log.Fatalf("Error loading custom template")
 			}
 			tpl = t
 		} else {
 			// Render
 			t, err := newTemplate("entries").Parse(defaultTemplateReport)
 			if err != nil {
-				log.Fatalf("Error loadding default template")
+				log.Fatalf("Error loading default template")
 			}
 			tpl = t
 		}
@@ -202,7 +202,7 @@ func (t *ReportTemplateSpec) loadFromKey(key string) error {
 		t.API = matches[4]
 		return nil
 	}
-	return errors.New("key string did't match regexp")
+	return errors.New("key string didn't match regexp")
 }
 
 // load and print report for template output
