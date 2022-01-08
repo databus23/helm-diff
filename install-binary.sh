@@ -79,13 +79,7 @@ getDownloadURL() {
   if [ -n "$version" ]; then
     DOWNLOAD_URL="https://github.com/$PROJECT_GH/releases/download/$version/helm-diff-$OS-$ARCH.tgz"
   else
-    # Use the GitHub API to find the download url for this project.
-    url="https://api.github.com/repos/$PROJECT_GH/releases/latest"
-    if type "curl" >/dev/null; then
-      DOWNLOAD_URL=$(curl -s $url | grep $OS | grep $ARCH | awk '/\"browser_download_url\":/{gsub( /[,\"]/,"", $2); print $2}')
-    elif type "wget" >/dev/null; then
-      DOWNLOAD_URL=$(wget -q -O - $url | grep $OS | grep $ARCH | awk '/\"browser_download_url\":/{gsub( /[,\"]/,"", $2); print $2}')
-    fi
+    DOWNLOAD_URL="https://github.com/$PROJECT_GH/releases/latest/download/helm-diff-$OS-$ARCH.tgz"
   fi
 }
 
