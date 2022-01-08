@@ -67,7 +67,7 @@ The Helm Diff Plugin
 
 * Shows a diff explaining what a helm rollback would change:
     This fetches the currently deployed version of a release
-  and compares it to adeployed versions of a release, that you 
+  and compares it to the previously deployed versions of the release, that you 
   want to rollback. This can be used visualize what changes a 
   helm rollback will perform.
 
@@ -208,7 +208,7 @@ Global Flags:
 ```
 $ helm diff rollback -h
 
-This command compares the laset manifests details of a named release 
+This command compares the latest manifest details of a named release 
 with specific revision values to rollback.
 
 It forecasts/visualizes changes, that a helm rollback could perform.

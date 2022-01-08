@@ -20,6 +20,7 @@ import (
 
 // Manifests diff on manifests
 func Manifests(oldIndex, newIndex map[string]*manifest.MappingResult, suppressedKinds []string, showSecrets bool, context int, output string, stripTrailingCR bool, to io.Writer) bool {
+	report := Report{}
 	report.setupReportFormat(output)
 	seenAnyChanges := false
 	emptyMapping := &manifest.MappingResult{}
@@ -148,7 +149,7 @@ func Releases(oldIndex, newIndex map[string]*manifest.MappingResult, suppressedK
 	return Manifests(oldIndex, newIndex, suppressedKinds, showSecrets, context, output, stripTrailingCR, to)
 }
 
-func diffMappingResults(oldContent *manifest.MappingResult, newContent *manifest.MappingResult, stripTrailingCR bool ) []difflib.DiffRecord {
+func diffMappingResults(oldContent *manifest.MappingResult, newContent *manifest.MappingResult, stripTrailingCR bool) []difflib.DiffRecord {
 	return diffStrings(oldContent.Content, newContent.Content, stripTrailingCR)
 }
 

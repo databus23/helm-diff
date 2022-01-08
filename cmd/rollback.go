@@ -28,7 +28,7 @@ type rollback struct {
 }
 
 const rollbackCmdLongUsage = `
-This command compares the laset manifests details of a named release
+This command compares the latest manifest details of a named release
 with specific revision values to rollback.
 
 It forecasts/visualizes changes, that a helm rollback could perform.

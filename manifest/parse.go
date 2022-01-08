@@ -15,7 +15,7 @@ const (
 	hookAnnotation = "helm.sh/hook"
 )
 
-var yamlSeperator = []byte("\n---\n")
+var yamlSeparator = []byte("\n---\n")
 
 // MappingResult to store result of diff
 type MappingResult struct {
@@ -48,9 +48,9 @@ func scanYamlSpecs(data []byte, atEOF bool) (advance int, token []byte, err erro
 	if atEOF && len(data) == 0 {
 		return 0, nil, nil
 	}
-	if i := bytes.Index(data, yamlSeperator); i >= 0 {
+	if i := bytes.Index(data, yamlSeparator); i >= 0 {
 		// We have a full newline-terminated line.
-		return i + len(yamlSeperator), data[0:i], nil
+		return i + len(yamlSeparator), data[0:i], nil
 	}
 	// If we're at EOF, we have a final, non-terminated line. Return it.
 	if atEOF {
@@ -84,7 +84,7 @@ func ParseRelease(release *release.Release, includeTests bool, normalizeManifest
 
 // Parse parses manifest strings into MappingResult
 func Parse(manifest string, defaultNamespace string, normalizeManifests bool, excludedHooks ...string) map[string]*MappingResult {
-	// Ensure we have a newline in front of the yaml seperator
+	// Ensure we have a newline in front of the yaml separator
 	scanner := bufio.NewScanner(strings.NewReader("\n" + manifest))
 	scanner.Split(scanYamlSpecs)
 	// Allow for tokens (specs) up to 10MiB in size
