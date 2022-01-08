@@ -3,7 +3,7 @@ VERSION := $(shell sed -n -e 's/version:[ "]*\([^"]*\).*/\1/p' plugin.yaml)
 
 HELM_3_PLUGINS := $(shell bash -c 'eval $$(helm env); echo $$HELM_PLUGINS')
 
-PKG:= github.com/databus23/helm-diff
+PKG:= github.com/databus23/helm-diff/v3
 LDFLAGS := -X $(PKG)/cmd.Version=$(VERSION)
 
 # Clear the "unreleased" string in BuildMetadata
@@ -63,14 +63,18 @@ dist:
 	mkdir -p build/diff/bin release/
 	cp README.md LICENSE plugin.yaml build/diff
 	GOOS=linux GOARCH=amd64 go build -o build/diff/bin/diff -trimpath -ldflags="$(LDFLAGS)"
-	tar -C build/ -zcvf $(CURDIR)/release/helm-diff-linux.tgz diff/
+	tar -C build/ -zcvf $(CURDIR)/release/helm-diff-linux-amd64.tgz diff/
+	GOOS=linux GOARCH=arm64 go build -o build/diff/bin/diff -trimpath -ldflags="$(LDFLAGS)"
+	tar -C build/ -zcvf $(CURDIR)/release/helm-diff-linux-arm64.tgz diff/
 	GOOS=freebsd GOARCH=amd64 go build -o build/diff/bin/diff -trimpath -ldflags="$(LDFLAGS)"
-	tar -C build/ -zcvf $(CURDIR)/release/helm-diff-freebsd.tgz diff/
+	tar -C build/ -zcvf $(CURDIR)/release/helm-diff-freebsd-amd64.tgz diff/
 	GOOS=darwin GOARCH=amd64 go build -o build/diff/bin/diff -trimpath -ldflags="$(LDFLAGS)"
-	tar -C build/ -zcvf $(CURDIR)/release/helm-diff-macos.tgz diff/
+	tar -C build/ -zcvf $(CURDIR)/release/helm-diff-macos-amd64.tgz diff/
+	GOOS=darwin GOARCH=arm64 go build -o build/diff/bin/diff -trimpath -ldflags="$(LDFLAGS)"
+	tar -C build/ -zcvf $(CURDIR)/release/helm-diff-macos-arm64.tgz diff/
 	rm build/diff/bin/diff
 	GOOS=windows GOARCH=amd64 go build -o build/diff/bin/diff.exe -trimpath -ldflags="$(LDFLAGS)"
-	tar -C build/ -zcvf $(CURDIR)/release/helm-diff-windows.tgz diff/
+	tar -C build/ -zcvf $(CURDIR)/release/helm-diff-windows-amd64.tgz diff/
 
 .PHONY: release
 release: lint dist
