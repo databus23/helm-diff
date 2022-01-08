@@ -6,9 +6,15 @@ PROJECT_NAME="helm-diff"
 PROJECT_GH="databus23/$PROJECT_NAME"
 export GREP_COLOR="never"
 
+[ -z "$HELM_BIN" ] && HELM_BIN=$(which helm)
 HELM_MAJOR_VERSION=$("${HELM_BIN}" version --client --short | awk -F '.' '{print $1}')
 
-: ${HELM_PLUGIN_DIR:="$("${HELM_BIN}" home --debug=false)/plugins/helm-diff"}
+HELM_HOME=$("${HELM_BIN}" home --debug=false)
+[ -z "$HELM_HOME" ] && HELM_HOME=$(helm env | grep 'HELM_DATA_HOME' | cut -d '=' -f2 | tr -d '"')
+
+mkdir -p "$HELM_HOME"
+
+: ${HELM_PLUGIN_DIR:="$HELM_HOME/plugins/helm-diff"}
 
 # Convert the HELM_PLUGIN_DIR to unix if cygpath is
 # available. This is the case when using MSYS2 or Cygwin
@@ -55,7 +61,7 @@ initOS() {
 # verifySupported checks that the os/arch combination is supported for
 # binary builds.
 verifySupported() {
-  supported="linux-amd64\nfreebsd-amd64\nmacos-amd64\nwindows-amd64"
+  supported="linux-amd64\nlinux-arm64\nfreebsd-amd64\nmacos-amd64\nmacos-arm64\nwindows-amd64"
   if ! echo "${supported}" | grep -q "${OS}-${ARCH}"; then
     echo "No prebuild binary for ${OS}-${ARCH}."
     exit 1
@@ -71,14 +77,14 @@ verifySupported() {
 getDownloadURL() {
   version=$(git -C "$HELM_PLUGIN_DIR" describe --tags --exact-match 2>/dev/null || :)
   if [ -n "$version" ]; then
-    DOWNLOAD_URL="https://github.com/$PROJECT_GH/releases/download/$version/helm-diff-$OS.tgz"
+    DOWNLOAD_URL="https://github.com/$PROJECT_GH/releases/download/$version/helm-diff-$OS-$ARCH.tgz"
   else
     # Use the GitHub API to find the download url for this project.
     url="https://api.github.com/repos/$PROJECT_GH/releases/latest"
     if type "curl" >/dev/null; then
-      DOWNLOAD_URL=$(curl -s $url | grep $OS | awk '/\"browser_download_url\":/{gsub( /[,\"]/,"", $2); print $2}')
+      DOWNLOAD_URL=$(curl -s $url | grep $OS | grep $ARCH | awk '/\"browser_download_url\":/{gsub( /[,\"]/,"", $2); print $2}')
     elif type "wget" >/dev/null; then
-      DOWNLOAD_URL=$(wget -q -O - $url | grep $OS | awk '/\"browser_download_url\":/{gsub( /[,\"]/,"", $2); print $2}')
+      DOWNLOAD_URL=$(wget -q -O - $url | grep $OS | grep $ARCH | awk '/\"browser_download_url\":/{gsub( /[,\"]/,"", $2); print $2}')
     fi
   fi
 }
@@ -108,7 +114,7 @@ downloadFile() {
 # installFile verifies the SHA256 for the file, then unpacks and
 # installs it.
 installFile() {
-  tar xf "$PLUGIN_TMP_FILE" -C "$HELM_TMP"
+  tar xvzf "$PLUGIN_TMP_FILE" -C "$HELM_TMP"
   HELM_TMP_BIN="$HELM_TMP/diff/bin/diff"
   echo "Preparing to install into ${HELM_PLUGIN_DIR}"
   mkdir -p "$HELM_PLUGIN_DIR/bin"
