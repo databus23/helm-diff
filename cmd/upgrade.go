@@ -86,10 +86,16 @@ func newChartCommand() *cobra.Command {
 	}
 
 	cmd := &cobra.Command{
-		Use:     "upgrade [flags] [RELEASE] [CHART]",
-		Short:   "Show a diff explaining what a helm upgrade would change.",
-		Long:    globalUsage,
-		Example: "  helm diff upgrade my-release stable/postgresql --values values.yaml",
+		Use:   "upgrade [flags] [RELEASE] [CHART]",
+		Short: "Show a diff explaining what a helm upgrade would change.",
+		Long:  globalUsage,
+		Example: strings.Join([]string{
+			"  helm diff upgrade my-release stable/postgresql --values values.yaml",
+			"",
+			"  # Set HELM_DIFF_IGNORE_UNKNOWN_FLAGS=true to ignore unknown flags",
+			"  # It's useful when you're using `helm-diff` in a `helm upgrade` wrapper.",
+			"  HELM_DIFF_IGNORE_UNKNOWN_FLAGS=true helm diff upgrade my-release stable/postgres --wait",
+		}, "\n"),
 		Args: func(cmd *cobra.Command, args []string) error {
 			return checkArgsLength(len(args), "release name", "chart path")
 		},
@@ -113,6 +119,9 @@ func newChartCommand() *cobra.Command {
 				diff.client = createHelmClient()
 			}
 			return diff.run()
+		},
+		FParseErrWhitelist: cobra.FParseErrWhitelist{
+			UnknownFlags: os.Getenv("HELM_DIFF_IGNORE_UNKNOWN_FLAGS") == "true",
 		},
 	}
 
