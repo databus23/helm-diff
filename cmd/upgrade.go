@@ -1,10 +1,27 @@
 package cmd
 
 import (
-	"errors"
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"strings"
+
+	jsoniterator "github.com/json-iterator/go"
+	"helm.sh/helm/v3/pkg/action"
+	"helm.sh/helm/v3/pkg/cli"
+
+	jsonpatch "github.com/evanphx/json-patch"
+	"github.com/pkg/errors"
+	"helm.sh/helm/v3/pkg/kube"
+	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
+	"k8s.io/cli-runtime/pkg/resource"
+	"sigs.k8s.io/yaml"
 
 	"github.com/spf13/cobra"
 	"k8s.io/helm/pkg/helm"
@@ -42,6 +59,7 @@ type diffCmd struct {
 	install                  bool
 	stripTrailingCR          bool
 	normalizeManifests       bool
+	threeWayMerge            bool
 }
 
 func (d *diffCmd) isAllowUnreleased() bool {
@@ -59,16 +77,25 @@ This can be used visualize what changes a helm upgrade will
 perform.
 `
 
+var envSettings = cli.New()
+var yamlSeperator = []byte("\n---\n")
+
 func newChartCommand() *cobra.Command {
 	diff := diffCmd{
 		namespace: os.Getenv("HELM_NAMESPACE"),
 	}
 
 	cmd := &cobra.Command{
-		Use:     "upgrade [flags] [RELEASE] [CHART]",
-		Short:   "Show a diff explaining what a helm upgrade would change.",
-		Long:    globalUsage,
-		Example: "  helm diff upgrade my-release stable/postgresql --values values.yaml",
+		Use:   "upgrade [flags] [RELEASE] [CHART]",
+		Short: "Show a diff explaining what a helm upgrade would change.",
+		Long:  globalUsage,
+		Example: strings.Join([]string{
+			"  helm diff upgrade my-release stable/postgresql --values values.yaml",
+			"",
+			"  # Set HELM_DIFF_IGNORE_UNKNOWN_FLAGS=true to ignore unknown flags",
+			"  # It's useful when you're using `helm-diff` in a `helm upgrade` wrapper.",
+			"  HELM_DIFF_IGNORE_UNKNOWN_FLAGS=true helm diff upgrade my-release stable/postgres --wait",
+		}, "\n"),
 		Args: func(cmd *cobra.Command, args []string) error {
 			return checkArgsLength(len(args), "release name", "chart path")
 		},
@@ -93,11 +120,16 @@ func newChartCommand() *cobra.Command {
 			}
 			return diff.run()
 		},
+		FParseErrWhitelist: cobra.FParseErrWhitelist{
+			UnknownFlags: os.Getenv("HELM_DIFF_IGNORE_UNKNOWN_FLAGS") == "true",
+		},
 	}
 
 	f := cmd.Flags()
 	var kubeconfig string
 	f.StringVar(&kubeconfig, "kubeconfig", "", "This flag is ignored, to allow passing of this top level flag to helm")
+	f.BoolVar(&diff.threeWayMerge, "three-way-merge", false, "use three-way-merge to compute patch and generate diff output")
+	// f.StringVar(&diff.kubeContext, "kube-context", "", "name of the kubeconfig context to use")
 	f.StringVar(&diff.chartVersion, "version", "", "specify the exact chart version to use. If this is not specified, the latest version is used")
 	f.StringVar(&diff.chartRepo, "repo", "", "specify the chart repository url to locate the requested chart")
 	f.BoolVar(&diff.detailedExitCode, "detailed-exitcode", false, "return a non-zero exit code when there are changes")
@@ -169,6 +201,25 @@ func (d *diffCmd) runHelm3() error {
 		return fmt.Errorf("Failed to render chart: %s", err)
 	}
 
+	if d.threeWayMerge {
+		actionConfig := new(action.Configuration)
+		if err := actionConfig.Init(envSettings.RESTClientGetter(), envSettings.Namespace(), os.Getenv("HELM_DRIVER"), log.Printf); err != nil {
+			log.Fatalf("%+v", err)
+		}
+		if err := actionConfig.KubeClient.IsReachable(); err != nil {
+			return err
+		}
+		original, err := actionConfig.KubeClient.Build(bytes.NewBuffer(releaseManifest), false)
+		if err != nil {
+			return errors.Wrap(err, "unable to build kubernetes objects from original release manifest")
+		}
+		target, err := actionConfig.KubeClient.Build(bytes.NewBuffer(installManifest), false)
+		if err != nil {
+			return errors.Wrap(err, "unable to build kubernetes objects from new release manifest")
+		}
+		releaseManifest, installManifest, err = genManifest(original, target)
+	}
+
 	currentSpecs := make(map[string]*manifest.MappingResult)
 	if !newInstall && !d.dryRun {
 		if !d.noHooks {
@@ -200,6 +251,112 @@ func (d *diffCmd) runHelm3() error {
 	}
 
 	return nil
+}
+
+func genManifest(original, target kube.ResourceList) ([]byte, []byte, error) {
+	var err error
+	releaseManifest, installManifest := make([]byte, 0), make([]byte, 0)
+
+	// to be deleted
+	targetResources := make(map[string]bool)
+	for _, r := range target {
+		targetResources[objectKey(r)] = true
+	}
+	for _, r := range original {
+		if !targetResources[objectKey(r)] {
+			out, _ := yaml.Marshal(r.Object)
+			releaseManifest = append(releaseManifest, yamlSeperator...)
+			releaseManifest = append(releaseManifest, out...)
+		}
+	}
+
+	existingResources := make(map[string]bool)
+	for _, r := range original {
+		existingResources[objectKey(r)] = true
+	}
+
+	var toBeCreated kube.ResourceList
+	for _, r := range target {
+		if !existingResources[objectKey(r)] {
+			toBeCreated = append(toBeCreated, r)
+		}
+	}
+
+	toBeUpdated, err := existingResourceConflict(toBeCreated)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "rendered manifests contain a resource that already exists. Unable to continue with update")
+	}
+
+	_ = toBeUpdated.Visit(func(r *resource.Info, err error) error {
+		if err != nil {
+			return err
+		}
+		original.Append(r)
+		return nil
+	})
+
+	err = target.Visit(func(info *resource.Info, err error) error {
+		if err != nil {
+			return err
+		}
+		kind := info.Mapping.GroupVersionKind.Kind
+
+		// Fetch the current object for the three way merge
+		helper := resource.NewHelper(info.Client, info.Mapping)
+		currentObj, err := helper.Get(info.Namespace, info.Name, info.Export)
+		if err != nil {
+			if !apierrors.IsNotFound(err) {
+				return errors.Wrap(err, "could not get information about the resource")
+			}
+			// to be created
+			out, _ := yaml.Marshal(info.Object)
+			installManifest = append(installManifest, yamlSeperator...)
+			installManifest = append(installManifest, out...)
+			return nil
+		}
+		// to be updated
+		out, _ := jsoniterator.ConfigCompatibleWithStandardLibrary.Marshal(currentObj)
+		pruneObj, err := deleteStatusAndManagedFields(out)
+		if err != nil {
+			return errors.Wrapf(err, "prune current obj %q with kind %s", info.Name, kind)
+		}
+		pruneOut, err := yaml.Marshal(pruneObj)
+		if err != nil {
+			return errors.Wrapf(err, "prune current out %q with kind %s", info.Name, kind)
+		}
+		releaseManifest = append(releaseManifest, yamlSeperator...)
+		releaseManifest = append(releaseManifest, pruneOut...)
+
+		originalInfo := original.Get(info)
+		if originalInfo == nil {
+			return fmt.Errorf("could not find %q", info.Name)
+		}
+
+		patch, patchType, err := createPatch(originalInfo.Object, currentObj, info)
+		if err != nil {
+			return err
+		}
+
+		helper.ServerDryRun = true
+		targetObj, err := helper.Patch(info.Namespace, info.Name, patchType, patch, nil)
+		if err != nil {
+			return errors.Wrapf(err, "cannot patch %q with kind %s", info.Name, kind)
+		}
+		out, _ = jsoniterator.ConfigCompatibleWithStandardLibrary.Marshal(targetObj)
+		pruneObj, err = deleteStatusAndManagedFields(out)
+		if err != nil {
+			return errors.Wrapf(err, "prune current obj %q with kind %s", info.Name, kind)
+		}
+		pruneOut, err = yaml.Marshal(pruneObj)
+		if err != nil {
+			return errors.Wrapf(err, "prune current out %q with kind %s", info.Name, kind)
+		}
+		installManifest = append(installManifest, yamlSeperator...)
+		installManifest = append(installManifest, pruneOut...)
+		return nil
+	})
+
+	return releaseManifest, installManifest, err
 }
 
 func (d *diffCmd) run() error {
@@ -286,4 +443,93 @@ func (d *diffCmd) run() error {
 	}
 
 	return nil
+}
+
+func createPatch(originalObj, currentObj runtime.Object, target *resource.Info) ([]byte, types.PatchType, error) {
+	oldData, err := json.Marshal(originalObj)
+	if err != nil {
+		return nil, types.StrategicMergePatchType, errors.Wrap(err, "serializing current configuration")
+	}
+	newData, err := json.Marshal(target.Object)
+	if err != nil {
+		return nil, types.StrategicMergePatchType, errors.Wrap(err, "serializing target configuration")
+	}
+
+	// Even if currentObj is nil (because it was not found), it will marshal just fine
+	currentData, err := json.Marshal(currentObj)
+	if err != nil {
+		return nil, types.StrategicMergePatchType, errors.Wrap(err, "serializing live configuration")
+	}
+	// kind := target.Mapping.GroupVersionKind.Kind
+	// if kind == "Deployment" {
+	// 	curr, _ := yaml.Marshal(currentObj)
+	// 	fmt.Println(string(curr))
+	// }
+
+	// Get a versioned object
+	versionedObject := kube.AsVersioned(target)
+
+	// Unstructured objects, such as CRDs, may not have an not registered error
+	// returned from ConvertToVersion. Anything that's unstructured should
+	// use the jsonpatch.CreateMergePatch. Strategic Merge Patch is not supported
+	// on objects like CRDs.
+	_, isUnstructured := versionedObject.(runtime.Unstructured)
+
+	// On newer K8s versions, CRDs aren't unstructured but has this dedicated type
+	_, isCRD := versionedObject.(*apiextv1.CustomResourceDefinition)
+
+	if isUnstructured || isCRD {
+		// fall back to generic JSON merge patch
+		patch, err := jsonpatch.CreateMergePatch(oldData, newData)
+		return patch, types.MergePatchType, err
+	}
+
+	patchMeta, err := strategicpatch.NewPatchMetaFromStruct(versionedObject)
+	if err != nil {
+		return nil, types.StrategicMergePatchType, errors.Wrap(err, "unable to create patch metadata from object")
+	}
+
+	patch, err := strategicpatch.CreateThreeWayMergePatch(oldData, newData, currentData, patchMeta, true)
+	return patch, types.StrategicMergePatchType, err
+}
+
+func objectKey(r *resource.Info) string {
+	gvk := r.Object.GetObjectKind().GroupVersionKind()
+	return fmt.Sprintf("%s/%s/%s/%s", gvk.GroupVersion().String(), gvk.Kind, r.Namespace, r.Name)
+}
+
+func existingResourceConflict(resources kube.ResourceList) (kube.ResourceList, error) {
+	var requireUpdate kube.ResourceList
+
+	err := resources.Visit(func(info *resource.Info, err error) error {
+		if err != nil {
+			return err
+		}
+
+		helper := resource.NewHelper(info.Client, info.Mapping)
+		_, err = helper.Get(info.Namespace, info.Name, info.Export)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				return nil
+			}
+			return errors.Wrap(err, "could not get information about the resource")
+		}
+
+		requireUpdate.Append(info)
+		return nil
+	})
+
+	return requireUpdate, err
+}
+
+func deleteStatusAndManagedFields(obj []byte) (map[string]interface{}, error) {
+	var objectMap map[string]interface{}
+	err := jsoniterator.Unmarshal(obj, &objectMap)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not unmarshal byte sequence")
+	}
+	delete(objectMap, "status")
+	delete(objectMap["metadata"].(map[string]interface{}), "managedFields")
+
+	return objectMap, nil
 }

@@ -52,19 +52,17 @@ type ReportTemplateSpec struct {
 	Change    string
 }
 
-var report Report
-
 // setupReportFormat: process output argument.
 func (r *Report) setupReportFormat(format string) {
 	switch format {
 	case "simple":
-		setupSimpleReport(&report)
+		setupSimpleReport(r)
 	case "template":
-		setupTemplateReport(&report)
+		setupTemplateReport(r)
 	case "json":
-		setupJSONReport(&report)
+		setupJSONReport(r)
 	default:
-		setupDiffReport(&report)
+		setupDiffReport(r)
 	}
 }
 
@@ -126,7 +124,7 @@ func printSimpleReport(r *Report, to io.Writer) {
 		"MODIFY": 0,
 	}
 	for _, entry := range r.entries {
-		fmt.Fprintf(to, ansi.Color("%s %s", report.format.changestyles[entry.changeType].color)+"\n",
+		fmt.Fprintf(to, ansi.Color("%s %s", r.format.changestyles[entry.changeType].color)+"\n",
 			entry.key,
 			r.format.changestyles[entry.changeType].message,
 		)
@@ -150,7 +148,7 @@ func newTemplate(name string) *template.Template {
 func setupJSONReport(r *Report) {
 	t, err := newTemplate("entries").Parse(defaultTemplateReport)
 	if err != nil {
-		log.Fatalf("Error loadding default template: %v", err)
+		log.Fatalf("Error loading default template: %v", err)
 	}
 
 	r.format.output = templateReportPrinter(t)
@@ -170,14 +168,14 @@ func setupTemplateReport(r *Report) {
 			t, err := newTemplate(filepath.Base(tplFile)).ParseFiles(tplFile)
 			if err != nil {
 				fmt.Println(err)
-				log.Fatalf("Error loadding custom template")
+				log.Fatalf("Error loading custom template")
 			}
 			tpl = t
 		} else {
 			// Render
 			t, err := newTemplate("entries").Parse(defaultTemplateReport)
 			if err != nil {
-				log.Fatalf("Error loadding default template")
+				log.Fatalf("Error loading default template")
 			}
 			tpl = t
 		}
@@ -202,7 +200,7 @@ func (t *ReportTemplateSpec) loadFromKey(key string) error {
 		t.API = matches[4]
 		return nil
 	}
-	return errors.New("key string did't match regexp")
+	return errors.New("key string didn't match regexp")
 }
 
 // load and print report for template output
