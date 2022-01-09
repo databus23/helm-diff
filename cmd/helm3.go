@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -129,26 +130,63 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 		flags = append(flags, "--set-file", fileValue)
 	}
 
-	if !d.disableValidation && !d.dryRun {
-		flags = append(flags, "--validate")
-	}
-
-	if isUpgrade {
-		flags = append(flags, "--is-upgrade")
-	}
-
 	if d.disableOpenAPIValidation {
 		flags = append(flags, "--disable-openapi-validation")
 	}
 
-	for _, a := range d.extraAPIs {
-		flags = append(flags, "--api-versions", a)
+	var (
+		subcmd string
+		filter func([]byte) []byte
+	)
+
+	if d.useUpgradeDryRun {
+		if d.dryRun {
+			return nil, fmt.Errorf("`diff upgrade --dry-run` conflicts with HELM_DIFF_USE_UPGRADE_DRY_RUN_AS_TEMPLATE. Either remove --dry-run to enable cluster access, or unset HELM_DIFF_USE_UPGRADE_DRY_RUN_AS_TEMPLATE to make cluster access unnecessary")
+		}
+
+		flags = append(flags, "--dry-run")
+		subcmd = "upgrade"
+		filter = func(s []byte) []byte {
+			if len(s) == 0 {
+				return s
+			}
+
+			i := bytes.Index(s, []byte("MANIFEST:"))
+			s = s[i:]
+			i = bytes.Index(s, []byte("---"))
+			s = s[i:]
+			i = bytes.Index(s, []byte("\nNOTES:"))
+			if i != -1 {
+				s = s[:i+1]
+			}
+			return s
+		}
+	} else {
+		if !d.disableValidation && !d.dryRun {
+			flags = append(flags, "--validate")
+		}
+
+		if isUpgrade {
+			flags = append(flags, "--is-upgrade")
+		}
+
+		for _, a := range d.extraAPIs {
+			flags = append(flags, "--api-versions", a)
+		}
+
+		subcmd = "template"
+
+		filter = func(s []byte) []byte {
+			return s
+		}
 	}
 
-	args := []string{"template", d.release, d.chart}
+	args := []string{subcmd, d.release, d.chart}
 	args = append(args, flags...)
+
 	cmd := exec.Command(os.Getenv("HELM_BIN"), args...)
-	return outputWithRichError(cmd)
+	out, err := outputWithRichError(cmd)
+	return filter(out), err
 }
 
 func (d *diffCmd) writeExistingValues(f *os.File) error {

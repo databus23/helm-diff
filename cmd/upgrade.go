@@ -61,6 +61,7 @@ type diffCmd struct {
 	normalizeManifests       bool
 	threeWayMerge            bool
 	extraAPIs                []string
+	useUpgradeDryRun         bool
 }
 
 func (d *diffCmd) isAllowUnreleased() bool {
@@ -95,7 +96,13 @@ func newChartCommand() *cobra.Command {
 			"",
 			"  # Set HELM_DIFF_IGNORE_UNKNOWN_FLAGS=true to ignore unknown flags",
 			"  # It's useful when you're using `helm-diff` in a `helm upgrade` wrapper.",
+			"  # See https://github.com/databus23/helm-diff/issues/278 for more information.",
 			"  HELM_DIFF_IGNORE_UNKNOWN_FLAGS=true helm diff upgrade my-release stable/postgres --wait",
+			"",
+			"  # Set HELM_DIFF_USE_UPGRADE_DRY_RUN=true to ",
+			"  # use `helm upgrade --dry-run` instead of `helm template` to render manifests from the chart.",
+			"  # See https://github.com/databus23/helm-diff/issues/253 for more information.",
+			"  HELM_DIFF_USE_UPGRADE_DRY_RUN=true helm diff upgarde my-release datadog/datadog",
 		}, "\n"),
 		Args: func(cmd *cobra.Command, args []string) error {
 			return checkArgsLength(len(args), "release name", "chart path")
@@ -106,6 +113,9 @@ func newChartCommand() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Suppress the command usage on error. See #77 for more info
 			cmd.SilenceUsage = true
+
+			// See https://github.com/databus23/helm-diff/issues/253
+			diff.useUpgradeDryRun = os.Getenv("HELM_DIFF_USE_UPGRADE_DRY_RUN") == "true"
 
 			if q, _ := cmd.Flags().GetBool("suppress-secrets"); q {
 				diff.suppressedKinds = append(diff.suppressedKinds, "Secret")

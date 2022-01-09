@@ -120,7 +120,13 @@ Examples:
 
   # Set HELM_DIFF_IGNORE_UNKNOWN_FLAGS=true to ignore unknown flags
   # It's useful when you're using `helm-diff` in a `helm upgrade` wrapper.
+  # See https://github.com/databus23/helm-diff/issues/278 for more information.
   HELM_DIFF_IGNORE_UNKNOWN_FLAGS=true helm diff upgrade my-release stable/postgres --wait
+
+  # Set HELM_DIFF_USE_UPGRADE_DRY_RUN=true to
+  # use `helm upgrade --dry-run` instead of `helm template` to render manifests from the chart.
+  # See https://github.com/databus23/helm-diff/issues/253 for more information.
+  HELM_DIFF_USE_UPGRADE_DRY_RUN=true helm diff upgarde my-release datadog/datadog
 
 Flags:
       --allow-unreleased             enables diffing of releases that are not yet deployed via Helm
