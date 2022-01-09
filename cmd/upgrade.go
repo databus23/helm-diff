@@ -99,10 +99,16 @@ func newChartCommand() *cobra.Command {
 			"  # See https://github.com/databus23/helm-diff/issues/278 for more information.",
 			"  HELM_DIFF_IGNORE_UNKNOWN_FLAGS=true helm diff upgrade my-release stable/postgres --wait",
 			"",
-			"  # Set HELM_DIFF_USE_UPGRADE_DRY_RUN=true to ",
+			"  # Set HELM_DIFF_USE_UPGRADE_DRY_RUN=true to",
 			"  # use `helm upgrade --dry-run` instead of `helm template` to render manifests from the chart.",
 			"  # See https://github.com/databus23/helm-diff/issues/253 for more information.",
 			"  HELM_DIFF_USE_UPGRADE_DRY_RUN=true helm diff upgarde my-release datadog/datadog",
+			"",
+			"  # Set HELM_DIFF_THREE_WAY_MERGE=true to",
+			"  # enable the three-way-merge on diff.",
+			"  # This is equivalent to specifying the --three-way-merge flag.",
+			"  # Read the flag usage below for more information on --three-way-merge.",
+			"  HELM_DIFF_THREE_WAY_MERGE=true helm diff upgarde my-release datadog/datadog",
 		}, "\n"),
 		Args: func(cmd *cobra.Command, args []string) error {
 			return checkArgsLength(len(args), "release name", "chart path")
@@ -116,6 +122,11 @@ func newChartCommand() *cobra.Command {
 
 			// See https://github.com/databus23/helm-diff/issues/253
 			diff.useUpgradeDryRun = os.Getenv("HELM_DIFF_USE_UPGRADE_DRY_RUN") == "true"
+
+			if !diff.threeWayMerge && !cmd.Flags().Changed("three-way-merge") {
+				println("reading three way merge from env")
+				diff.threeWayMerge = os.Getenv("HELM_DIFF_THREE_WAY_MERGE") == "true"
+			}
 
 			if q, _ := cmd.Flags().GetBool("suppress-secrets"); q {
 				diff.suppressedKinds = append(diff.suppressedKinds, "Secret")
@@ -550,6 +561,8 @@ func deleteStatusAndTidyMetadata(obj []byte) (map[string]interface{}, error) {
 
 	delete(metadata, "managedFields")
 
+	// See the below for the goal of this metadata tidy logic.
+	// https://github.com/databus23/helm-diff/issues/326#issuecomment-1008253274
 	if a := metadata["annotations"]; a != nil {
 		annotations := a.(map[string]interface{})
 		delete(annotations, "meta.helm.sh/release-name")
