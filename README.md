@@ -128,6 +128,12 @@ Examples:
   # See https://github.com/databus23/helm-diff/issues/253 for more information.
   HELM_DIFF_USE_UPGRADE_DRY_RUN=true helm diff upgarde my-release datadog/datadog
 
+  # Set HELM_DIFF_THREE_WAY_MERGE=true to
+  # enable the three-way-merge on diff.
+  # This is equivalent to specifying the --three-way-merge flag.
+  # Read the flag usage below for more information on --three-way-merge.
+  HELM_DIFF_THREE_WAY_MERGE=true helm diff upgarde my-release datadog/datadog
+
 Flags:
       --allow-unreleased             enables diffing of releases that are not yet deployed via Helm
   -a, --api-versions stringArray     Kubernetes api versions used for Capabilities.APIVersions
