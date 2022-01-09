@@ -331,7 +331,7 @@ func genManifest(original, target kube.ResourceList) ([]byte, []byte, error) {
 		}
 		// to be updated
 		out, _ := jsoniterator.ConfigCompatibleWithStandardLibrary.Marshal(currentObj)
-		pruneObj, err := deleteStatusAndManagedFields(out)
+		pruneObj, err := deleteStatusAndTidyMetadata(out)
 		if err != nil {
 			return errors.Wrapf(err, "prune current obj %q with kind %s", info.Name, kind)
 		}
@@ -358,7 +358,7 @@ func genManifest(original, target kube.ResourceList) ([]byte, []byte, error) {
 			return errors.Wrapf(err, "cannot patch %q with kind %s", info.Name, kind)
 		}
 		out, _ = jsoniterator.ConfigCompatibleWithStandardLibrary.Marshal(targetObj)
-		pruneObj, err = deleteStatusAndManagedFields(out)
+		pruneObj, err = deleteStatusAndTidyMetadata(out)
 		if err != nil {
 			return errors.Wrapf(err, "prune current obj %q with kind %s", info.Name, kind)
 		}
@@ -537,14 +537,28 @@ func existingResourceConflict(resources kube.ResourceList) (kube.ResourceList, e
 	return requireUpdate, err
 }
 
-func deleteStatusAndManagedFields(obj []byte) (map[string]interface{}, error) {
+func deleteStatusAndTidyMetadata(obj []byte) (map[string]interface{}, error) {
 	var objectMap map[string]interface{}
 	err := jsoniterator.Unmarshal(obj, &objectMap)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not unmarshal byte sequence")
 	}
+
 	delete(objectMap, "status")
-	delete(objectMap["metadata"].(map[string]interface{}), "managedFields")
+
+	metadata := objectMap["metadata"].(map[string]interface{})
+
+	delete(metadata, "managedFields")
+
+	if a := metadata["annotations"]; a != nil {
+		annotations := a.(map[string]interface{})
+		delete(annotations, "meta.helm.sh/release-name")
+		delete(annotations, "meta.helm.sh/release-namespace")
+
+		if len(annotations) == 0 {
+			delete(metadata, "annotations")
+		}
+	}
 
 	return objectMap, nil
 }
