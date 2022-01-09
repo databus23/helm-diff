@@ -70,7 +70,7 @@ func getRevision(release string, revision int, namespace string) ([]byte, error)
 }
 
 func getChart(release, namespace string) (string, error) {
-	args := []string{"get", release, "--template", "{{.Release.Chart.Name}}"}
+	args := []string{"get", "all", release, "--template", "{{.Release.Chart.Name}}"}
 	if namespace != "" {
 		args = append(args, "--namespace", namespace)
 	}
