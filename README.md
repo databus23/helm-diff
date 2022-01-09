@@ -30,7 +30,7 @@ curl -L $TARBALL_URL | tar -C $(helm home)/plugins -xzv
 
 ### From Source
 #### Prerequisites
- - GoLang `>= 1.14`
+ - GoLang `>= 1.17`
 
 Make sure you do not have a verison of `helm-diff` installed. You can remove it by running `helm plugin uninstall diff`
 

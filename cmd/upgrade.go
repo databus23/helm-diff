@@ -318,7 +318,7 @@ func genManifest(original, target kube.ResourceList) ([]byte, []byte, error) {
 
 		// Fetch the current object for the three way merge
 		helper := resource.NewHelper(info.Client, info.Mapping)
-		currentObj, err := helper.Get(info.Namespace, info.Name, info.Export)
+		currentObj, err := helper.Get(info.Namespace, info.Name)
 		if err != nil {
 			if !apierrors.IsNotFound(err) {
 				return errors.Wrap(err, "could not get information about the resource")
@@ -522,7 +522,7 @@ func existingResourceConflict(resources kube.ResourceList) (kube.ResourceList, e
 		}
 
 		helper := resource.NewHelper(info.Client, info.Mapping)
-		_, err = helper.Get(info.Namespace, info.Name, info.Export)
+		_, err = helper.Get(info.Namespace, info.Name)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				return nil
