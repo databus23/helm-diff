@@ -60,6 +60,7 @@ type diffCmd struct {
 	stripTrailingCR          bool
 	normalizeManifests       bool
 	threeWayMerge            bool
+	extraAPIs                []string
 }
 
 func (d *diffCmd) isAllowUnreleased() bool {
@@ -133,6 +134,10 @@ func newChartCommand() *cobra.Command {
 	f.StringVar(&diff.chartVersion, "version", "", "specify the exact chart version to use. If this is not specified, the latest version is used")
 	f.StringVar(&diff.chartRepo, "repo", "", "specify the chart repository url to locate the requested chart")
 	f.BoolVar(&diff.detailedExitCode, "detailed-exitcode", false, "return a non-zero exit code when there are changes")
+	// See the below links for more context on when to use this flag
+	// - https://github.com/helm/helm/blob/d9ffe37d371c9d06448c55c852c800051830e49a/cmd/helm/template.go#L184
+	// - https://github.com/databus23/helm-diff/issues/318
+	f.StringArrayVarP(&diff.extraAPIs, "api-versions", "a", []string{}, "Kubernetes api versions used for Capabilities.APIVersions")
 	f.BoolP("suppress-secrets", "q", false, "suppress secrets in the output")
 	f.BoolVar(&diff.showSecrets, "show-secrets", false, "do not redact secret values in the output")
 	f.VarP(&diff.valueFiles, "values", "f", "specify values in a YAML file (can specify multiple)")
