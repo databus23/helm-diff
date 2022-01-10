@@ -15,14 +15,10 @@ import (
 type release struct {
 	client             helm.Interface
 	detailedExitCode   bool
-	suppressedKinds    []string
 	releases           []string
-	outputContext      int
 	includeTests       bool
-	showSecrets        bool
-	output             string
-	stripTrailingCR    bool
 	normalizeManifests bool
+	diff.Options
 }
 
 const releaseCmdLongUsage = `
@@ -59,9 +55,7 @@ func releaseCmd() *cobra.Command {
 				return errors.New("Too few arguments to Command \"release\".\nMinimum 2 arguments required: release name-1, release name-2")
 			}
 
-			if q, _ := cmd.Flags().GetBool("suppress-secrets"); q {
-				diff.suppressedKinds = append(diff.suppressedKinds, "Secret")
-			}
+			ProcessDiffOptions(cmd.Flags(), &diff.Options)
 
 			diff.releases = args[0:]
 			if isHelm3() {
@@ -74,15 +68,10 @@ func releaseCmd() *cobra.Command {
 		},
 	}
 
-	releaseCmd.Flags().BoolP("suppress-secrets", "q", false, "suppress secrets in the output")
-	releaseCmd.Flags().BoolVar(&diff.showSecrets, "show-secrets", false, "do not redact secret values in the output")
 	releaseCmd.Flags().BoolVar(&diff.detailedExitCode, "detailed-exitcode", false, "return a non-zero exit code when there are changes")
-	releaseCmd.Flags().StringArrayVar(&diff.suppressedKinds, "suppress", []string{}, "allows suppression of the values listed in the diff output")
-	releaseCmd.Flags().IntVarP(&diff.outputContext, "context", "C", -1, "output NUM lines of context around changes")
 	releaseCmd.Flags().BoolVar(&diff.includeTests, "include-tests", false, "enable the diffing of the helm test hooks")
-	releaseCmd.Flags().StringVar(&diff.output, "output", "diff", "Possible values: diff, simple, template. When set to \"template\", use the env var HELM_DIFF_TPL to specify the template.")
-	releaseCmd.Flags().BoolVar(&diff.stripTrailingCR, "strip-trailing-cr", false, "strip trailing carriage return on input")
 	releaseCmd.Flags().BoolVar(&diff.normalizeManifests, "normalize-manifests", false, "normalize manifests before running diff to exclude style differences from the output")
+	AddDiffOptions(releaseCmd.Flags(), &diff.Options)
 
 	releaseCmd.SuggestionsMinimumDistance = 1
 
@@ -121,11 +110,7 @@ func (d *release) differentiateHelm3() error {
 		seenAnyChanges := diff.Releases(
 			manifest.Parse(string(releaseResponse1), namespace, d.normalizeManifests, excludes...),
 			manifest.Parse(string(releaseResponse2), namespace, d.normalizeManifests, excludes...),
-			d.suppressedKinds,
-			d.showSecrets,
-			d.outputContext,
-			d.output,
-			d.stripTrailingCR,
+			&d.Options,
 			os.Stdout)
 
 		if d.detailedExitCode && seenAnyChanges {
@@ -156,11 +141,7 @@ func (d *release) differentiate() error {
 		seenAnyChanges := diff.Releases(
 			manifest.ParseRelease(releaseResponse1.Release, d.includeTests, d.normalizeManifests),
 			manifest.ParseRelease(releaseResponse2.Release, d.includeTests, d.normalizeManifests),
-			d.suppressedKinds,
-			d.showSecrets,
-			d.outputContext,
-			d.output,
-			d.stripTrailingCR,
+			&d.Options,
 			os.Stdout)
 
 		if d.detailedExitCode && seenAnyChanges {

@@ -18,19 +18,28 @@ import (
 	"github.com/databus23/helm-diff/v3/manifest"
 )
 
+// Options are all the options to be passed to generate a diff
+type Options struct {
+	OutputFormat    string
+	OutputContext   int
+	StripTrailingCR bool
+	ShowSecrets     bool
+	SuppressedKinds []string
+}
+
 // Manifests diff on manifests
-func Manifests(oldIndex, newIndex map[string]*manifest.MappingResult, suppressedKinds []string, showSecrets bool, context int, output string, stripTrailingCR bool, to io.Writer) bool {
+func Manifests(oldIndex, newIndex map[string]*manifest.MappingResult, options *Options, to io.Writer) bool {
 	report := Report{}
-	report.setupReportFormat(output)
+	report.setupReportFormat(options.OutputFormat)
 	for _, key := range sortedKeys(oldIndex) {
 		oldContent := oldIndex[key]
 
 		if newContent, ok := newIndex[key]; ok {
 			// modified?
-			doDiff(key, oldContent, newContent, suppressedKinds, showSecrets, stripTrailingCR, context)
+			doDiff(&report, key, oldContent, newContent, options)
 		} else {
 			// removed
-			doDiff(key, oldContent, nil, suppressedKinds, showSecrets, stripTrailingCR, context)
+			doDiff(&report, key, oldContent, nil, options)
 		}
 	}
 
@@ -38,7 +47,7 @@ func Manifests(oldIndex, newIndex map[string]*manifest.MappingResult, suppressed
 		newContent := newIndex[key]
 
 		if _, ok := oldIndex[key]; !ok {
-			doDiff(key, nil, newContent, suppressedKinds, showSecrets, stripTrailingCR, context)
+			doDiff(&report, key, nil, newContent, options)
 		}
 	}
 
@@ -58,27 +67,27 @@ func actualChanges(diff []difflib.DiffRecord) int {
 	return changes
 }
 
-func doDiff(key string, oldContent *manifest.MappingResult, newContent *manifest.MappingResult, suppressedKinds []string, showSecrets bool, stripTrailingCR bool, context int) {
+func doDiff(report *Report, key string, oldContent *manifest.MappingResult, newContent *manifest.MappingResult, options *Options) {
 	if oldContent != nil && newContent != nil && oldContent.Content == newContent.Content {
 		return
 	}
 
-	if !showSecrets {
+	if !options.ShowSecrets {
 		redactSecrets(oldContent, newContent)
 	}
 
 	if oldContent == nil {
 		emptyMapping := &manifest.MappingResult{}
-		diffs := diffMappingResults(emptyMapping, newContent, stripTrailingCR)
-		report.addEntry(key, suppressedKinds, newContent.Kind, context, diffs, "ADD")
+		diffs := diffMappingResults(emptyMapping, newContent, options.StripTrailingCR)
+		report.addEntry(key, options.SuppressedKinds, newContent.Kind, options.OutputContext, diffs, "ADD")
 	} else if newContent == nil {
 		emptyMapping := &manifest.MappingResult{}
-		diffs := diffMappingResults(oldContent, emptyMapping, stripTrailingCR)
-		report.addEntry(key, suppressedKinds, oldContent.Kind, context, diffs, "REMOVE")
+		diffs := diffMappingResults(oldContent, emptyMapping, options.StripTrailingCR)
+		report.addEntry(key, options.SuppressedKinds, oldContent.Kind, options.OutputContext, diffs, "REMOVE")
 	} else {
-		diffs := diffMappingResults(oldContent, newContent, stripTrailingCR)
+		diffs := diffMappingResults(oldContent, newContent, options.StripTrailingCR)
 		if actualChanges(diffs) > 0 {
-			report.addEntry(key, suppressedKinds, oldContent.Kind, context, diffs, "MODIFY")
+			report.addEntry(key, options.SuppressedKinds, oldContent.Kind, options.OutputContext, diffs, "MODIFY")
 		}
 	}
 }
@@ -152,10 +161,10 @@ func getComment(s string) string {
 }
 
 // Releases reindex the content  based on the template names and pass it to Manifests
-func Releases(oldIndex, newIndex map[string]*manifest.MappingResult, suppressedKinds []string, showSecrets bool, context int, output string, stripTrailingCR bool, to io.Writer) bool {
+func Releases(oldIndex, newIndex map[string]*manifest.MappingResult, options *Options, to io.Writer) bool {
 	oldIndex = reIndexForRelease(oldIndex)
 	newIndex = reIndexForRelease(newIndex)
-	return Manifests(oldIndex, newIndex, suppressedKinds, showSecrets, context, output, stripTrailingCR, to)
+	return Manifests(oldIndex, newIndex, options, to)
 }
 
 func diffMappingResults(oldContent *manifest.MappingResult, newContent *manifest.MappingResult, stripTrailingCR bool) []difflib.DiffRecord {

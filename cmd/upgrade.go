@@ -51,17 +51,13 @@ type diffCmd struct {
 	allowUnreleased          bool
 	noHooks                  bool
 	includeTests             bool
-	suppressedKinds          []string
-	outputContext            int
-	showSecrets              bool
 	postRenderer             string
-	output                   string
 	install                  bool
-	stripTrailingCR          bool
 	normalizeManifests       bool
 	threeWayMerge            bool
 	extraAPIs                []string
 	useUpgradeDryRun         bool
+	diff.Options
 }
 
 func (d *diffCmd) isAllowUnreleased() bool {
@@ -132,9 +128,7 @@ func newChartCommand() *cobra.Command {
 				}
 			}
 
-			if q, _ := cmd.Flags().GetBool("suppress-secrets"); q {
-				diff.suppressedKinds = append(diff.suppressedKinds, "Secret")
-			}
+			ProcessDiffOptions(cmd.Flags(), &diff.Options)
 
 			diff.release = args[0]
 			diff.chart = args[1]
@@ -163,8 +157,6 @@ func newChartCommand() *cobra.Command {
 	// - https://github.com/helm/helm/blob/d9ffe37d371c9d06448c55c852c800051830e49a/cmd/helm/template.go#L184
 	// - https://github.com/databus23/helm-diff/issues/318
 	f.StringArrayVarP(&diff.extraAPIs, "api-versions", "a", []string{}, "Kubernetes api versions used for Capabilities.APIVersions")
-	f.BoolP("suppress-secrets", "q", false, "suppress secrets in the output")
-	f.BoolVar(&diff.showSecrets, "show-secrets", false, "do not redact secret values in the output")
 	f.VarP(&diff.valueFiles, "values", "f", "specify values in a YAML file (can specify multiple)")
 	f.StringArrayVar(&diff.values, "set", []string{}, "set values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)")
 	f.StringArrayVar(&diff.stringValues, "set-string", []string{}, "set STRING values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)")
@@ -176,15 +168,14 @@ func newChartCommand() *cobra.Command {
 	f.BoolVar(&diff.noHooks, "no-hooks", false, "disable diffing of hooks")
 	f.BoolVar(&diff.includeTests, "include-tests", false, "enable the diffing of the helm test hooks")
 	f.BoolVar(&diff.devel, "devel", false, "use development versions, too. Equivalent to version '>0.0.0-0'. If --version is set, this is ignored.")
-	f.StringArrayVar(&diff.suppressedKinds, "suppress", []string{}, "allows suppression of the values listed in the diff output")
-	f.IntVarP(&diff.outputContext, "context", "C", -1, "output NUM lines of context around changes")
 	f.BoolVar(&diff.disableValidation, "disable-validation", false, "disables rendered templates validation against the Kubernetes cluster you are currently pointing to. This is the same validation performed on an install")
 	f.BoolVar(&diff.disableOpenAPIValidation, "disable-openapi-validation", false, "disables rendered templates validation against the Kubernetes OpenAPI Schema")
 	f.BoolVar(&diff.dryRun, "dry-run", false, "disables cluster access and show diff as if it was install. Implies --install, --reset-values, and --disable-validation")
 	f.StringVar(&diff.postRenderer, "post-renderer", "", "the path to an executable to be used for post rendering. If it exists in $PATH, the binary will be used, otherwise it will try to look for the executable at the given path")
-	f.StringVar(&diff.output, "output", "diff", "Possible values: diff, simple, json, template. When set to \"template\", use the env var HELM_DIFF_TPL to specify the template.")
-	f.BoolVar(&diff.stripTrailingCR, "strip-trailing-cr", false, "strip trailing carriage return on input")
 	f.BoolVar(&diff.normalizeManifests, "normalize-manifests", false, "normalize manifests before running diff to exclude style differences from the output")
+
+	AddDiffOptions(f, &diff.Options)
+
 	if !isHelm3() {
 		f.StringVar(&diff.namespace, "namespace", "default", "namespace to assume the release to be installed into")
 	}
@@ -271,7 +262,7 @@ func (d *diffCmd) runHelm3() error {
 	} else {
 		newSpecs = manifest.Parse(string(installManifest), d.namespace, d.normalizeManifests, helm3TestHook, helm2TestSuccessHook)
 	}
-	seenAnyChanges := diff.Manifests(currentSpecs, newSpecs, d.suppressedKinds, d.showSecrets, d.outputContext, d.output, d.stripTrailingCR, os.Stdout)
+	seenAnyChanges := diff.Manifests(currentSpecs, newSpecs, &d.Options, os.Stdout)
 
 	if d.detailedExitCode && seenAnyChanges {
 		return Error{
@@ -463,7 +454,7 @@ func (d *diffCmd) run() error {
 		}
 	}
 
-	seenAnyChanges := diff.Manifests(currentSpecs, newSpecs, d.suppressedKinds, d.showSecrets, d.outputContext, d.output, d.stripTrailingCR, os.Stdout)
+	seenAnyChanges := diff.Manifests(currentSpecs, newSpecs, &d.Options, os.Stdout)
 
 	if d.detailedExitCode && seenAnyChanges {
 		return Error{
