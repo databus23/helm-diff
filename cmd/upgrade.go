@@ -124,8 +124,12 @@ func newChartCommand() *cobra.Command {
 			diff.useUpgradeDryRun = os.Getenv("HELM_DIFF_USE_UPGRADE_DRY_RUN") == "true"
 
 			if !diff.threeWayMerge && !cmd.Flags().Changed("three-way-merge") {
-				println("reading three way merge from env")
-				diff.threeWayMerge = os.Getenv("HELM_DIFF_THREE_WAY_MERGE") == "true"
+				enabled := os.Getenv("HELM_DIFF_THREE_WAY_MERGE") == "true"
+				diff.threeWayMerge = enabled
+
+				if enabled {
+					fmt.Println("Enabled three way merge via the envvar")
+				}
 			}
 
 			if q, _ := cmd.Flags().GetBool("suppress-secrets"); q {
