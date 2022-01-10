@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"os"
+	"strconv"
 
 	"github.com/mgutz/ansi"
 	"github.com/spf13/cobra"
@@ -41,9 +42,23 @@ func New() *cobra.Command {
 		Args: chartCommand.Args,
 		// parse the flags and check for actions like suppress-secrets, no-colors
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
-			if nc, _ := cmd.Flags().GetBool("no-color"); nc {
+			var fc *bool
+
+			if cmd.Flags().Changed("color") {
+				v, _ := cmd.Flags().GetBool("color")
+				fc = &v
+			} else {
+				v, err := strconv.ParseBool(os.Getenv("HELM_DIFF_COLOR"))
+				if err == nil {
+					fc = &v
+				}
+			}
+
+			nc, _ := cmd.Flags().GetBool("no-color")
+
+			if nc || (fc != nil && !*fc) {
 				ansi.DisableColors(true)
-			} else if !cmd.Flags().Changed("no-color") {
+			} else if !cmd.Flags().Changed("no-color") && fc == nil {
 				term := terminal.IsTerminal(int(os.Stdout.Fd()))
 				// https://github.com/databus23/helm-diff/issues/281
 				dumb := os.Getenv("TERM") == "dumb"
@@ -57,7 +72,8 @@ func New() *cobra.Command {
 	}
 
 	// add no-color as global flag
-	cmd.PersistentFlags().Bool("no-color", false, "remove colors from the output")
+	cmd.PersistentFlags().Bool("no-color", false, "remove colors from the output. If both --no-color and --color are unspecified, coloring enabled only when the stdout is a term and TERM is not \"dumb\"")
+	cmd.PersistentFlags().Bool("color", false, "color output. You can control the value for this flag via HELM_DIFF_COLOR=[true|false]. If both --no-color and --color are unspecified, coloring enabled only when the stdout is a term and TERM is not \"dumb\"")
 	// add flagset from chartCommand
 	cmd.Flags().AddFlagSet(chartCommand.Flags())
 	cmd.AddCommand(newVersionCmd(), chartCommand)
