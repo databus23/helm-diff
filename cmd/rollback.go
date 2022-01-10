@@ -17,14 +17,10 @@ type rollback struct {
 	release            string
 	client             helm.Interface
 	detailedExitCode   bool
-	suppressedKinds    []string
 	revisions          []string
-	outputContext      int
 	includeTests       bool
-	showSecrets        bool
-	output             string
-	stripTrailingCR    bool
 	normalizeManifests bool
+	diff.Options
 }
 
 const rollbackCmdLongUsage = `
@@ -57,9 +53,7 @@ func rollbackCmd() *cobra.Command {
 				return err
 			}
 
-			if q, _ := cmd.Flags().GetBool("suppress-secrets"); q {
-				diff.suppressedKinds = append(diff.suppressedKinds, "Secret")
-			}
+			ProcessDiffOptions(cmd.Flags(), &diff.Options)
 
 			diff.release = args[0]
 			diff.revisions = args[1:]
@@ -76,15 +70,10 @@ func rollbackCmd() *cobra.Command {
 		},
 	}
 
-	rollbackCmd.Flags().BoolP("suppress-secrets", "q", false, "suppress secrets in the output")
-	rollbackCmd.Flags().BoolVar(&diff.showSecrets, "show-secrets", false, "do not redact secret values in the output")
 	rollbackCmd.Flags().BoolVar(&diff.detailedExitCode, "detailed-exitcode", false, "return a non-zero exit code when there are changes")
-	rollbackCmd.Flags().StringArrayVar(&diff.suppressedKinds, "suppress", []string{}, "allows suppression of the values listed in the diff output")
-	rollbackCmd.Flags().IntVarP(&diff.outputContext, "context", "C", -1, "output NUM lines of context around changes")
 	rollbackCmd.Flags().BoolVar(&diff.includeTests, "include-tests", false, "enable the diffing of the helm test hooks")
-	rollbackCmd.Flags().StringVar(&diff.output, "output", "diff", "Possible values: diff, simple, template. When set to \"template\", use the env var HELM_DIFF_TPL to specify the template.")
-	rollbackCmd.Flags().BoolVar(&diff.stripTrailingCR, "strip-trailing-cr", false, "strip trailing carriage return on input")
 	rollbackCmd.Flags().BoolVar(&diff.normalizeManifests, "normalize-manifests", false, "normalize manifests before running diff to exclude style differences from the output")
+	AddDiffOptions(rollbackCmd.Flags(), &diff.Options)
 
 	rollbackCmd.SuggestionsMinimumDistance = 1
 
@@ -119,11 +108,7 @@ func (d *rollback) backcastHelm3() error {
 	seenAnyChanges := diff.Manifests(
 		manifest.Parse(string(releaseResponse), namespace, d.normalizeManifests, excludes...),
 		manifest.Parse(string(revisionResponse), namespace, d.normalizeManifests, excludes...),
-		d.suppressedKinds,
-		d.showSecrets,
-		d.outputContext,
-		d.output,
-		d.stripTrailingCR,
+		&d.Options,
 		os.Stdout)
 
 	if d.detailedExitCode && seenAnyChanges {
@@ -156,11 +141,7 @@ func (d *rollback) backcast() error {
 	seenAnyChanges := diff.Manifests(
 		manifest.ParseRelease(releaseResponse.Release, d.includeTests, d.normalizeManifests),
 		manifest.ParseRelease(revisionResponse.Release, d.includeTests, d.normalizeManifests),
-		d.suppressedKinds,
-		d.showSecrets,
-		d.outputContext,
-		d.output,
-		d.stripTrailingCR,
+		&d.Options,
 		os.Stdout)
 
 	if d.detailedExitCode && seenAnyChanges {

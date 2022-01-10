@@ -17,14 +17,10 @@ type revision struct {
 	release            string
 	client             helm.Interface
 	detailedExitCode   bool
-	suppressedKinds    []string
 	revisions          []string
-	outputContext      int
 	includeTests       bool
-	showSecrets        bool
-	output             string
-	stripTrailingCR    bool
 	normalizeManifests bool
+	diff.Options
 }
 
 const revisionCmdLongUsage = `
@@ -68,9 +64,7 @@ func revisionCmd() *cobra.Command {
 				return errors.New("Too many arguments to Command \"revision\".\nMaximum 3 arguments allowed: release name, revision1, revision2")
 			}
 
-			if q, _ := cmd.Flags().GetBool("suppress-secrets"); q {
-				diff.suppressedKinds = append(diff.suppressedKinds, "Secret")
-			}
+			ProcessDiffOptions(cmd.Flags(), &diff.Options)
 
 			diff.release = args[0]
 			diff.revisions = args[1:]
@@ -84,15 +78,10 @@ func revisionCmd() *cobra.Command {
 		},
 	}
 
-	revisionCmd.Flags().BoolP("suppress-secrets", "q", false, "suppress secrets in the output")
-	revisionCmd.Flags().BoolVar(&diff.showSecrets, "show-secrets", false, "do not redact secret values in the output")
 	revisionCmd.Flags().BoolVar(&diff.detailedExitCode, "detailed-exitcode", false, "return a non-zero exit code when there are changes")
-	revisionCmd.Flags().StringArrayVar(&diff.suppressedKinds, "suppress", []string{}, "allows suppression of the values listed in the diff output")
-	revisionCmd.Flags().IntVarP(&diff.outputContext, "context", "C", -1, "output NUM lines of context around changes")
 	revisionCmd.Flags().BoolVar(&diff.includeTests, "include-tests", false, "enable the diffing of the helm test hooks")
-	revisionCmd.Flags().StringVar(&diff.output, "output", "diff", "Possible values: diff, simple, template. When set to \"template\", use the env var HELM_DIFF_TPL to specify the template.")
-	revisionCmd.Flags().BoolVar(&diff.stripTrailingCR, "strip-trailing-cr", false, "strip trailing carriage return on input")
 	revisionCmd.Flags().BoolVar(&diff.normalizeManifests, "normalize-manifests", false, "normalize manifests before running diff to exclude style differences from the output")
+	AddDiffOptions(revisionCmd.Flags(), &diff.Options)
 
 	revisionCmd.SuggestionsMinimumDistance = 1
 
@@ -126,11 +115,7 @@ func (d *revision) differentiateHelm3() error {
 		diff.Manifests(
 			manifest.Parse(string(revisionResponse), namespace, d.normalizeManifests, excludes...),
 			manifest.Parse(string(releaseResponse), namespace, d.normalizeManifests, excludes...),
-			d.suppressedKinds,
-			d.showSecrets,
-			d.outputContext,
-			d.output,
-			d.stripTrailingCR,
+			&d.Options,
 			os.Stdout)
 
 	case 2:
@@ -153,11 +138,7 @@ func (d *revision) differentiateHelm3() error {
 		seenAnyChanges := diff.Manifests(
 			manifest.Parse(string(revisionResponse1), namespace, d.normalizeManifests, excludes...),
 			manifest.Parse(string(revisionResponse2), namespace, d.normalizeManifests, excludes...),
-			d.suppressedKinds,
-			d.showSecrets,
-			d.outputContext,
-			d.output,
-			d.stripTrailingCR,
+			&d.Options,
 			os.Stdout)
 
 		if d.detailedExitCode && seenAnyChanges {
@@ -193,11 +174,7 @@ func (d *revision) differentiate() error {
 		diff.Manifests(
 			manifest.ParseRelease(revisionResponse.Release, d.includeTests, d.normalizeManifests),
 			manifest.ParseRelease(releaseResponse.Release, d.includeTests, d.normalizeManifests),
-			d.suppressedKinds,
-			d.showSecrets,
-			d.outputContext,
-			d.output,
-			d.stripTrailingCR,
+			&d.Options,
 			os.Stdout)
 
 	case 2:
@@ -220,11 +197,7 @@ func (d *revision) differentiate() error {
 		seenAnyChanges := diff.Manifests(
 			manifest.ParseRelease(revisionResponse1.Release, d.includeTests, d.normalizeManifests),
 			manifest.ParseRelease(revisionResponse2.Release, d.includeTests, d.normalizeManifests),
-			d.suppressedKinds,
-			d.showSecrets,
-			d.outputContext,
-			d.output,
-			d.stripTrailingCR,
+			&d.Options,
 			os.Stdout)
 
 		if d.detailedExitCode && seenAnyChanges {
