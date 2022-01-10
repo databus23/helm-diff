@@ -92,7 +92,7 @@ getDownloadURL() {
 
 # Temporary dir
 mkTempDir() {
-  HELM_TMP="$(mktemp -d -t "${PROJECT_NAME}-XXXX")"
+  HELM_TMP="$(mktemp -d -t "${PROJECT_NAME}-XXXXXX")"
 }
 rmTempDir() {
   if [ -d "${HELM_TMP:-/tmp/helm-diff-tmp}" ]; then
