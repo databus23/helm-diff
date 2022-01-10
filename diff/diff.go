@@ -22,35 +22,15 @@ import (
 func Manifests(oldIndex, newIndex map[string]*manifest.MappingResult, suppressedKinds []string, showSecrets bool, context int, output string, stripTrailingCR bool, to io.Writer) bool {
 	report := Report{}
 	report.setupReportFormat(output)
-	seenAnyChanges := false
-	emptyMapping := &manifest.MappingResult{}
 	for _, key := range sortedKeys(oldIndex) {
 		oldContent := oldIndex[key]
 
 		if newContent, ok := newIndex[key]; ok {
-			if oldContent.Content != newContent.Content {
-				// modified
-				if !showSecrets {
-					redactSecrets(oldContent, newContent)
-				}
-
-				diffs := diffMappingResults(oldContent, newContent, stripTrailingCR)
-				if len(diffs) > 0 {
-					seenAnyChanges = true
-				}
-				report.addEntry(key, suppressedKinds, oldContent.Kind, context, diffs, "MODIFY")
-			}
+			// modified?
+			doDiff(key, oldContent, newContent, suppressedKinds, showSecrets, stripTrailingCR, context)
 		} else {
 			// removed
-			if !showSecrets {
-				redactSecrets(oldContent, nil)
-
-			}
-			diffs := diffMappingResults(oldContent, emptyMapping, stripTrailingCR)
-			if len(diffs) > 0 {
-				seenAnyChanges = true
-			}
-			report.addEntry(key, suppressedKinds, oldContent.Kind, context, diffs, "REMOVE")
+			doDiff(key, oldContent, nil, suppressedKinds, showSecrets, stripTrailingCR, context)
 		}
 	}
 
@@ -58,20 +38,49 @@ func Manifests(oldIndex, newIndex map[string]*manifest.MappingResult, suppressed
 		newContent := newIndex[key]
 
 		if _, ok := oldIndex[key]; !ok {
-			// added
-			if !showSecrets {
-				redactSecrets(nil, newContent)
-			}
-			diffs := diffMappingResults(emptyMapping, newContent, stripTrailingCR)
-			if len(diffs) > 0 {
-				seenAnyChanges = true
-			}
-			report.addEntry(key, suppressedKinds, newContent.Kind, context, diffs, "ADD")
+			doDiff(key, nil, newContent, suppressedKinds, showSecrets, stripTrailingCR, context)
 		}
 	}
+
+	seenAnyChanges := len(report.entries) > 0
 	report.print(to)
 	report.clean()
 	return seenAnyChanges
+}
+
+func actualChanges(diff []difflib.DiffRecord) int {
+	changes := 0
+	for _, record := range diff {
+		if record.Delta != difflib.Common {
+			changes++
+		}
+	}
+	return changes
+}
+
+func doDiff(key string, oldContent *manifest.MappingResult, newContent *manifest.MappingResult, suppressedKinds []string, showSecrets bool, stripTrailingCR bool, context int) {
+	if oldContent != nil && newContent != nil && oldContent.Content == newContent.Content {
+		return
+	}
+
+	if !showSecrets {
+		redactSecrets(oldContent, newContent)
+	}
+
+	if oldContent == nil {
+		emptyMapping := &manifest.MappingResult{}
+		diffs := diffMappingResults(emptyMapping, newContent, stripTrailingCR)
+		report.addEntry(key, suppressedKinds, newContent.Kind, context, diffs, "ADD")
+	} else if newContent == nil {
+		emptyMapping := &manifest.MappingResult{}
+		diffs := diffMappingResults(oldContent, emptyMapping, stripTrailingCR)
+		report.addEntry(key, suppressedKinds, oldContent.Kind, context, diffs, "REMOVE")
+	} else {
+		diffs := diffMappingResults(oldContent, newContent, stripTrailingCR)
+		if actualChanges(diffs) > 0 {
+			report.addEntry(key, suppressedKinds, oldContent.Kind, context, diffs, "MODIFY")
+		}
+	}
 }
 
 func redactSecrets(old, new *manifest.MappingResult) {
