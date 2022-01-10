@@ -117,7 +117,7 @@ func redactSecrets(old, new *manifest.MappingResult) {
 	if old != nil {
 		oldSecret.Data = nil
 		if err := serializer.Encode(&oldSecret, &buf); err != nil {
-
+			new.Content = fmt.Sprintf("Error encoding new secret: %s", err)
 		}
 		old.Content = getComment(old.Content) + strings.Replace(strings.Replace(buf.String(), "stringData", "data", 1), "  creationTimestamp: null\n", "", 1)
 		buf.Reset() //reuse buffer for new secret
@@ -125,7 +125,7 @@ func redactSecrets(old, new *manifest.MappingResult) {
 	if new != nil {
 		newSecret.Data = nil
 		if err := serializer.Encode(&newSecret, &buf); err != nil {
-
+			new.Content = fmt.Sprintf("Error encoding new secret: %s", err)
 		}
 		new.Content = getComment(new.Content) + strings.Replace(strings.Replace(buf.String(), "stringData", "data", 1), "  creationTimestamp: null\n", "", 1)
 	}
