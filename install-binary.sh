@@ -11,19 +11,18 @@ export GREP_COLOR="never"
 # on Windows where helm returns a Windows path but we
 # need a Unix path
 
-if type cygpath >/dev/null 2>&1; then
+if command -v cygpath >/dev/null 2>&1; then
   HELM_BIN="$(cygpath -u "${HELM_BIN}")"
   HELM_PLUGIN_DIR="$(cygpath -u "${HELM_PLUGIN_DIR}")"
 fi
 
 [ -z "$HELM_BIN" ] && HELM_BIN=$(command -v helm)
-HELM_MAJOR_VERSION=$("${HELM_BIN}" version --client --short | awk -F '.' '{print $1}')
 
 [ -z "$HELM_HOME" ] && HELM_HOME=$(helm env | grep 'HELM_DATA_HOME' | cut -d '=' -f2 | tr -d '"')
 
 mkdir -p "$HELM_HOME"
 
-: ${HELM_PLUGIN_DIR:="$HELM_HOME/plugins/helm-diff"}
+: "${HELM_PLUGIN_DIR:="$HELM_HOME/plugins/helm-diff"}"
 
 if [ "$SKIP_BIN_INSTALL" = "1" ]; then
   echo "Skipping binary install"
@@ -73,7 +72,9 @@ verifySupported() {
     exit 1
   fi
 
-  if ! type "curl" >/dev/null && ! type "wget" >/dev/null; then
+  if
+    ! command -v curl >/dev/null 2>&1 && ! command -v wget >/dev/null 2>&1
+  then
     echo "Either curl or wget is required"
     exit 1
   fi
@@ -82,7 +83,7 @@ verifySupported() {
 # getDownloadURL checks the latest available version.
 getDownloadURL() {
   version=$(git -C "$HELM_PLUGIN_DIR" describe --tags --exact-match 2>/dev/null || :)
-  if [ "$SCRIPT_MODE" = "install" -a -n "$version" ]; then
+  if [ "$SCRIPT_MODE" = "install" ] && [ -n "$version" ]; then
     DOWNLOAD_URL="https://github.com/$PROJECT_GH/releases/download/$version/helm-diff-$OS-$ARCH.tgz"
   else
     DOWNLOAD_URL="https://github.com/$PROJECT_GH/releases/latest/download/helm-diff-$OS-$ARCH.tgz"
@@ -104,9 +105,13 @@ rmTempDir() {
 downloadFile() {
   PLUGIN_TMP_FILE="${HELM_TMP}/${PROJECT_NAME}.tgz"
   echo "Downloading $DOWNLOAD_URL"
-  if type "curl" >/dev/null; then
+  if
+    command -v curl >/dev/null 2>&1
+  then
     curl -L "$DOWNLOAD_URL" -o "$PLUGIN_TMP_FILE"
-  elif type "wget" >/dev/null; then
+  elif
+    command -v wget >/dev/null 2>&1
+  then
     wget -q -O "$PLUGIN_TMP_FILE" "$DOWNLOAD_URL"
   fi
 }
