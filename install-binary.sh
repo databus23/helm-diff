@@ -17,13 +17,12 @@ if type cygpath >/dev/null 2>&1; then
 fi
 
 [ -z "$HELM_BIN" ] && HELM_BIN=$(command -v helm)
-HELM_MAJOR_VERSION=$("${HELM_BIN}" version --client --short | awk -F '.' '{print $1}')
 
 [ -z "$HELM_HOME" ] && HELM_HOME=$(helm env | grep 'HELM_DATA_HOME' | cut -d '=' -f2 | tr -d '"')
 
 mkdir -p "$HELM_HOME"
 
-: ${HELM_PLUGIN_DIR:="$HELM_HOME/plugins/helm-diff"}
+: "${HELM_PLUGIN_DIR:="$HELM_HOME/plugins/helm-diff"}"
 
 if [ "$SKIP_BIN_INSTALL" = "1" ]; then
   echo "Skipping binary install"
@@ -82,7 +81,7 @@ verifySupported() {
 # getDownloadURL checks the latest available version.
 getDownloadURL() {
   version=$(git -C "$HELM_PLUGIN_DIR" describe --tags --exact-match 2>/dev/null || :)
-  if [ "$SCRIPT_MODE" = "install" -a -n "$version" ]; then
+  if [ "$SCRIPT_MODE" = "install" ] && [ -n "$version" ]; then
     DOWNLOAD_URL="https://github.com/$PROJECT_GH/releases/download/$version/helm-diff-$OS-$ARCH.tgz"
   else
     DOWNLOAD_URL="https://github.com/$PROJECT_GH/releases/latest/download/helm-diff-$OS-$ARCH.tgz"
