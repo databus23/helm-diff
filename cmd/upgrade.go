@@ -555,6 +555,7 @@ func deleteStatusAndTidyMetadata(obj []byte) (map[string]interface{}, error) {
 	metadata := objectMap["metadata"].(map[string]interface{})
 
 	delete(metadata, "managedFields")
+	delete(metadata, "generation")
 
 	// See the below for the goal of this metadata tidy logic.
 	// https://github.com/databus23/helm-diff/issues/326#issuecomment-1008253274
@@ -562,6 +563,7 @@ func deleteStatusAndTidyMetadata(obj []byte) (map[string]interface{}, error) {
 		annotations := a.(map[string]interface{})
 		delete(annotations, "meta.helm.sh/release-name")
 		delete(annotations, "meta.helm.sh/release-namespace")
+		delete(annotations, "deployment.kubernetes.io/revision")
 
 		if len(annotations) == 0 {
 			delete(metadata, "annotations")
