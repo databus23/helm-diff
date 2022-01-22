@@ -110,11 +110,11 @@ downloadFile() {
   if
     command -v curl >/dev/null 2>&1
   then
-    curl -sSf -L "$DOWNLOAD_URL" > "$PLUGIN_TMP_FILE"
+    curl -sSf -L "$DOWNLOAD_URL" >"$PLUGIN_TMP_FILE"
   elif
     command -v wget >/dev/null 2>&1
   then
-    wget -q -O - "$DOWNLOAD_URL" > "$PLUGIN_TMP_FILE"
+    wget -q -O - "$DOWNLOAD_URL" >"$PLUGIN_TMP_FILE"
   fi
 }
 
