@@ -52,14 +52,16 @@ initArch() {
 
 # initOS discovers the operating system for this system.
 initOS() {
-  OS=$(uname | tr '[:upper:]' '[:lower:]')
+  OS=$(uname -s)
 
   case "$OS" in
   # Msys support
-  msys*) OS='windows' ;;
+  MSYS*) OS='windows' ;;
   # Minimalist GNU for Windows
-  mingw*) OS='windows' ;;
-  darwin) OS='macos' ;;
+  MINGW*) OS='windows' ;;
+  CYGWIN*) OS='windows' ;;
+  Darwin) OS='macos' ;;
+  Linux) OS='linux' ;;
   esac
 }
 
@@ -108,18 +110,18 @@ downloadFile() {
   if
     command -v curl >/dev/null 2>&1
   then
-    curl -L "$DOWNLOAD_URL" -o "$PLUGIN_TMP_FILE"
+    curl -sSf -L "$DOWNLOAD_URL" >"$PLUGIN_TMP_FILE"
   elif
     command -v wget >/dev/null 2>&1
   then
-    wget -q -O "$PLUGIN_TMP_FILE" "$DOWNLOAD_URL"
+    wget -q -O - "$DOWNLOAD_URL" >"$PLUGIN_TMP_FILE"
   fi
 }
 
 # installFile verifies the SHA256 for the file, then unpacks and
 # installs it.
 installFile() {
-  tar xvzf "$PLUGIN_TMP_FILE" -C "$HELM_TMP"
+  tar xzf "$PLUGIN_TMP_FILE" -C "$HELM_TMP"
   HELM_TMP_BIN="$HELM_TMP/diff/bin/diff"
   echo "Preparing to install into ${HELM_PLUGIN_DIR}"
   mkdir -p "$HELM_PLUGIN_DIR/bin"
