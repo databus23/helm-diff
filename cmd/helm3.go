@@ -177,12 +177,16 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 
 			i := bytes.Index(s, []byte("HOOKS:"))
 			s = s[i:]
+
 			i = bytes.Index(s, []byte("---"))
 			s = s[i:]
 
 			i = bytes.Index(s, []byte("MANIFEST:"))
-			j := bytes.Index(s[i:], []byte("---"))
-			s = append(s[:i], s[i:][j:]...)
+
+			if i > -1 {
+				j := bytes.Index(s[i:], []byte("---"))
+				s = append(s[:i], s[i:][j:]...)
+			}
 
 			i = bytes.Index(s, []byte("\nNOTES:"))
 			if i != -1 {
