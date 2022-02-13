@@ -87,7 +87,7 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 	if d.devel {
 		flags = append(flags, "--devel")
 	}
-	if d.noHooks {
+	if d.noHooks && !d.useUpgradeDryRun {
 		flags = append(flags, "--no-hooks")
 	}
 	if d.chartVersion != "" {
@@ -171,30 +171,7 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 		flags = append(flags, "--dry-run")
 		subcmd = "upgrade"
 		filter = func(s []byte) []byte {
-			if len(s) == 0 {
-				return s
-			}
-
-			i := bytes.Index(s, []byte("HOOKS:"))
-			s = s[i:]
-			i = bytes.Index(s, []byte("---"))
-			s = s[i:]
-			i = bytes.Index(s, []byte("MANIFEST:"))
-			if i != -1 {
-				j := bytes.Index(s[i:], []byte("---"))
-
-				if j != -1 {
-					s = append(s[:i], s[i:][j:]...)
-				} else {
-					s = s[:i]
-				}
-			}
-			i = bytes.Index(s, []byte("\nNOTES:"))
-			if i != -1 {
-				s = s[:i+1]
-			}
-
-			return s
+			return extractManifestFromHelmUpgradeDryRunOutput(s, d.noHooks)
 		}
 	} else {
 		if !d.disableValidation && !d.dryRun {
@@ -230,4 +207,46 @@ func (d *diffCmd) writeExistingValues(f *os.File) error {
 	defer f.Close()
 	cmd.Stdout = f
 	return cmd.Run()
+}
+
+func extractManifestFromHelmUpgradeDryRunOutput(s []byte, noHooks bool) []byte {
+	if len(s) == 0 {
+		return s
+	}
+
+	i := bytes.Index(s, []byte("HOOKS:"))
+	hooks := s[i:]
+
+	j := bytes.Index(hooks, []byte("MANIFEST:"))
+
+	manifest := hooks[j:]
+	hooks = hooks[:j]
+
+	k := bytes.Index(manifest, []byte("\nNOTES:"))
+
+	if k > -1 {
+		manifest = manifest[:k+1]
+	}
+
+	if noHooks {
+		hooks = nil
+	} else {
+		a := bytes.Index(hooks, []byte("---"))
+		if a > -1 {
+			hooks = hooks[a:]
+		} else {
+			hooks = nil
+		}
+	}
+
+	a := bytes.Index(manifest, []byte("---"))
+	if a > -1 {
+		manifest = manifest[a:]
+	}
+
+	r := []byte{}
+	r = append(r, manifest...)
+	r = append(r, hooks...)
+
+	return r
 }
