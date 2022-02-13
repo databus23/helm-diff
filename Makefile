@@ -10,6 +10,8 @@ LDFLAGS := -X $(PKG)/cmd.Version=$(VERSION)
 LDFLAGS += -X k8s.io/helm/pkg/version.BuildMetadata=
 LDFLAGS += -X k8s.io/helm/pkg/version.Version=$(shell ./scripts/dep-helm-version.sh)
 
+GO ?= go
+
 .PHONY: format
 format:
 	test -z "$$(find . -type f -o -name '*.go' -exec gofmt -d {} + | tee /dev/stderr)" || \
@@ -62,18 +64,18 @@ dist:
 	rm -rf build/diff/* release/*
 	mkdir -p build/diff/bin release/
 	cp README.md LICENSE plugin.yaml build/diff
-	GOOS=linux GOARCH=amd64 go build -o build/diff/bin/diff -trimpath -ldflags="$(LDFLAGS)"
+	GOOS=linux GOARCH=amd64 $(GO) build -o build/diff/bin/diff -trimpath -ldflags="$(LDFLAGS)"
 	tar -C build/ -zcvf $(CURDIR)/release/helm-diff-linux-amd64.tgz diff/
-	GOOS=linux GOARCH=arm64 go build -o build/diff/bin/diff -trimpath -ldflags="$(LDFLAGS)"
+	GOOS=linux GOARCH=arm64 $(GO) build -o build/diff/bin/diff -trimpath -ldflags="$(LDFLAGS)"
 	tar -C build/ -zcvf $(CURDIR)/release/helm-diff-linux-arm64.tgz diff/
-	GOOS=freebsd GOARCH=amd64 go build -o build/diff/bin/diff -trimpath -ldflags="$(LDFLAGS)"
+	GOOS=freebsd GOARCH=amd64 $(GO) build -o build/diff/bin/diff -trimpath -ldflags="$(LDFLAGS)"
 	tar -C build/ -zcvf $(CURDIR)/release/helm-diff-freebsd-amd64.tgz diff/
-	GOOS=darwin GOARCH=amd64 go build -o build/diff/bin/diff -trimpath -ldflags="$(LDFLAGS)"
+	GOOS=darwin GOARCH=amd64 $(GO) build -o build/diff/bin/diff -trimpath -ldflags="$(LDFLAGS)"
 	tar -C build/ -zcvf $(CURDIR)/release/helm-diff-macos-amd64.tgz diff/
-	GOOS=darwin GOARCH=arm64 go build -o build/diff/bin/diff -trimpath -ldflags="$(LDFLAGS)"
+	GOOS=darwin GOARCH=arm64 $(GO) build -o build/diff/bin/diff -trimpath -ldflags="$(LDFLAGS)"
 	tar -C build/ -zcvf $(CURDIR)/release/helm-diff-macos-arm64.tgz diff/
 	rm build/diff/bin/diff
-	GOOS=windows GOARCH=amd64 go build -o build/diff/bin/diff.exe -trimpath -ldflags="$(LDFLAGS)"
+	GOOS=windows GOARCH=amd64 $(GO) build -o build/diff/bin/diff.exe -trimpath -ldflags="$(LDFLAGS)"
 	tar -C build/ -zcvf $(CURDIR)/release/helm-diff-windows-amd64.tgz diff/
 
 .PHONY: release
