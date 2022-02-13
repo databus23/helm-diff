@@ -168,6 +168,12 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 			return nil, fmt.Errorf("`diff upgrade --dry-run` conflicts with HELM_DIFF_USE_UPGRADE_DRY_RUN_AS_TEMPLATE. Either remove --dry-run to enable cluster access, or unset HELM_DIFF_USE_UPGRADE_DRY_RUN_AS_TEMPLATE to make cluster access unnecessary")
 		}
 
+		if d.isAllowUnreleased() {
+			// Otherwise you get the following error when this is a diff for a new install
+			//   Error: UPGRADE FAILED: "$RELEASE_NAME" has no deployed releases
+			flags = append(flags, "--install")
+		}
+
 		flags = append(flags, "--dry-run")
 		subcmd = "upgrade"
 		filter = func(s []byte) []byte {
