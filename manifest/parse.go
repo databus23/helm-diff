@@ -7,7 +7,7 @@ import (
 	"log"
 	"strings"
 
-	yaml "gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v2"
 	"k8s.io/helm/pkg/proto/hapi/release"
 )
 
@@ -40,8 +40,13 @@ func (m metadata) String() string {
 	if len(sp) > 1 {
 		apiBase = strings.Join(sp[:len(sp)-1], "/")
 	}
-
-	return fmt.Sprintf("%s, %s, %s (%s)", m.Metadata.Namespace, m.Metadata.Name, m.Kind, apiBase)
+	name := m.Metadata.Name
+	if a := m.Metadata.Annotations; a != nil {
+		if baseName, ok := a["helm.sh/base-name"]; ok {
+			name = baseName
+		}
+	}
+	return fmt.Sprintf("%s, %s, %s (%s)", m.Metadata.Namespace, name, m.Kind, apiBase)
 }
 
 func scanYamlSpecs(data []byte, atEOF bool) (advance int, token []byte, err error) {
