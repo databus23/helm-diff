@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"github.com/databus23/helm-diff/v3/diff"
+	"github.com/ksa-real/helm-diff/v3/diff"
 	"github.com/spf13/pflag"
 )
 

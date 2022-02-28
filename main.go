@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/databus23/helm-diff/v3/cmd"
+	"github.com/ksa-real/helm-diff/v3/cmd"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/azure"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/exec"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"

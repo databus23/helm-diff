@@ -3,7 +3,7 @@
 # Shamelessly copied from https://github.com/technosophos/helm-template
 
 PROJECT_NAME="helm-diff"
-PROJECT_GH="databus23/$PROJECT_NAME"
+PROJECT_GH="ksa-real/$PROJECT_NAME"
 export GREP_COLOR="never"
 
 # Convert HELM_BIN and HELM_PLUGIN_DIR to unix if cygpath is
@@ -134,7 +134,7 @@ exit_trap() {
   rmTempDir
   if [ "$result" != "0" ]; then
     echo "Failed to install $PROJECT_NAME"
-    printf '\tFor support, go to https://github.com/databus23/helm-diff.\n'
+    printf '\tFor support, go to https://github.com/ksa-real/helm-diff.\n'
   fi
   exit $result
 }

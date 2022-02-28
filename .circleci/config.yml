@@ -3,7 +3,7 @@ jobs:
   build:
     docker:
       - image: circleci/golang:1.17
-    working_directory: /go/src/github.com/databus23/helm-diff
+    working_directory: /go/src/github.com/ksa-real/helm-diff
     steps:
       - checkout
       - run:

@@ -6,7 +6,7 @@ if [ ! -f bin/github-release ]; then
   curl -L https://github.com/aktau/github-release/releases/download/v0.7.2/$OS-amd64-github-release.tar.bz2 | tar -C bin/ -jvx --strip-components=3
 fi
 
-user=databus23
+user=ksa-real
 repo=helm-diff
 tag=$1
 commit=$2
