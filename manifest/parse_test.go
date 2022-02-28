@@ -101,3 +101,13 @@ func TestEmpty(t *testing.T) {
 		foundObjects(Parse(string(spec), "default", false)),
 	)
 }
+
+func TestBaseNameAnnotation(t *testing.T) {
+	spec, err := ioutil.ReadFile("testdata/secret_immutable.yaml")
+	require.NoError(t, err)
+
+	require.Equal(t,
+		[]string{"default, bat-secret, Secret (v1)"},
+		foundObjects(Parse(string(spec), "default", false)),
+	)
+}
