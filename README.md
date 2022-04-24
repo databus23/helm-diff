@@ -95,6 +95,7 @@ Flags:
   -h, --help                         help for diff
       --include-tests                enable the diffing of the helm test hooks
       --install                      enables diffing of releases that are not yet deployed via Helm (equivalent to --allow-unreleased, added to match "helm upgrade --install" command
+      --kube-version string          Kubernetes version used for Capabilities.KubeVersion
       --kubeconfig string            This flag is ignored, to allow passing of this top level flag to helm
       --no-color                     remove colors from the output. If both --no-color and --color are unspecified, coloring enabled only when the stdout is a term and TERM is not "dumb"
       --no-hooks                     disable diffing of hooks
@@ -168,6 +169,7 @@ Flags:
   -h, --help                         help for upgrade
       --include-tests                enable the diffing of the helm test hooks
       --install                      enables diffing of releases that are not yet deployed via Helm (equivalent to --allow-unreleased, added to match "helm upgrade --install" command
+      --kube-version string          Kubernetes version used for Capabilities.KubeVersion
       --kubeconfig string            This flag is ignored, to allow passing of this top level flag to helm
       --no-hooks                     disable diffing of hooks
       --normalize-manifests          normalize manifests before running diff to exclude style differences from the output

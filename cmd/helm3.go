@@ -192,6 +192,10 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 			flags = append(flags, "--api-versions", a)
 		}
 
+		if d.kubeVersion != "" {
+			flags = append(flags, "--kube-version", d.kubeVersion)
+		}
+
 		subcmd = "template"
 
 		filter = func(s []byte) []byte {
