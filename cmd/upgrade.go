@@ -56,6 +56,7 @@ type diffCmd struct {
 	normalizeManifests       bool
 	threeWayMerge            bool
 	extraAPIs                []string
+	kubeVersion              string
 	useUpgradeDryRun         bool
 	diff.Options
 }
@@ -157,6 +158,8 @@ func newChartCommand() *cobra.Command {
 	// - https://github.com/helm/helm/blob/d9ffe37d371c9d06448c55c852c800051830e49a/cmd/helm/template.go#L184
 	// - https://github.com/databus23/helm-diff/issues/318
 	f.StringArrayVarP(&diff.extraAPIs, "api-versions", "a", []string{}, "Kubernetes api versions used for Capabilities.APIVersions")
+	// Support for kube-version was re-enabled and ported from helm2 to helm3 on https://github.com/helm/helm/pull/9040
+	f.StringVar(&diff.kubeVersion, "kube-version", "", "Kubernetes version used for Capabilities.KubeVersion")
 	f.VarP(&diff.valueFiles, "values", "f", "specify values in a YAML file (can specify multiple)")
 	f.StringArrayVar(&diff.values, "set", []string{}, "set values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)")
 	f.StringArrayVar(&diff.stringValues, "set-string", []string{}, "set STRING values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)")
