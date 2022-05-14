@@ -315,6 +315,13 @@ go test -v ./...
 
 ## Release
 
+Bump `version` in `plugin.yaml`:
+
+```
+$ code plugin.yaml
+$ git commit -m 'Bump helm-diff version to 3.x.y'
+```
+
 Set `GITHUB_TOKEN` and run:
 
 ```
