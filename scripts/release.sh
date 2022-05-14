@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 set -x
+apt-get update
+apt-get install bzip2
 
 if [ ! -f bin/github-release ]; then
   OS=$(uname)
-  curl -L https://github.com/aktau/github-release/releases/download/v0.7.2/$OS-amd64-github-release.tar.bz2 | tar -C bin/ -jvx --strip-components=3
+  mkdir -p bin
+  curl -L https://github.com/aktau/github-release/releases/download/v0.10.0/$OS-amd64-github-release.bz2 | bzcat >bin/github-release
+  chmod +x bin/github-release
 fi
 
 user=databus23
