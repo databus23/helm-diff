@@ -106,6 +106,12 @@ func newChartCommand() *cobra.Command {
 			"  # This is equivalent to specifying the --three-way-merge flag.",
 			"  # Read the flag usage below for more information on --three-way-merge.",
 			"  HELM_DIFF_THREE_WAY_MERGE=true helm diff upgarde my-release datadog/datadog",
+			"",
+			"  # Set HELM_DIFF_NORMALIZE_MANIFESTS=true to",
+			"  # normalize the yaml file content when using helm diff.",
+			"  # This is equivalent to specifying the --normalize-manifests flag.",
+			"  # Read the flag usage below for more information on --normalize-manifests.",
+			"  HELM_DIFF_NORMALIZE_MANIFESTS=true helm diff upgrade my-release datadog/datadog",
 		}, "\n"),
 		Args: func(cmd *cobra.Command, args []string) error {
 			return checkArgsLength(len(args), "release name", "chart path")
@@ -126,6 +132,15 @@ func newChartCommand() *cobra.Command {
 
 				if enabled {
 					fmt.Println("Enabled three way merge via the envvar")
+				}
+			}
+
+			if !diff.normalizeManifests && !cmd.Flags().Changed("normalize-manifests") {
+				enabled := os.Getenv("HELM_DIFF_NORMALIZE_MANIFESTS") == "true"
+				diff.normalizeManifests = enabled
+
+				if enabled {
+					fmt.Println("Enabled normalize manifests via the envvar")
 				}
 			}
 
