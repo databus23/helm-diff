@@ -2,6 +2,7 @@ package diff
 
 import (
 	"bytes"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"math"
@@ -163,10 +164,28 @@ func redactSecrets(old, new *manifest.MappingResult) {
 		if err := yaml.NewYAMLToJSONDecoder(bytes.NewBufferString(old.Content)).Decode(&oldSecret); err != nil {
 			old.Content = fmt.Sprintf("Error parsing old secret: %s", err)
 		}
+		if oldSecret.Data == nil {
+			oldSecret.Data = make(map[string][]byte, len(oldSecret.StringData))
+		}
+		for k, v := range oldSecret.StringData {
+			data := []byte(v)
+			dst := make([]byte, base64.StdEncoding.EncodedLen(len(data)))
+			base64.StdEncoding.Encode(dst, data)
+			oldSecret.Data[k] = dst
+		}
 	}
 	if new != nil {
 		if err := yaml.NewYAMLToJSONDecoder(bytes.NewBufferString(new.Content)).Decode(&newSecret); err != nil {
 			new.Content = fmt.Sprintf("Error parsing new secret: %s", err)
+		}
+		if newSecret.Data == nil {
+			newSecret.Data = make(map[string][]byte, len(newSecret.StringData))
+		}
+		for k, v := range newSecret.StringData {
+			data := []byte(v)
+			dst := make([]byte, base64.StdEncoding.EncodedLen(len(data)))
+			base64.StdEncoding.Encode(dst, data)
+			newSecret.Data[k] = dst
 		}
 	}
 	if old != nil {
