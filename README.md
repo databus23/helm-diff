@@ -157,6 +157,12 @@ Examples:
   # Read the flag usage below for more information on --three-way-merge.
   HELM_DIFF_THREE_WAY_MERGE=true helm diff upgrade my-release datadog/datadog
 
+  # Set HELM_DIFF_NORMALIZE_MANIFESTS=true to",
+	# normalize the yaml file content when using helm diff.",
+	# This is equivalent to specifying the --normalize-manifests flag.",
+	# Read the flag usage below for more information on --normalize-manifests.",
+	HELM_DIFF_NORMALIZE_MANIFESTS=true helm diff upgrade my-release datadog/datadog",
+
 Flags:
       --allow-unreleased             enables diffing of releases that are not yet deployed via Helm
   -a, --api-versions stringArray     Kubernetes api versions used for Capabilities.APIVersions
@@ -172,7 +178,7 @@ Flags:
       --kube-version string          Kubernetes version used for Capabilities.KubeVersion
       --kubeconfig string            This flag is ignored, to allow passing of this top level flag to helm
       --no-hooks                     disable diffing of hooks
-      --normalize-manifests          normalize manifests before running diff to exclude style differences from the output
+      --normalize-manifests          normalize manifests before running diff to exclude style differences from the output, or use HELM_DIFF_NORMALIZE_MANIFESTS=true.
       --output string                Possible values: diff, simple, json, template. When set to "template", use the env var HELM_DIFF_TPL to specify the template. (default "diff")
       --post-renderer string         the path to an executable to be used for post rendering. If it exists in $PATH, the binary will be used, otherwise it will try to look for the executable at the given path
       --repo string                  specify the chart repository url to locate the requested chart
@@ -185,7 +191,7 @@ Flags:
       --strip-trailing-cr            strip trailing carriage return on input
       --suppress stringArray         allows suppression of the values listed in the diff output
   -q, --suppress-secrets             suppress secrets in the output
-      --three-way-merge              use three-way-merge to compute patch and generate diff output
+      --three-way-merge              use three-way-merge to compute patch and generate diff output, or use HELM_DIFF_THREE_WAY_MERGE=true.
   -f, --values valueFiles            specify values in a YAML file (can specify multiple) (default [])
       --version string               specify the exact chart version to use. If this is not specified, the latest version is used
 
