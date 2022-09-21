@@ -3,9 +3,9 @@
 [![GoDoc](https://godoc.org/github.com/databus23/helm-diff?status.svg)](https://godoc.org/github.com/databus23/helm-diff)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/databus23/helm-diff/blob/master/LICENSE)
 
-This is a Helm plugin giving your a preview of what a `helm upgrade` would change.
+This is a Helm plugin giving you a preview of what a `helm upgrade` would change.
 It basically generates a diff between the latest deployed version of a release
-and a `helm upgrade --debug --dry-run`. This can also be used to compare two 
+and a `helm upgrade --debug --dry-run`. This can also be used to compare two
 revisions/versions of your helm release.
 
 <a href="https://asciinema.org/a/105326" target="_blank"><img src="https://asciinema.org/a/105326.png" /></a>
@@ -32,10 +32,10 @@ curl -L $TARBALL_URL | tar -C $(helm home)/plugins -xzv
 #### Prerequisites
  - GoLang `>= 1.17`
 
-Make sure you do not have a verison of `helm-diff` installed. You can remove it by running `helm plugin uninstall diff`
+Make sure you do not have a version of `helm-diff` installed. You can remove it by running `helm plugin uninstall diff`
 
 #### Installation Steps
-The first step is to download the repository and enter the directory. You can do this via `git clone` or downloaing and extracting the release. If you clone via git, remember to checkout the latest tag for the latest release.
+The first step is to download the repository and enter the directory. You can do this via `git clone` or downloading and extracting the release. If you clone via git, remember to checkout the latest tag for the latest release.
 
 Next, depending on which helm version you have, install the plugin into helm.
 
@@ -57,18 +57,18 @@ The Helm Diff Plugin
 
 * Shows a diff explaining what a helm upgrade would change:
     This fetches the currently deployed version of a release
-  and compares it to a local chart plus values. This can be 
+  and compares it to a local chart plus values. This can be
   used visualize what changes a helm upgrade will perform.
 
 * Shows a diff explaining what had changed between two revisions:
     This fetches previously deployed versions of a release
-  and compares them. This can be used visualize what changes 
+  and compares them. This can be used visualize what changes
   were made during revision change.
 
 * Shows a diff explaining what a helm rollback would change:
     This fetches the currently deployed version of a release
   and compares it to the previously deployed version of the release, that you
-  want to rollback. This can be used visualize what changes a 
+  want to rollback. This can be used visualize what changes a
   helm rollback will perform.
 
 Usage:
@@ -117,7 +117,7 @@ Flags:
       --version string               specify the exact chart version to use. If this is not specified, the latest version is used
 
 Additional help topics:
-  diff          
+  diff
 
 Use "diff [command] --help" for more information about a command.
 ```
@@ -198,7 +198,7 @@ Global Flags:
 ```
 $ helm diff release -h
 
-This command compares the manifests details of a different releases created from the same chart
+This command compares the manifests details of a different release created from the same chart
 
 It can be used to compare the manifests of
 
@@ -234,18 +234,18 @@ Global Flags:
 ```
 $ helm diff revision -h
 
-This command compares the manifests details of a named release.
+This command compares the manifest details of a named release.
 
-It can be used to compare the manifests of 
- 
+It can be used to compare the manifests of
+
  - latest REVISION with specified REVISION
 	$ helm diff revision [flags] RELEASE REVISION1
-   Example: 
+   Example:
 	$ helm diff revision my-release 2
 
  - REVISION1 with REVISION2
 	$ helm diff revision [flags] RELEASE REVISION1 REVISION2
-   Example: 
+   Example:
 	$ helm diff revision my-release 2 3
 
 Usage:
@@ -266,7 +266,7 @@ Global Flags:
 ```
 $ helm diff rollback -h
 
-This command compares the latest manifest details of a named release 
+This command compares the latest manifest details of a named release
 with specific revision values to rollback.
 
 It forecasts/visualizes changes, that a helm rollback could perform.
