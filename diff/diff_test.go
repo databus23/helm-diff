@@ -463,3 +463,124 @@ Plan: 0 to add, 1 to change, 0 to destroy.
 		require.Equal(t, "Resource name: nginx\n", buf1.String())
 	})
 }
+
+func TestManifestsWithRedactedSecrets(t *testing.T) {
+	ansi.DisableColors(true)
+
+	specSecretWithByteData := map[string]*manifest.MappingResult{
+		"default, foobar, Secret (v1)": {
+			Name: "default, foobar, Secret (v1)",
+			Kind: "Secret",
+			Content: `
+apiVersion: v1
+kind: Secret
+metadata:
+  name: foobar
+type: Opaque
+data:
+  key1: dmFsdWUx
+  key2: dmFsdWUy
+  key3: dmFsdWUz
+`,
+		}}
+
+	specSecretWithByteDataChanged := map[string]*manifest.MappingResult{
+		"default, foobar, Secret (v1)": {
+			Name: "default, foobar, Secret (v1)",
+			Kind: "Secret",
+			Content: `
+apiVersion: v1
+kind: Secret
+metadata:
+  name: foobar
+type: Opaque
+data:
+  key1: dmFsdWUxY2hhbmdlZA==
+  key2: dmFsdWUy
+  key4: dmFsdWU0
+`,
+		}}
+
+	specSecretWithStringData := map[string]*manifest.MappingResult{
+		"default, foobar, Secret (v1)": {
+			Name: "default, foobar, Secret (v1)",
+			Kind: "Secret",
+			Content: `
+apiVersion: v1
+kind: Secret
+metadata:
+  name: foobar
+type: Opaque
+stringData:
+  key1: value1
+  key2: value2
+  key3: value3
+`,
+		}}
+
+	specSecretWithStringDataChanged := map[string]*manifest.MappingResult{
+		"default, foobar, Secret (v1)": {
+			Name: "default, foobar, Secret (v1)",
+			Kind: "Secret",
+			Content: `
+apiVersion: v1
+kind: Secret
+metadata:
+  name: foobar
+type: Opaque
+stringData:
+  key1: value1changed
+  key2: value2
+  key4: value4
+`,
+		}}
+
+	t.Run("OnChangeSecretWithByteData", func(t *testing.T) {
+		var buf1 bytes.Buffer
+		diffOptions := Options{"diff", 10, false, false, []string{}, 0.5} //NOTE: ShowSecrets = false
+
+		if changesSeen := Manifests(specSecretWithByteData, specSecretWithByteDataChanged, &diffOptions, &buf1); !changesSeen {
+			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
+		}
+
+		//TODO: Why is there no empty line between the header and the start of the diff, like in the other diffs?
+		require.Equal(t, `default, foobar, Secret (v1) has changed:
+  apiVersion: v1
+  kind: Secret
+  metadata:
+    name: foobar
+  data:
+-   key1: '-------- # (6 bytes)'
++   key1: '++++++++ # (13 bytes)'
+    key2: 'REDACTED # (6 bytes)'
+-   key3: '-------- # (6 bytes)'
++   key4: '++++++++ # (6 bytes)'
+  type: Opaque
+
+`, buf1.String())
+	})
+
+	t.Run("OnChangeSecretWithStringData", func(t *testing.T) {
+		var buf1 bytes.Buffer
+		diffOptions := Options{"diff", 10, false, false, []string{}, 0.5} //NOTE: ShowSecrets = false
+
+		if changesSeen := Manifests(specSecretWithStringData, specSecretWithStringDataChanged, &diffOptions, &buf1); !changesSeen {
+			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
+		}
+
+		require.Equal(t, `default, foobar, Secret (v1) has changed:
+  apiVersion: v1
+  kind: Secret
+  metadata:
+    name: foobar
+  data:
+-   key1: '-------- # (6 bytes)'
++   key1: '++++++++ # (13 bytes)'
+    key2: 'REDACTED # (6 bytes)'
+-   key3: '-------- # (6 bytes)'
++   key4: '++++++++ # (6 bytes)'
+  type: Opaque
+
+`, buf1.String())
+	})
+}
