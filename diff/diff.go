@@ -163,12 +163,29 @@ func redactSecrets(old, new *manifest.MappingResult) {
 		if err := yaml.NewYAMLToJSONDecoder(bytes.NewBufferString(old.Content)).Decode(&oldSecret); err != nil {
 			old.Content = fmt.Sprintf("Error parsing old secret: %s", err)
 		}
+		//if we have a Secret containing `stringData`, apply the same
+		//transformation that the apiserver would do with it (this protects
+		//stringData keys from being overwritten down below)
+		if len(oldSecret.StringData) > 0 && oldSecret.Data == nil {
+			oldSecret.Data = make(map[string][]byte, len(oldSecret.StringData))
+		}
+		for k, v := range oldSecret.StringData {
+			oldSecret.Data[k] = []byte(v)
+		}
 	}
 	if new != nil {
 		if err := yaml.NewYAMLToJSONDecoder(bytes.NewBufferString(new.Content)).Decode(&newSecret); err != nil {
 			new.Content = fmt.Sprintf("Error parsing new secret: %s", err)
 		}
+		//same as above
+		if len(newSecret.StringData) > 0 && newSecret.Data == nil {
+			newSecret.Data = make(map[string][]byte, len(newSecret.StringData))
+		}
+		for k, v := range newSecret.StringData {
+			newSecret.Data[k] = []byte(v)
+		}
 	}
+
 	if old != nil {
 		oldSecret.StringData = make(map[string]string, len(oldSecret.Data))
 		for k, v := range oldSecret.Data {
@@ -189,6 +206,7 @@ func redactSecrets(old, new *manifest.MappingResult) {
 			}
 		}
 	}
+
 	// remove Data field now that we are using StringData for serialization
 	var buf bytes.Buffer
 	if old != nil {
