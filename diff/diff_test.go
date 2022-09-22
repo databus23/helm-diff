@@ -169,6 +169,8 @@ func assertDiff(t *testing.T, before, after string, context int, stripTrailingCR
 }
 
 func TestManifests(t *testing.T) {
+	ansi.DisableColors(true)
+
 	specBeta := map[string]*manifest.MappingResult{
 		"default, nginx, Deployment (apps)": {
 
