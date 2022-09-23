@@ -80,10 +80,7 @@ dist:
 
 .PHONY: release
 release: lint dist
-ifndef GITHUB_TOKEN
-	$(error GITHUB_TOKEN is undefined)
-endif
-	scripts/release.sh v$(VERSION) master
+	scripts/release.sh v$(VERSION)
 
 # Test for the plugin installation with `helm plugin install -v THIS_BRANCH` works
 # Useful for verifying modified `install-binary.sh` still works against various environments
