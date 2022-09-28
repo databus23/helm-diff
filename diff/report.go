@@ -3,6 +3,8 @@ package diff
 import (
 	"errors"
 	"fmt"
+	"github.com/gonvenience/ytbx"
+	"github.com/homeport/dyff/pkg/dyff"
 	"io"
 	"log"
 	"os"
@@ -61,9 +63,50 @@ func (r *Report) setupReportFormat(format string) {
 		setupTemplateReport(r)
 	case "json":
 		setupJSONReport(r)
+	case "dyff":
+		setupDyffReport(r)
 	default:
 		setupDiffReport(r)
 	}
+}
+
+func setupDyffReport(r *Report) {
+	r.format.output = printDyffReport
+}
+
+func printDyffReport(r *Report, to io.Writer) {
+	currentFile, _ := os.CreateTemp("", "existing-values")
+	defer os.Remove(currentFile.Name())
+	newFile, _ := os.CreateTemp("", "new-values")
+	defer os.Remove(newFile.Name())
+
+	for _, entry := range r.entries {
+		_, _ = currentFile.WriteString("---\n")
+		_, _ = newFile.WriteString("---\n")
+		for _, record := range entry.diffs {
+			switch record.Delta {
+			case difflib.Common:
+				_, _ = currentFile.WriteString(record.Payload + "\n")
+				_, _ = newFile.WriteString(record.Payload + "\n")
+			case difflib.LeftOnly:
+				_, _ = currentFile.WriteString(record.Payload + "\n")
+			case difflib.RightOnly:
+				_, _ = newFile.WriteString(record.Payload + "\n")
+			}
+		}
+	}
+	_ = currentFile.Close()
+	_ = newFile.Close()
+
+	currentInputFile, newInputFile, _ := ytbx.LoadFiles(currentFile.Name(), newFile.Name())
+
+	report, _ := dyff.CompareInputFiles(currentInputFile, newInputFile)
+	reportWriter := &dyff.HumanReport{
+		Report:               report,
+		OmitHeader:           true,
+		MinorChangeThreshold: 0.1,
+	}
+	_ = reportWriter.WriteReport(to)
 }
 
 // addEntry: stores diff changes.
