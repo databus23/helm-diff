@@ -55,6 +55,7 @@ initOS() {
   OS=$(uname -s)
 
   case "$OS" in
+  Windows_NT) OS='windows' ;;
   # Msys support
   MSYS*) OS='windows' ;;
   # Minimalist GNU for Windows
