@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 
 	jsoniterator "github.com/json-iterator/go"
@@ -112,6 +113,11 @@ func newChartCommand() *cobra.Command {
 			"  # This is equivalent to specifying the --normalize-manifests flag.",
 			"  # Read the flag usage below for more information on --normalize-manifests.",
 			"  HELM_DIFF_NORMALIZE_MANIFESTS=true helm diff upgrade my-release datadog/datadog",
+			"",
+			"# Set HELM_DIFF_OUTPUT_CONTEXT=n to configure the output context to n lines.",
+			"# This is equivalent to specifying the --context flag.",
+			"# Read the flag usage below for more information on --context.",
+			"HELM_DIFF_OUTPUT_CONTEXT=5 helm diff upgrade my-release datadog/datadog",
 		}, "\n"),
 		Args: func(cmd *cobra.Command, args []string) error {
 			return checkArgsLength(len(args), "release name", "chart path")
@@ -141,6 +147,16 @@ func newChartCommand() *cobra.Command {
 
 				if enabled {
 					fmt.Println("Enabled normalize manifests via the envvar")
+				}
+			}
+
+			if diff.OutputContext == -1 && !cmd.Flags().Changed("context") {
+				contextEnvVar := os.Getenv("HELM_DIFF_OUTPUT_CONTEXT")
+				if contextEnvVar != "" {
+					context, err := strconv.Atoi(contextEnvVar)
+					if err == nil {
+						diff.OutputContext = context
+					}
 				}
 			}
 

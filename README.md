@@ -163,10 +163,15 @@ Examples:
 	# Read the flag usage below for more information on --normalize-manifests.",
 	HELM_DIFF_NORMALIZE_MANIFESTS=true helm diff upgrade my-release datadog/datadog",
 
+  # Set HELM_DIFF_OUTPUT_CONTEXT=n to configure the output context to n lines.
+  # This is equivalent to specifying the --context flag.
+  # Read the flag usage below for more information on --context.
+  HELM_DIFF_OUTPUT_CONTEXT=5 helm diff upgrade my-release datadog/datadog
+
 Flags:
       --allow-unreleased             enables diffing of releases that are not yet deployed via Helm
   -a, --api-versions stringArray     Kubernetes api versions used for Capabilities.APIVersions
-  -C, --context int                  output NUM lines of context around changes (default -1)
+  -C, --context int                  output NUM lines of context around changes (default -1), or use HELM_DIFF_OUTPUT_CONTEXT=num
       --detailed-exitcode            return a non-zero exit code when there are changes
       --devel                        use development versions, too. Equivalent to version '>0.0.0-0'. If --version is set, this is ignored.
       --disable-openapi-validation   disables rendered templates validation against the Kubernetes OpenAPI Schema
