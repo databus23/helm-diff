@@ -3,6 +3,7 @@ package cmd
 import (
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/mgutz/ansi"
 	"github.com/spf13/cobra"
@@ -51,6 +52,13 @@ func New() *cobra.Command {
 				v, err := strconv.ParseBool(os.Getenv("HELM_DIFF_COLOR"))
 				if err == nil {
 					fc = &v
+				}
+			}
+
+			if !cmd.Flags().Changed("output") {
+				v, set := os.LookupEnv("HELM_DIFF_OUTPUT")
+				if set && strings.TrimSpace(v) != "" {
+					_ = cmd.Flags().Set("output", v)
 				}
 			}
 
