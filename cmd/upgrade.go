@@ -257,6 +257,9 @@ func (d *diffCmd) runHelm3() error {
 			return errors.Wrap(err, "unable to build kubernetes objects from new release manifest")
 		}
 		releaseManifest, installManifest, err = genManifest(original, target)
+		if err != nil {
+			return errors.Wrap(err, "unable to generate manifests")
+		}
 	}
 
 	currentSpecs := make(map[string]*manifest.MappingResult)
