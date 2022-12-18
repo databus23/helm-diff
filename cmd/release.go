@@ -22,7 +22,8 @@ type release struct {
 }
 
 const releaseCmdLongUsage = `
-This command compares the manifests details of a different releases created from the same chart
+This command compares the manifests details of a different releases created from the same chart.
+The release name may be specified using namespace/release syntax.
 
 It can be used to compare the manifests of
 
@@ -30,6 +31,7 @@ It can be used to compare the manifests of
 	$ helm diff release [flags] release1 release2
    Example:
 	$ helm diff release my-prod my-stage
+	$ helm diff release prod/my-prod stage/my-stage
 `
 
 func releaseCmd() *cobra.Command {
@@ -83,25 +85,38 @@ func releaseCmd() *cobra.Command {
 }
 
 func (d *release) differentiateHelm3() error {
-	namespace := os.Getenv("HELM_NAMESPACE")
 	excludes := []string{helm3TestHook, helm2TestSuccessHook}
 	if d.includeTests {
 		excludes = []string{}
 	}
-	releaseResponse1, err := getRelease(d.releases[0], namespace)
+
+	namespace := os.Getenv("HELM_NAMESPACE")
+
+	release1 = d.releases[0];
+	if strings.Contains(release1) {
+		namespace = release1.Split("/")[0]
+		release1 = release1.Split("/")[1]
+	}
+	releaseResponse1, err := getRelease(release1, namespace)
 	if err != nil {
 		return err
 	}
-	releaseChart1, err := getChart(d.releases[0], namespace)
+	releaseChart1, err := getChart(release1, namespace)
 	if err != nil {
 		return err
 	}
 
-	releaseResponse2, err := getRelease(d.releases[1], namespace)
+	namespace := os.Getenv("HELM_NAMESPACE")
+	release2 = d.releases[1];
+	if strings.Contains(release2) {
+		namespace = release2.Split("/")[0]
+		release2 = release2.Split("/")[1]
+	}
+	releaseResponse2, err := getRelease(release2, namespace)
 	if err != nil {
 		return err
 	}
-	releaseChart2, err := getChart(d.releases[1], namespace)
+	releaseChart2, err := getChart(release2, namespace)
 	if err != nil {
 		return err
 	}
