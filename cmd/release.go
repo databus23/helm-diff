@@ -90,33 +90,32 @@ func (d *release) differentiateHelm3() error {
 		excludes = []string{}
 	}
 
-	namespace := os.Getenv("HELM_NAMESPACE")
-
-	release1 = d.releases[0];
+	namespace1 := os.Getenv("HELM_NAMESPACE")
+	release1 := d.releases[0];
 	if strings.Contains(release1) {
-		namespace = release1.Split("/")[0]
+		namespace1 = release1.Split("/")[0]
 		release1 = release1.Split("/")[1]
 	}
-	releaseResponse1, err := getRelease(release1, namespace)
+	releaseResponse1, err := getRelease(release1, namespace1)
 	if err != nil {
 		return err
 	}
-	releaseChart1, err := getChart(release1, namespace)
+	releaseChart1, err := getChart(release1, namespace1)
 	if err != nil {
 		return err
 	}
 
-	namespace := os.Getenv("HELM_NAMESPACE")
-	release2 = d.releases[1];
+	namespace2 := os.Getenv("HELM_NAMESPACE")
+	release2 := d.releases[1];
 	if strings.Contains(release2) {
-		namespace = release2.Split("/")[0]
+		namespace2 = release2.Split("/")[0]
 		release2 = release2.Split("/")[1]
 	}
-	releaseResponse2, err := getRelease(release2, namespace)
+	releaseResponse2, err := getRelease(release2, namespace2)
 	if err != nil {
 		return err
 	}
-	releaseChart2, err := getChart(release2, namespace)
+	releaseChart2, err := getChart(release2, namespace2)
 	if err != nil {
 		return err
 	}
