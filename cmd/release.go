@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"k8s.io/helm/pkg/helm"
@@ -92,9 +93,9 @@ func (d *release) differentiateHelm3() error {
 
 	namespace1 := os.Getenv("HELM_NAMESPACE")
 	release1 := d.releases[0];
-	if release1.Contains("/") {
-		namespace1 = release1.Split("/")[0]
-		release1 = release1.Split("/")[1]
+	if strings.Contains(release1, "/") {
+		namespace1 = strings.Split(release1, "/")[0]
+		release1 = strings.Split(release1, "/")[1]
 	}
 	releaseResponse1, err := getRelease(release1, namespace1)
 	if err != nil {
@@ -107,9 +108,9 @@ func (d *release) differentiateHelm3() error {
 
 	namespace2 := os.Getenv("HELM_NAMESPACE")
 	release2 := d.releases[1];
-	if release2.Contains("/") {
-		namespace2 = release2.Split("/")[0]
-		release2 = release2.Split("/")[1]
+	if strings.Contains(release2, "/") {
+		namespace2 = strings.Split(release2, "/")[0]
+		release2 = strings.Split(release2, "/")[1]
 	}
 	releaseResponse2, err := getRelease(release2, namespace2)
 	if err != nil {
