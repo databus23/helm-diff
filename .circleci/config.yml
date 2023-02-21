@@ -3,7 +3,7 @@ jobs:
   build:
     docker:
       - image: cimg/go:1.19
-    working_directory: /go/src/github.com/databus23/helm-diff
+    working_directory: /home/circleci/go/src/github.com/databus23/helm-diff
     steps:
       - checkout
       - run:
