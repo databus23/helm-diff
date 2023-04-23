@@ -254,7 +254,7 @@ This command compares the manifests details of a named release.
 
 It can be used to compare the manifests of
 
- - lastest REVISION with specified REVISION
+ - latest REVISION with specified REVISION
 	$ helm diff revision [flags] RELEASE REVISION1
    Example:
 	$ helm diff revision my-release 2
