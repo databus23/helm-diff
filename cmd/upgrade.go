@@ -282,7 +282,7 @@ func (d *diffCmd) runHelm3() error {
 
 	currentSpecs := make(map[string]*manifest.MappingResult)
 	if !newInstall && !d.dryRun {
-		if !d.noHooks {
+		if !d.noHooks && !d.threeWayMerge {
 			hooks, err := getHooks(d.release, d.namespace)
 			if err != nil {
 				return err
