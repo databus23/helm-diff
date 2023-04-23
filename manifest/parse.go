@@ -94,8 +94,6 @@ func Parse(manifest string, defaultNamespace string, normalizeManifests bool, ex
 	scanner.Split(scanYamlSpecs)
 	// Allow for tokens (specs) up to 10MiB in size
 	scanner.Buffer(make([]byte, bufio.MaxScanTokenSize), 10485760)
-	// Discard the first result, we only care about everything after the first separator
-	scanner.Scan()
 
 	result := make(map[string]*MappingResult)
 
