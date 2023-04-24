@@ -92,7 +92,7 @@ func (d *release) differentiateHelm3() error {
 	}
 
 	namespace1 := os.Getenv("HELM_NAMESPACE")
-	release1 := d.releases[0];
+	release1 := d.releases[0]
 	if strings.Contains(release1, "/") {
 		namespace1 = strings.Split(release1, "/")[0]
 		release1 = strings.Split(release1, "/")[1]
@@ -107,7 +107,7 @@ func (d *release) differentiateHelm3() error {
 	}
 
 	namespace2 := os.Getenv("HELM_NAMESPACE")
-	release2 := d.releases[1];
+	release2 := d.releases[1]
 	if strings.Contains(release2, "/") {
 		namespace2 = strings.Split(release2, "/")[0]
 		release2 = strings.Split(release2, "/")[1]
