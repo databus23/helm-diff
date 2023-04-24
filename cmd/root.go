@@ -15,18 +15,18 @@ The Helm Diff Plugin
 
 * Shows a diff explaining what a helm upgrade would change:
     This fetches the currently deployed version of a release
-  and compares it to a local chart plus values. This can be 
+  and compares it to a local chart plus values. This can be
   used visualize what changes a helm upgrade will perform.
 
 * Shows a diff explaining what had changed between two revisions:
     This fetches previously deployed versions of a release
-  and compares them. This can be used visualize what changes 
+  and compares them. This can be used visualize what changes
   were made during revision change.
 
 * Shows a diff explaining what a helm rollback would change:
     This fetches the currently deployed version of a release
-  and compares it to the previously deployed version of the release, that you 
-  want to rollback. This can be used visualize what changes a 
+  and compares it to the previously deployed version of the release, that you
+  want to rollback. This can be used visualize what changes a
   helm rollback will perform.
 `
 
