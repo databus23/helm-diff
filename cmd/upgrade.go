@@ -25,7 +25,6 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/spf13/cobra"
-	"k8s.io/helm/pkg/helm"
 
 	"github.com/databus23/helm-diff/v3/diff"
 	"github.com/databus23/helm-diff/v3/manifest"
@@ -36,7 +35,6 @@ type diffCmd struct {
 	chart                    string
 	chartVersion             string
 	chartRepo                string
-	client                   helm.Interface
 	detailedExitCode         bool
 	devel                    bool
 	disableValidation        bool
@@ -123,9 +121,6 @@ func newChartCommand() *cobra.Command {
 		Args: func(cmd *cobra.Command, args []string) error {
 			return checkArgsLength(len(args), "release name", "chart path")
 		},
-		PreRun: func(*cobra.Command, []string) {
-			expandTLSPaths()
-		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Suppress the command usage on error. See #77 for more info
 			cmd.SilenceUsage = true
@@ -165,13 +160,7 @@ func newChartCommand() *cobra.Command {
 
 			diff.release = args[0]
 			diff.chart = args[1]
-			if isHelm3() {
-				return diff.runHelm3()
-			}
-			if diff.client == nil {
-				diff.client = createHelmClient()
-			}
-			return diff.run()
+			return diff.runHelm3()
 		},
 		FParseErrWhitelist: cobra.FParseErrWhitelist{
 			UnknownFlags: os.Getenv("HELM_DIFF_IGNORE_UNKNOWN_FLAGS") == "true",
@@ -211,14 +200,6 @@ func newChartCommand() *cobra.Command {
 	f.BoolVar(&diff.normalizeManifests, "normalize-manifests", false, "normalize manifests before running diff to exclude style differences from the output")
 
 	AddDiffOptions(f, &diff.Options)
-
-	if !isHelm3() {
-		f.StringVar(&diff.namespace, "namespace", "default", "namespace to assume the release to be installed into")
-	}
-
-	if !isHelm3() {
-		addCommonCmdOptions(f)
-	}
 
 	return cmd
 
@@ -417,92 +398,6 @@ func genManifest(original, target kube.ResourceList) ([]byte, []byte, error) {
 	})
 
 	return releaseManifest, installManifest, err
-}
-
-func (d *diffCmd) run() error {
-	if d.chartVersion == "" && d.devel {
-		d.chartVersion = ">0.0.0-0"
-	}
-
-	chartPath, err := locateChartPath(d.chart, d.chartVersion, false, "")
-	if err != nil {
-		return err
-	}
-
-	if err := d.valueFiles.Valid(); err != nil {
-		return err
-	}
-
-	rawVals, err := d.vals()
-	if err != nil {
-		return err
-	}
-
-	releaseResponse, err := d.client.ReleaseContent(d.release)
-
-	var newInstall bool
-	if err != nil && strings.Contains(err.Error(), fmt.Sprintf("release: %q not found", d.release)) {
-		if d.isAllowUnreleased() {
-			fmt.Printf("********************\n\n\tRelease was not present in Helm.  Diff will show entire contents as new.\n\n********************\n")
-			newInstall = true
-			err = nil
-		} else {
-			fmt.Printf("********************\n\n\tRelease was not present in Helm.  Include the `--allow-unreleased` to perform diff without exiting in error.\n\n********************\n")
-		}
-
-	}
-
-	if err != nil {
-		return prettyError(err)
-	}
-
-	var currentSpecs, newSpecs map[string]*manifest.MappingResult
-	if newInstall {
-		installResponse, err := d.client.InstallRelease(
-			chartPath,
-			d.namespace,
-			helm.ReleaseName(d.release),
-			helm.ValueOverrides(rawVals),
-			helm.InstallDryRun(true),
-		)
-		if err != nil {
-			return prettyError(err)
-		}
-
-		currentSpecs = make(map[string]*manifest.MappingResult)
-		newSpecs = manifest.Parse(installResponse.Release.Manifest, installResponse.Release.Namespace, d.normalizeManifests)
-	} else {
-		upgradeResponse, err := d.client.UpdateRelease(
-			d.release,
-			chartPath,
-			helm.UpdateValueOverrides(rawVals),
-			helm.ReuseValues(d.reuseValues),
-			helm.ResetValues(d.resetValues),
-			helm.UpgradeDryRun(true),
-		)
-		if err != nil {
-			return prettyError(err)
-		}
-
-		if d.noHooks {
-			currentSpecs = manifest.Parse(releaseResponse.Release.Manifest, releaseResponse.Release.Namespace, d.normalizeManifests)
-			newSpecs = manifest.Parse(upgradeResponse.Release.Manifest, upgradeResponse.Release.Namespace, d.normalizeManifests)
-		} else {
-			currentSpecs = manifest.ParseRelease(releaseResponse.Release, d.includeTests, d.normalizeManifests)
-			newSpecs = manifest.ParseRelease(upgradeResponse.Release, d.includeTests, d.normalizeManifests)
-		}
-	}
-
-	seenAnyChanges := diff.Manifests(currentSpecs, newSpecs, &d.Options, os.Stdout)
-
-	if d.detailedExitCode && seenAnyChanges {
-		return Error{
-			error: errors.New("identified at least one change, exiting with non-zero exit code (detailed-exitcode parameter enabled)"),
-			Code:  2,
-		}
-	}
-
-	return nil
 }
 
 func createPatch(originalObj, currentObj runtime.Object, target *resource.Info) ([]byte, types.PatchType, error) {

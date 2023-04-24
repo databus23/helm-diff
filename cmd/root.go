@@ -7,7 +7,7 @@ import (
 
 	"github.com/mgutz/ansi"
 	"github.com/spf13/cobra"
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 )
 
 const rootCmdLongUsage = `
@@ -67,7 +67,7 @@ func New() *cobra.Command {
 			if nc || (fc != nil && !*fc) {
 				ansi.DisableColors(true)
 			} else if !cmd.Flags().Changed("no-color") && fc == nil {
-				term := terminal.IsTerminal(int(os.Stdout.Fd()))
+				term := term.IsTerminal(int(os.Stdout.Fd()))
 				// https://github.com/databus23/helm-diff/issues/281
 				dumb := os.Getenv("TERM") == "dumb"
 				ansi.DisableColors(!term || dumb)

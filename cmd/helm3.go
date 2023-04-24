@@ -3,7 +3,7 @@ package cmd
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"os/exec"
 	"regexp"
@@ -110,7 +110,7 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 	// See https://medium.com/@kcatstack/understand-helm-upgrade-flags-reset-values-reuse-values-6e58ac8f127e
 	shouldDefaultReusingValues := isUpgrade && len(d.values) == 0 && len(d.stringValues) == 0 && len(d.valueFiles) == 0 && len(d.fileValues) == 0
 	if (d.reuseValues || shouldDefaultReusingValues) && !d.resetValues && !d.dryRun {
-		tmpfile, err := ioutil.TempFile("", "existing-values")
+		tmpfile, err := os.CreateTemp("", "existing-values")
 		if err != nil {
 			return nil, err
 		}
@@ -128,12 +128,12 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 	}
 	for _, valueFile := range d.valueFiles {
 		if strings.TrimSpace(valueFile) == "-" {
-			bytes, err := ioutil.ReadAll(os.Stdin)
+			bytes, err := io.ReadAll(os.Stdin)
 			if err != nil {
 				return nil, err
 			}
 
-			tmpfile, err := ioutil.TempFile("", "helm-diff-stdin-values")
+			tmpfile, err := os.CreateTemp("", "helm-diff-stdin-values")
 			if err != nil {
 				return nil, err
 			}

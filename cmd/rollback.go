@@ -7,7 +7,6 @@ import (
 	"strconv"
 
 	"github.com/spf13/cobra"
-	"k8s.io/helm/pkg/helm"
 
 	"github.com/databus23/helm-diff/v3/diff"
 	"github.com/databus23/helm-diff/v3/manifest"
@@ -15,7 +14,6 @@ import (
 
 type rollback struct {
 	release            string
-	client             helm.Interface
 	detailedExitCode   bool
 	revisions          []string
 	includeTests       bool
@@ -37,9 +35,6 @@ func rollbackCmd() *cobra.Command {
 		Short:   "Show a diff explaining what a helm rollback could perform",
 		Long:    rollbackCmdLongUsage,
 		Example: "  helm diff rollback my-release 2",
-		PreRun: func(*cobra.Command, []string) {
-			expandTLSPaths()
-		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Suppress the command usage on error. See #77 for more info
 			cmd.SilenceUsage = true
@@ -58,15 +53,7 @@ func rollbackCmd() *cobra.Command {
 			diff.release = args[0]
 			diff.revisions = args[1:]
 
-			if isHelm3() {
-				return diff.backcastHelm3()
-			}
-
-			if diff.client == nil {
-				diff.client = createHelmClient()
-			}
-
-			return diff.backcast()
+			return diff.backcastHelm3()
 		},
 	}
 
@@ -76,10 +63,6 @@ func rollbackCmd() *cobra.Command {
 	AddDiffOptions(rollbackCmd.Flags(), &diff.Options)
 
 	rollbackCmd.SuggestionsMinimumDistance = 1
-
-	if !isHelm3() {
-		addCommonCmdOptions(rollbackCmd.Flags())
-	}
 
 	return rollbackCmd
 }
@@ -108,39 +91,6 @@ func (d *rollback) backcastHelm3() error {
 	seenAnyChanges := diff.Manifests(
 		manifest.Parse(string(releaseResponse), namespace, d.normalizeManifests, excludes...),
 		manifest.Parse(string(revisionResponse), namespace, d.normalizeManifests, excludes...),
-		&d.Options,
-		os.Stdout)
-
-	if d.detailedExitCode && seenAnyChanges {
-		return Error{
-			error: errors.New("identified at least one change, exiting with non-zero exit code (detailed-exitcode parameter enabled)"),
-			Code:  2,
-		}
-	}
-
-	return nil
-}
-
-func (d *rollback) backcast() error {
-
-	// get manifest of the latest release
-	releaseResponse, err := d.client.ReleaseContent(d.release)
-
-	if err != nil {
-		return prettyError(err)
-	}
-
-	// get manifest of the release to rollback
-	revision, _ := strconv.Atoi(d.revisions[0])
-	revisionResponse, err := d.client.ReleaseContent(d.release, helm.ContentReleaseVersion(int32(revision)))
-	if err != nil {
-		return prettyError(err)
-	}
-
-	// create a diff between the current manifest and the version of the manifest that a user is intended to rollback
-	seenAnyChanges := diff.Manifests(
-		manifest.ParseRelease(releaseResponse.Release, d.includeTests, d.normalizeManifests),
-		manifest.ParseRelease(revisionResponse.Release, d.includeTests, d.normalizeManifests),
 		&d.Options,
 		os.Stdout)
 

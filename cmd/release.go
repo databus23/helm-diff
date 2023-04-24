@@ -7,14 +7,12 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"k8s.io/helm/pkg/helm"
 
 	"github.com/databus23/helm-diff/v3/diff"
 	"github.com/databus23/helm-diff/v3/manifest"
 )
 
 type release struct {
-	client             helm.Interface
 	detailedExitCode   bool
 	releases           []string
 	includeTests       bool
@@ -41,9 +39,6 @@ func releaseCmd() *cobra.Command {
 		Use:   "release [flags] RELEASE release1 [release2]",
 		Short: "Shows diff between release's manifests",
 		Long:  releaseCmdLongUsage,
-		PreRun: func(*cobra.Command, []string) {
-			expandTLSPaths()
-		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Suppress the command usage on error. See #77 for more info
 			cmd.SilenceUsage = true
@@ -61,13 +56,7 @@ func releaseCmd() *cobra.Command {
 			ProcessDiffOptions(cmd.Flags(), &diff.Options)
 
 			diff.releases = args[0:]
-			if isHelm3() {
-				return diff.differentiateHelm3()
-			}
-			if diff.client == nil {
-				diff.client = createHelmClient()
-			}
-			return diff.differentiate()
+			return diff.differentiateHelm3()
 		},
 	}
 
@@ -77,10 +66,6 @@ func releaseCmd() *cobra.Command {
 	AddDiffOptions(releaseCmd.Flags(), &diff.Options)
 
 	releaseCmd.SuggestionsMinimumDistance = 1
-
-	if !isHelm3() {
-		addCommonCmdOptions(releaseCmd.Flags())
-	}
 
 	return releaseCmd
 }
@@ -136,37 +121,6 @@ func (d *release) differentiateHelm3() error {
 		}
 	} else {
 		fmt.Printf("Error : Incomparable Releases \n Unable to compare releases from two different charts \"%s\", \"%s\". \n try helm diff release --help to know more \n", releaseChart1, releaseChart2)
-	}
-	return nil
-}
-
-func (d *release) differentiate() error {
-
-	releaseResponse1, err := d.client.ReleaseContent(d.releases[0])
-	if err != nil {
-		return prettyError(err)
-	}
-
-	releaseResponse2, err := d.client.ReleaseContent(d.releases[1])
-	if err != nil {
-		return prettyError(err)
-	}
-
-	if releaseResponse1.Release.Chart.Metadata.Name == releaseResponse2.Release.Chart.Metadata.Name {
-		seenAnyChanges := diff.Releases(
-			manifest.ParseRelease(releaseResponse1.Release, d.includeTests, d.normalizeManifests),
-			manifest.ParseRelease(releaseResponse2.Release, d.includeTests, d.normalizeManifests),
-			&d.Options,
-			os.Stdout)
-
-		if d.detailedExitCode && seenAnyChanges {
-			return Error{
-				error: errors.New("identified at least one change, exiting with non-zero exit code (detailed-exitcode parameter enabled)"),
-				Code:  2,
-			}
-		}
-	} else {
-		fmt.Printf("Error : Incomparable Releases \n Unable to compare releases from two different charts \"%s\", \"%s\". \n try helm diff release --help to know more \n", releaseResponse1.Release.Chart.Metadata.Name, releaseResponse2.Release.Chart.Metadata.Name)
 	}
 	return nil
 }
