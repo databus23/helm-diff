@@ -2,8 +2,8 @@ version: 2
 jobs:
   build:
     docker:
-      - image: circleci/golang:1.17
-    working_directory: /go/src/github.com/databus23/helm-diff
+      - image: cimg/go:1.19
+    working_directory: /home/circleci/go/src/github.com/databus23/helm-diff
     steps:
       - checkout
       - run:
