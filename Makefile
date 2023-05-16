@@ -6,10 +6,6 @@ HELM_3_PLUGINS := $(shell helm env HELM_PLUGINS)
 PKG:= github.com/databus23/helm-diff/v3
 LDFLAGS := -X $(PKG)/cmd.Version=$(VERSION)
 
-# Clear the "unreleased" string in BuildMetadata
-LDFLAGS += -X k8s.io/helm/pkg/version.BuildMetadata=
-LDFLAGS += -X k8s.io/helm/pkg/version.Version=$(shell ./scripts/dep-helm-version.sh)
-
 GO ?= go
 
 .PHONY: format

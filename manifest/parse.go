@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v2"
-	"k8s.io/helm/pkg/proto/hapi/release"
 )
 
 const (
@@ -63,28 +62,6 @@ func scanYamlSpecs(data []byte, atEOF bool) (advance int, token []byte, err erro
 	}
 	// Request more data.
 	return 0, nil, nil
-}
-
-func splitSpec(token string) (string, string) {
-	if i := strings.Index(token, "\n"); i >= 0 {
-		return token[0:i], token[i+1:]
-	}
-	return "", ""
-}
-
-// ParseRelease parses release objects into MappingResult
-func ParseRelease(release *release.Release, includeTests bool, normalizeManifests bool) map[string]*MappingResult {
-	manifest := release.Manifest
-	for _, hook := range release.Hooks {
-		if !includeTests && isTestHook(hook.Events) {
-			continue
-		}
-
-		manifest += "\n---\n"
-		manifest += fmt.Sprintf("# Source: %s\n", hook.Path)
-		manifest += hook.Manifest
-	}
-	return Parse(manifest, release.Namespace, normalizeManifests)
 }
 
 // Parse parses manifest strings into MappingResult
@@ -205,15 +182,5 @@ func isHook(metadata metadata, hooks ...string) bool {
 			return true
 		}
 	}
-	return false
-}
-
-func isTestHook(hookEvents []release.Hook_Event) bool {
-	for _, event := range hookEvents {
-		if event == release.Hook_RELEASE_TEST_FAILURE || event == release.Hook_RELEASE_TEST_SUCCESS {
-			return true
-		}
-	}
-
 	return false
 }

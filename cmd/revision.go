@@ -7,7 +7,6 @@ import (
 	"strconv"
 
 	"github.com/spf13/cobra"
-	"k8s.io/helm/pkg/helm"
 
 	"github.com/databus23/helm-diff/v3/diff"
 	"github.com/databus23/helm-diff/v3/manifest"
@@ -15,7 +14,6 @@ import (
 
 type revision struct {
 	release            string
-	client             helm.Interface
 	detailedExitCode   bool
 	revisions          []string
 	includeTests       bool
@@ -45,9 +43,6 @@ func revisionCmd() *cobra.Command {
 		Use:   "revision [flags] RELEASE REVISION1 [REVISION2]",
 		Short: "Shows diff between revision's manifests",
 		Long:  revisionCmdLongUsage,
-		PreRun: func(*cobra.Command, []string) {
-			expandTLSPaths()
-		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Suppress the command usage on error. See #77 for more info
 			cmd.SilenceUsage = true
@@ -68,13 +63,7 @@ func revisionCmd() *cobra.Command {
 
 			diff.release = args[0]
 			diff.revisions = args[1:]
-			if isHelm3() {
-				return diff.differentiateHelm3()
-			}
-			if diff.client == nil {
-				diff.client = createHelmClient()
-			}
-			return diff.differentiate()
+			return diff.differentiateHelm3()
 		},
 	}
 
@@ -84,10 +73,6 @@ func revisionCmd() *cobra.Command {
 	AddDiffOptions(revisionCmd.Flags(), &diff.Options)
 
 	revisionCmd.SuggestionsMinimumDistance = 1
-
-	if !isHelm3() {
-		addCommonCmdOptions(revisionCmd.Flags())
-	}
 
 	return revisionCmd
 }
@@ -127,76 +112,17 @@ func (d *revision) differentiateHelm3() error {
 
 		revisionResponse1, err := getRevision(d.release, revision1, namespace)
 		if err != nil {
-			return prettyError(err)
+			return err
 		}
 
 		revisionResponse2, err := getRevision(d.release, revision2, namespace)
 		if err != nil {
-			return prettyError(err)
+			return err
 		}
 
 		seenAnyChanges := diff.Manifests(
 			manifest.Parse(string(revisionResponse1), namespace, d.normalizeManifests, excludes...),
 			manifest.Parse(string(revisionResponse2), namespace, d.normalizeManifests, excludes...),
-			&d.Options,
-			os.Stdout)
-
-		if d.detailedExitCode && seenAnyChanges {
-			return Error{
-				error: errors.New("identified at least one change, exiting with non-zero exit code (detailed-exitcode parameter enabled)"),
-				Code:  2,
-			}
-		}
-
-	default:
-		return errors.New("Invalid Arguments")
-	}
-
-	return nil
-}
-
-func (d *revision) differentiate() error {
-
-	switch len(d.revisions) {
-	case 1:
-		releaseResponse, err := d.client.ReleaseContent(d.release)
-
-		if err != nil {
-			return prettyError(err)
-		}
-
-		revision, _ := strconv.Atoi(d.revisions[0])
-		revisionResponse, err := d.client.ReleaseContent(d.release, helm.ContentReleaseVersion(int32(revision)))
-		if err != nil {
-			return prettyError(err)
-		}
-
-		diff.Manifests(
-			manifest.ParseRelease(revisionResponse.Release, d.includeTests, d.normalizeManifests),
-			manifest.ParseRelease(releaseResponse.Release, d.includeTests, d.normalizeManifests),
-			&d.Options,
-			os.Stdout)
-
-	case 2:
-		revision1, _ := strconv.Atoi(d.revisions[0])
-		revision2, _ := strconv.Atoi(d.revisions[1])
-		if revision1 > revision2 {
-			revision1, revision2 = revision2, revision1
-		}
-
-		revisionResponse1, err := d.client.ReleaseContent(d.release, helm.ContentReleaseVersion(int32(revision1)))
-		if err != nil {
-			return prettyError(err)
-		}
-
-		revisionResponse2, err := d.client.ReleaseContent(d.release, helm.ContentReleaseVersion(int32(revision2)))
-		if err != nil {
-			return prettyError(err)
-		}
-
-		seenAnyChanges := diff.Manifests(
-			manifest.ParseRelease(revisionResponse1.Release, d.includeTests, d.normalizeManifests),
-			manifest.ParseRelease(revisionResponse2.Release, d.includeTests, d.normalizeManifests),
 			&d.Options,
 			os.Stdout)
 

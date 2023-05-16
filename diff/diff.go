@@ -270,7 +270,7 @@ func printDiffRecords(suppressedKinds []string, kind string, context int, diffs 
 
 		if ckind == kind {
 			str := fmt.Sprintf("+ Changes suppressed on sensitive content of type %s\n", kind)
-			fmt.Fprintf(to, ansi.Color(str, "yellow"))
+			fmt.Fprint(to, ansi.Color(str, "yellow"))
 			return
 		}
 	}
