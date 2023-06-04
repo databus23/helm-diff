@@ -52,6 +52,7 @@ type diffCmd struct {
 	includeTests             bool
 	postRenderer             string
 	postRendererArgs         []string
+	insecureSkipTLSVerify    bool
 	install                  bool
 	normalizeManifests       bool
 	threeWayMerge            bool
@@ -197,6 +198,7 @@ func newChartCommand() *cobra.Command {
 	f.BoolVar(&diff.dryRun, "dry-run", false, "disables cluster access and show diff as if it was install. Implies --install, --reset-values, and --disable-validation")
 	f.StringVar(&diff.postRenderer, "post-renderer", "", "the path to an executable to be used for post rendering. If it exists in $PATH, the binary will be used, otherwise it will try to look for the executable at the given path")
 	f.StringArrayVar(&diff.postRendererArgs, "post-renderer-args", []string{}, "an argument to the post-renderer (can specify multiple)")
+	f.BoolVar(&diff.insecureSkipTLSVerify, "insecure-skip-tls-verify", false, "skip tls certificate checks for the chart download")
 	f.BoolVar(&diff.normalizeManifests, "normalize-manifests", false, "normalize manifests before running diff to exclude style differences from the output")
 
 	AddDiffOptions(f, &diff.Options)
