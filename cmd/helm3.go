@@ -105,6 +105,9 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 	for _, arg := range d.postRendererArgs {
 		flags = append(flags, "--post-renderer-args", arg)
 	}
+	if d.insecureSkipTLSVerify {
+		flags = append(flags, "--insecure-skip-tls-verify")
+	}
 	// Helm automatically enable --reuse-values when there's no --set, --set-string, --set-values, --set-file present.
 	// Let's simulate that in helm-diff.
 	// See https://medium.com/@kcatstack/understand-helm-upgrade-flags-reset-values-reuse-values-6e58ac8f127e
