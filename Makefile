@@ -55,6 +55,7 @@ docker-run-release:
 	mkdir -p docker-run-release-cache
 	# uid needs to be set to avoid "error obtaining VCS status: exit status 128"
 	docker run --user $(shell id -u) -it --rm -e GITHUB_TOKEN \
+	-v ${SSH_AUTH_SOCK}:/tmp/ssh-agent.sock -e SSH_AUTH_SOCK=/tmp/ssh-agent.sock \
 	-v $(shell pwd):$(pkg) \
 	-v $(shell pwd)/docker-run-release-cache:/.cache \
 	-w $(pkg) golang:1.19.8 make bootstrap release
