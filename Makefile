@@ -54,11 +54,15 @@ docker-run-release:
 	# needed to avoid "failed to initialize build cache at /.cache/go-build: mkdir /.cache: permission denied"
 	mkdir -p docker-run-release-cache
 	# uid needs to be set to avoid "error obtaining VCS status: exit status 128"
-	docker run --user $(shell id -u) -it --rm -e GITHUB_TOKEN \
+	# Also, there needs to be a valid Linux user with the uid in the container-
+	# otherwise git-push will fail.
+	docker build -t helm-diff-release -f Dockerfile.release \
+	  --build-arg HELM_DIFF_UID=$(shell id -u) --load .
+	docker run -it --rm -e GITHUB_TOKEN \
 	-v ${SSH_AUTH_SOCK}:/tmp/ssh-agent.sock -e SSH_AUTH_SOCK=/tmp/ssh-agent.sock \
 	-v $(shell pwd):$(pkg) \
 	-v $(shell pwd)/docker-run-release-cache:/.cache \
-	-w $(pkg) golang:1.19.8 make bootstrap release
+	-w $(pkg) helm-diff-release make bootstrap release
 
 .PHONY: dist
 dist: export COPYFILE_DISABLE=1 #teach OSX tar to not put ._* files in tar archive
