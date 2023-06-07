@@ -11,6 +11,8 @@ import (
 	"github.com/aryann/difflib"
 	"github.com/mgutz/ansi"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -20,12 +22,14 @@ import (
 
 // Options are all the options to be passed to generate a diff
 type Options struct {
-	OutputFormat    string
-	OutputContext   int
-	StripTrailingCR bool
-	ShowSecrets     bool
-	SuppressedKinds []string
-	FindRenames     float32
+	OutputFormat          string
+	OutputContext         int
+	StripTrailingCR       bool
+	ShowSecrets           bool
+	SuppressedAnnotations []string
+	SuppressedLabels      []string
+	SuppressedKinds       []string
+	FindRenames           float32
 }
 
 // Manifests diff on manifests
@@ -101,6 +105,10 @@ func contentSearch(report *Report, possiblyRemoved []string, oldIndex map[string
 				redactSecrets(oldContent, newContent)
 			}
 
+			if len(options.SuppressedAnnotations) > 0 || len(options.SuppressedLabels) > 0 {
+				suppressAnnotationsAndLabels(oldContent, newContent, options)
+			}
+
 			diff := diffMappingResults(oldContent, newContent, options.StripTrailingCR)
 			delta := actualChanges(diff)
 			if delta == 0 || len(diff) == 0 {
@@ -135,6 +143,10 @@ func doDiff(report *Report, key string, oldContent *manifest.MappingResult, newC
 		redactSecrets(oldContent, newContent)
 	}
 
+	if len(options.SuppressedAnnotations) > 0 || len(options.SuppressedLabels) > 0 {
+		suppressAnnotationsAndLabels(oldContent, newContent, options)
+	}
+
 	if oldContent == nil {
 		emptyMapping := &manifest.MappingResult{}
 		diffs := diffMappingResults(emptyMapping, newContent, options.StripTrailingCR)
@@ -148,6 +160,61 @@ func doDiff(report *Report, key string, oldContent *manifest.MappingResult, newC
 		if actualChanges(diffs) > 0 {
 			report.addEntry(key, options.SuppressedKinds, oldContent.Kind, options.OutputContext, diffs, "MODIFY")
 		}
+	}
+}
+
+func suppressAnnotationsAndLabels(old, new *manifest.MappingResult, options *Options) {
+	serializer := json.NewYAMLSerializer(json.DefaultMetaFactory, scheme.Scheme,
+		scheme.Scheme)
+
+	if old != nil {
+		var object *unstructured.Unstructured
+		if err := yaml.NewYAMLToJSONDecoder(bytes.NewBufferString(old.Content)).Decode(&object); err != nil {
+			old.Content = fmt.Sprintf("Error parsing old object: %s", err)
+		}
+
+		suppressObjectAnnotationsAndLabels(object, options)
+
+		var buf bytes.Buffer
+		if err := serializer.Encode(object, &buf); err != nil {
+			new.Content = fmt.Sprintf("Error encoding old object: %s", err)
+		}
+		old.Content = getComment(old.Content) + buf.String()
+	}
+	if new != nil {
+		var object *unstructured.Unstructured
+		if err := yaml.NewYAMLToJSONDecoder(bytes.NewBufferString(new.Content)).Decode(&object); err != nil {
+			new.Content = fmt.Sprintf("Error parsing new object: %s", err)
+		}
+
+		suppressObjectAnnotationsAndLabels(object, options)
+
+		var buf bytes.Buffer
+		if err := serializer.Encode(object, &buf); err != nil {
+			new.Content = fmt.Sprintf("Error encoding new object: %s", err)
+		}
+		new.Content = getComment(new.Content) + buf.String()
+	}
+}
+
+func suppressObjectAnnotationsAndLabels(object metav1.Object, options *Options) {
+	if len(options.SuppressedAnnotations) > 0 {
+		annotations := object.GetAnnotations()
+		for _, annotation := range options.SuppressedAnnotations {
+			if _, ok := annotations[annotation]; ok {
+				delete(annotations, annotation)
+			}
+		}
+		object.SetAnnotations(annotations)
+	}
+	if len(options.SuppressedLabels) > 0 {
+		labels := object.GetLabels()
+		for _, label := range options.SuppressedLabels {
+			if _, ok := labels[label]; ok {
+				delete(labels, label)
+			}
+		}
+		object.SetLabels(labels)
 	}
 }
 
