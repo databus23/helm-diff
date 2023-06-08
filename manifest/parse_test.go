@@ -1,7 +1,7 @@
 package manifest_test
 
 import (
-	"io/ioutil"
+	"os"
 	"sort"
 	"testing"
 
@@ -20,7 +20,7 @@ func foundObjects(result map[string]*MappingResult) []string {
 }
 
 func TestPod(t *testing.T) {
-	spec, err := ioutil.ReadFile("testdata/pod.yaml")
+	spec, err := os.ReadFile("testdata/pod.yaml")
 	require.NoError(t, err)
 
 	require.Equal(t,
@@ -30,7 +30,7 @@ func TestPod(t *testing.T) {
 }
 
 func TestPodNamespace(t *testing.T) {
-	spec, err := ioutil.ReadFile("testdata/pod_namespace.yaml")
+	spec, err := os.ReadFile("testdata/pod_namespace.yaml")
 	require.NoError(t, err)
 
 	require.Equal(t,
@@ -40,7 +40,7 @@ func TestPodNamespace(t *testing.T) {
 }
 
 func TestPodHook(t *testing.T) {
-	spec, err := ioutil.ReadFile("testdata/pod_hook.yaml")
+	spec, err := os.ReadFile("testdata/pod_hook.yaml")
 	require.NoError(t, err)
 
 	require.Equal(t,
@@ -60,7 +60,7 @@ func TestPodHook(t *testing.T) {
 }
 
 func TestDeployV1(t *testing.T) {
-	spec, err := ioutil.ReadFile("testdata/deploy_v1.yaml")
+	spec, err := os.ReadFile("testdata/deploy_v1.yaml")
 	require.NoError(t, err)
 
 	require.Equal(t,
@@ -70,7 +70,7 @@ func TestDeployV1(t *testing.T) {
 }
 
 func TestDeployV1Beta1(t *testing.T) {
-	spec, err := ioutil.ReadFile("testdata/deploy_v1beta1.yaml")
+	spec, err := os.ReadFile("testdata/deploy_v1beta1.yaml")
 	require.NoError(t, err)
 
 	require.Equal(t,
@@ -80,7 +80,7 @@ func TestDeployV1Beta1(t *testing.T) {
 }
 
 func TestList(t *testing.T) {
-	spec, err := ioutil.ReadFile("testdata/list.yaml")
+	spec, err := os.ReadFile("testdata/list.yaml")
 	require.NoError(t, err)
 
 	require.Equal(t,
@@ -93,7 +93,7 @@ func TestList(t *testing.T) {
 }
 
 func TestEmpty(t *testing.T) {
-	spec, err := ioutil.ReadFile("testdata/empty.yaml")
+	spec, err := os.ReadFile("testdata/empty.yaml")
 	require.NoError(t, err)
 
 	require.Equal(t,
@@ -103,7 +103,7 @@ func TestEmpty(t *testing.T) {
 }
 
 func TestBaseNameAnnotation(t *testing.T) {
-	spec, err := ioutil.ReadFile("testdata/secret_immutable.yaml")
+	spec, err := os.ReadFile("testdata/secret_immutable.yaml")
 	require.NoError(t, err)
 
 	require.Equal(t,
