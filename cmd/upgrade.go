@@ -9,12 +9,12 @@ import (
 	"strconv"
 	"strings"
 
+	jsonpatch "github.com/evanphx/json-patch"
 	jsoniterator "github.com/json-iterator/go"
+	"github.com/pkg/errors"
+	"github.com/spf13/cobra"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/cli"
-
-	jsonpatch "github.com/evanphx/json-patch"
-	"github.com/pkg/errors"
 	"helm.sh/helm/v3/pkg/kube"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -23,8 +23,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/cli-runtime/pkg/resource"
 	"sigs.k8s.io/yaml"
-
-	"github.com/spf13/cobra"
 
 	"github.com/databus23/helm-diff/v3/diff"
 	"github.com/databus23/helm-diff/v3/manifest"
@@ -204,11 +202,9 @@ func newChartCommand() *cobra.Command {
 	AddDiffOptions(f, &diff.Options)
 
 	return cmd
-
 }
 
 func (d *diffCmd) runHelm3() error {
-
 	if err := compatibleHelm3Version(); err != nil {
 		return err
 	}

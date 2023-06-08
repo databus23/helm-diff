@@ -1,8 +1,9 @@
 package cmd
 
 import (
-	"github.com/databus23/helm-diff/v3/diff"
 	"github.com/spf13/pflag"
+
+	"github.com/databus23/helm-diff/v3/diff"
 )
 
 // AddDiffOptions adds flags for the various consolidated options to the functions in the diff package

@@ -66,7 +66,7 @@ linters-settings:
     sections:
       - standard
       - default
-      - prefix(github.com/helmfile/helmfile)
+      - prefix(github.com/databus23/helm-diff/v3)
 
   errcheck:
     # report about not checking of errors in type assetions: `a := b.(MyStruct)`;
