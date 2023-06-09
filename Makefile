@@ -39,7 +39,8 @@ build: lint
 
 .PHONY: test
 test:
-	go test -v ./...
+	go test -v ./... -coverprofile cover.out -race -p=1
+	go tool cover -func cover.out
 
 .PHONY: bootstrap
 bootstrap:
