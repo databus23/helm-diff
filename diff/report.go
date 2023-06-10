@@ -3,8 +3,6 @@ package diff
 import (
 	"errors"
 	"fmt"
-	"github.com/gonvenience/ytbx"
-	"github.com/homeport/dyff/pkg/dyff"
 	"io"
 	"log"
 	"os"
@@ -14,6 +12,8 @@ import (
 	"text/template"
 
 	"github.com/aryann/difflib"
+	"github.com/gonvenience/ytbx"
+	"github.com/homeport/dyff/pkg/dyff"
 	"github.com/mgutz/ansi"
 )
 
@@ -76,9 +76,13 @@ func setupDyffReport(r *Report) {
 
 func printDyffReport(r *Report, to io.Writer) {
 	currentFile, _ := os.CreateTemp("", "existing-values")
-	defer os.Remove(currentFile.Name())
+	defer func() {
+		_ = os.Remove(currentFile.Name())
+	}()
 	newFile, _ := os.CreateTemp("", "new-values")
-	defer os.Remove(newFile.Name())
+	defer func() {
+		_ = os.Remove(newFile.Name())
+	}()
 
 	for _, entry := range r.entries {
 		_, _ = currentFile.WriteString("---\n")
@@ -147,7 +151,6 @@ func printDiffReport(r *Report, to io.Writer) {
 		fmt.Fprintf(to, ansi.Color("%s %s", "yellow")+"\n", entry.key, r.format.changestyles[entry.changeType].message)
 		printDiffRecords(entry.suppressedKinds, entry.kind, entry.context, entry.diffs, to)
 	}
-
 }
 
 // setup report for simple output.
@@ -262,7 +265,7 @@ func templateReportPrinter(t *template.Template) func(r *Report, to io.Writer) {
 			}
 		}
 
-		t.Execute(to, templateDataArray)
+		_ = t.Execute(to, templateDataArray)
 		_, _ = to.Write([]byte("\n"))
 	}
 }

@@ -32,7 +32,6 @@ The Helm Diff Plugin
 
 // New creates a new cobra client
 func New() *cobra.Command {
-
 	chartCommand := newChartCommand()
 
 	cmd := &cobra.Command{

@@ -48,7 +48,6 @@ var text3 = "" +
 	"line10"
 
 func TestPrintDiffWithContext(t *testing.T) {
-
 	t.Run("context-disabled", func(t *testing.T) {
 		assertDiff(t, text1, text2, -1, false, ""+
 			"- line1\n"+
@@ -154,7 +153,6 @@ func TestPrintDiffWithContext(t *testing.T) {
 			"  line9\n"+
 			"  line10\n")
 	})
-
 }
 
 func assertDiff(t *testing.T, before, after string, context int, stripTrailingCR bool, expected string) {
