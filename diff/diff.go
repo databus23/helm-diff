@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -20,12 +21,13 @@ import (
 
 // Options are all the options to be passed to generate a diff
 type Options struct {
-	OutputFormat    string
-	OutputContext   int
-	StripTrailingCR bool
-	ShowSecrets     bool
-	SuppressedKinds []string
-	FindRenames     float32
+	OutputFormat              string
+	OutputContext             int
+	StripTrailingCR           bool
+	ShowSecrets               bool
+	SuppressedKinds           []string
+	FindRenames               float32
+	SuppressedOutputLineRegex []string
 }
 
 // Manifests diff on manifests
@@ -64,8 +66,55 @@ func Manifests(oldIndex, newIndex map[string]*manifest.MappingResult, options *O
 		doDiff(&report, key, nil, newContent, options)
 	}
 
+	filteredReport := Report{}
+	if len(options.SuppressedOutputLineRegex) > 0 {
+		filteredReport.format = report.format
+		filteredReport.entries = []ReportEntry{}
+
+		var suppressOutputRegexes []*regexp.Regexp
+
+		for _, suppressOutputRegex := range options.SuppressedOutputLineRegex {
+			regexp, err := regexp.Compile(suppressOutputRegex)
+			if err != nil {
+				panic(err)
+			}
+
+			suppressOutputRegexes = append(suppressOutputRegexes, regexp)
+		}
+
+		for _, entry := range report.entries {
+			var diffs []difflib.DiffRecord
+
+			for _, diff := range entry.diffs {
+				matched := false
+
+				for _, suppressOutputRegex := range suppressOutputRegexes {
+					if suppressOutputRegex.MatchString(diff.Payload) {
+						matched = true
+						break
+					}
+				}
+
+				if !matched {
+					diffs = append(diffs, diff)
+				}
+			}
+
+			// Add entry to the report, if diffs are present.
+			for _, diff := range diffs {
+				if diff.Delta.String() != " " {
+					filteredReport.addEntry(entry.key, entry.suppressedKinds, entry.kind, entry.context, diffs, entry.changeType)
+					break
+				}
+			}
+		}
+	} else {
+		filteredReport = report
+	}
+
 	seenAnyChanges := len(report.entries) > 0
-	report.print(to)
+	filteredReport.print(to)
+	filteredReport.clean()
 	report.clean()
 	return seenAnyChanges
 }
