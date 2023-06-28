@@ -277,6 +277,17 @@ spec:
 `, buf1.String())
 	})
 
+	t.Run("OnChangeWithSuppress", func(t *testing.T) {
+		var buf1 bytes.Buffer
+		diffOptions := Options{"diff", 10, false, true, []string{}, 0.0, []string{"apiVersion"}}
+
+		if changesSeen := Manifests(specBeta, specRelease, &diffOptions, &buf1); !changesSeen {
+			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
+		}
+
+		require.Equal(t, ``, buf1.String())
+	})
+
 	t.Run("OnChangeRename", func(t *testing.T) {
 		var buf1 bytes.Buffer
 		diffOptions := Options{"diff", 10, false, true, []string{}, 0.5, []string{}}
@@ -344,6 +355,29 @@ spec:
 `, buf1.String())
 	})
 
+	t.Run("OnChangeRenameAndAddedWithPartialSuppress", func(t *testing.T) {
+		var buf1 bytes.Buffer
+		diffOptions := Options{"diff", 10, false, true, []string{}, 0.5, []string{"app: "}}
+
+		if changesSeen := Manifests(specReleaseSpec, specReleaseRenamedAndAdded, &diffOptions, &buf1); !changesSeen {
+			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
+		}
+
+		require.Equal(t, `default, nginx, Deployment (apps) has changed:
+
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+-   name: nginx
++   name: nginx-renamed
+  spec:
+    replicas: 3
++   selector:
++     matchLabels:
+
+`, buf1.String())
+	})
+
 	t.Run("OnChangeRenameAndRemoved", func(t *testing.T) {
 		var buf1 bytes.Buffer
 		diffOptions := Options{"diff", 10, false, true, []string{}, 0.5, []string{}}
@@ -364,6 +398,29 @@ spec:
 -   selector:
 -     matchLabels:
 -       app: nginx-renamed
+
+`, buf1.String())
+	})
+
+	t.Run("OnChangeRenameAndRemovedWithPartialSuppress", func(t *testing.T) {
+		var buf1 bytes.Buffer
+		diffOptions := Options{"diff", 10, false, true, []string{}, 0.5, []string{"app: "}}
+
+		if changesSeen := Manifests(specReleaseRenamedAndAdded, specReleaseSpec, &diffOptions, &buf1); !changesSeen {
+			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
+		}
+
+		require.Equal(t, `default, nginx-renamed, Deployment (apps) has changed:
+
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+-   name: nginx-renamed
++   name: nginx
+  spec:
+    replicas: 3
+-   selector:
+-     matchLabels:
 
 `, buf1.String())
 	})
