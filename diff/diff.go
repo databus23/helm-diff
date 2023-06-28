@@ -100,12 +100,20 @@ func Manifests(oldIndex, newIndex map[string]*manifest.MappingResult, options *O
 				}
 			}
 
+			containsDiff := false
+
 			// Add entry to the report, if diffs are present.
 			for _, diff := range diffs {
 				if diff.Delta.String() != " " {
-					filteredReport.addEntry(entry.key, entry.suppressedKinds, entry.kind, entry.context, diffs, entry.changeType)
+					containsDiff = true
 					break
 				}
+			}
+
+			if containsDiff {
+				filteredReport.addEntry(entry.key, entry.suppressedKinds, entry.kind, entry.context, diffs, entry.changeType)
+			} else {
+				filteredReport.addEntry(entry.key, entry.suppressedKinds, entry.kind, entry.context, []difflib.DiffRecord{}, entry.changeType)
 			}
 		}
 	} else {

@@ -285,7 +285,8 @@ spec:
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
 		}
 
-		require.Equal(t, ``, buf1.String())
+		require.Equal(t, `default, nginx, Deployment (apps) has changed:
+`, buf1.String())
 	})
 
 	t.Run("OnChangeRename", func(t *testing.T) {
