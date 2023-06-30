@@ -2,8 +2,7 @@
 name: CI
 
 env:
-  VERSION_GO: '1.20.12'
-  VERSION_HELM: 'v3.13.3'
+  VERSION_HELM: 'v3.11.3'
 
 on:
   pull_request:
@@ -17,17 +16,10 @@ jobs:
     if: "!contains(github.event.head_commit.message, '[ci skip]')"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-go@v2
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v4
         with:
-          go-version: ${{ env.VERSION_GO }}
-
-      - uses: actions/cache@v2
-        with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
+          go-version-file: 'go.mod'
 
       - name: Install dependencies
         run: make bootstrap
@@ -73,20 +65,20 @@ jobs:
           git config --global core.autocrlf false
           git config --global core.eol lf
 
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Setup Helm
-        uses: azure/setup-helm@v1.1
+        uses: azure/setup-helm@v3
         with:
           version: ${{ env.VERSION_HELM }}
 
       - name: Setup WSL
         if: "contains(matrix.shell, 'wsl')"
-        uses: Vampire/setup-wsl@v1
+        uses: Vampire/setup-wsl@v2
 
       - name: Setup Cygwin
         if: "contains(matrix.shell, 'cygwin')"
-        uses: egor-tensin/setup-cygwin@v3
+        uses: egor-tensin/setup-cygwin@v4
         with:
           platform: x64
 
@@ -103,10 +95,10 @@ jobs:
         with:
           version: "v0.11.1"
 
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Setup Helm
-        uses: azure/setup-helm@v1.1
+        uses: azure/setup-helm@v3
         with:
           version: ${{ env.VERSION_HELM }}
 
@@ -124,15 +116,3 @@ jobs:
 
       - name: helm diff upgrade -C 3 --set replicaCount=2 --install helm-diff ./helm-diff
         run: helm diff upgrade -C 3 --set replicaCount=2 --install helm-diff ./helm-diff
-
-  shell-lint:
-    name: Lint install-binary.sh
-    runs-on: ubuntu-latest
-    if: "!contains(github.event.head_commit.message, '[ci skip]')"
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v2.4.0
-      - uses: luizm/action-sh-checker@v0.3.0
-        with:
-          sh_checker_exclude: "scripts"
-          sh_checker_checkbashisms_enable: true
