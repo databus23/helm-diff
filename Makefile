@@ -87,7 +87,7 @@ dist:
 	tar -C build/ -zcvf $(CURDIR)/release/helm-diff-windows-amd64.tgz diff/
 
 .PHONY: release
-release: lint dist
+release: lint
 	scripts/release.sh v$(VERSION)
 
 # Test for the plugin installation with `helm plugin install -v THIS_BRANCH` works
