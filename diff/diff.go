@@ -79,7 +79,7 @@ func Manifests(oldIndex, newIndex map[string]*manifest.MappingResult, options *O
 }
 
 func doSuppress(report Report, suppressedOutputLineRegex []string) (Report, error) {
-	if len(suppressedOutputLineRegex) == 0 {
+	if len(report.entries) == 0 || len(suppressedOutputLineRegex) == 0 {
 		return report, nil
 	}
 
