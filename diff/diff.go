@@ -66,14 +66,14 @@ func Manifests(oldIndex, newIndex map[string]*manifest.MappingResult, options *O
 		doDiff(&report, key, nil, newContent, options)
 	}
 
-	filteredReport, err := doSuppress(report, options.SuppressedOutputLineRegex)
+	seenAnyChanges := len(report.entries) > 0
+
+	report, err := doSuppress(report, options.SuppressedOutputLineRegex)
 	if err != nil {
 		panic(err)
 	}
 
-	seenAnyChanges := len(report.entries) > 0
-	filteredReport.print(to)
-	filteredReport.clean()
+	report.print(to)
 	report.clean()
 	return seenAnyChanges
 }
