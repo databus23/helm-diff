@@ -66,54 +66,9 @@ func Manifests(oldIndex, newIndex map[string]*manifest.MappingResult, options *O
 		doDiff(&report, key, nil, newContent, options)
 	}
 
-	filteredReport := Report{}
-	if len(options.SuppressedOutputLineRegex) > 0 {
-		filteredReport.format = report.format
-		filteredReport.entries = []ReportEntry{}
-
-		var suppressOutputRegexes []*regexp.Regexp
-
-		for _, suppressOutputRegex := range options.SuppressedOutputLineRegex {
-			regexp, err := regexp.Compile(suppressOutputRegex)
-			if err != nil {
-				panic(err)
-			}
-
-			suppressOutputRegexes = append(suppressOutputRegexes, regexp)
-		}
-
-		for _, entry := range report.entries {
-			var diffs []difflib.DiffRecord
-
-		DIFFS:
-			for _, diff := range entry.diffs {
-				for _, suppressOutputRegex := range suppressOutputRegexes {
-					if suppressOutputRegex.MatchString(diff.Payload) {
-						continue DIFFS
-					}
-				}
-
-				diffs = append(diffs, diff)
-			}
-
-			containsDiff := false
-
-			// Add entry to the report, if diffs are present.
-			for _, diff := range diffs {
-				if diff.Delta.String() != " " {
-					containsDiff = true
-					break
-				}
-			}
-
-			if containsDiff {
-				filteredReport.addEntry(entry.key, entry.suppressedKinds, entry.kind, entry.context, diffs, entry.changeType)
-			} else {
-				filteredReport.addEntry(entry.key, entry.suppressedKinds, entry.kind, entry.context, []difflib.DiffRecord{}, entry.changeType)
-			}
-		}
-	} else {
-		filteredReport = report
+	filteredReport, err := doSuppress(report, options.SuppressedOutputLineRegex)
+	if err != nil {
+		panic(err)
 	}
 
 	seenAnyChanges := len(report.entries) > 0
@@ -121,6 +76,60 @@ func Manifests(oldIndex, newIndex map[string]*manifest.MappingResult, options *O
 	filteredReport.clean()
 	report.clean()
 	return seenAnyChanges
+}
+
+func doSuppress(report Report, suppressedOutputLineRegex []string) (Report, error) {
+	if len(suppressedOutputLineRegex) == 0 {
+		return report, nil
+	}
+
+	filteredReport := Report{}
+	filteredReport.format = report.format
+	filteredReport.entries = []ReportEntry{}
+
+	var suppressOutputRegexes []*regexp.Regexp
+
+	for _, suppressOutputRegex := range suppressedOutputLineRegex {
+		regex, err := regexp.Compile(suppressOutputRegex)
+		if err != nil {
+			return Report{}, err
+		}
+
+		suppressOutputRegexes = append(suppressOutputRegexes, regex)
+	}
+
+	for _, entry := range report.entries {
+		var diffs []difflib.DiffRecord
+
+	DIFFS:
+		for _, diff := range entry.diffs {
+			for _, suppressOutputRegex := range suppressOutputRegexes {
+				if suppressOutputRegex.MatchString(diff.Payload) {
+					continue DIFFS
+				}
+			}
+
+			diffs = append(diffs, diff)
+		}
+
+		containsDiff := false
+
+		// Add entry to the report, if diffs are present.
+		for _, diff := range diffs {
+			if diff.Delta.String() != " " {
+				containsDiff = true
+				break
+			}
+		}
+
+		if containsDiff {
+			filteredReport.addEntry(entry.key, entry.suppressedKinds, entry.kind, entry.context, diffs, entry.changeType)
+		} else {
+			filteredReport.addEntry(entry.key, entry.suppressedKinds, entry.kind, entry.context, []difflib.DiffRecord{}, entry.changeType)
+		}
+	}
+
+	return filteredReport, nil
 }
 
 func actualChanges(diff []difflib.DiffRecord) int {
