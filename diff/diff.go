@@ -85,19 +85,15 @@ func Manifests(oldIndex, newIndex map[string]*manifest.MappingResult, options *O
 		for _, entry := range report.entries {
 			var diffs []difflib.DiffRecord
 
+		DIFFS:
 			for _, diff := range entry.diffs {
-				matched := false
-
 				for _, suppressOutputRegex := range suppressOutputRegexes {
 					if suppressOutputRegex.MatchString(diff.Payload) {
-						matched = true
-						break
+						continue DIFFS
 					}
 				}
 
-				if !matched {
-					diffs = append(diffs, diff)
-				}
+				diffs = append(diffs, diff)
 			}
 
 			containsDiff := false
