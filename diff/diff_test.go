@@ -5,6 +5,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/aryann/difflib"
 	"github.com/mgutz/ansi"
 	"github.com/stretchr/testify/require"
 
@@ -639,4 +640,86 @@ stringData:
 
 `, buf1.String())
 	})
+}
+
+func TestDoSuppress(t *testing.T) {
+	for _, tt := range []struct {
+		name         string
+		input        Report
+		supressRegex []string
+		expected     Report
+	}{
+		{
+			name:         "noop",
+			input:        Report{},
+			supressRegex: []string{},
+			expected:     Report{},
+		},
+		{
+			name: "simple",
+			input: Report{
+				entries: []ReportEntry{
+					{
+						diffs: diffStrings("hello: world", "hello: world2", false),
+					},
+				},
+			},
+			supressRegex: []string{},
+			expected: Report{
+				entries: []ReportEntry{
+					{
+						diffs: diffStrings("hello: world", "hello: world2", false),
+					},
+				},
+			},
+		},
+		{
+			name: "ignore all",
+			input: Report{
+				entries: []ReportEntry{
+					{
+						diffs: diffStrings("hello: world", "hello: world2", false),
+					},
+				},
+			},
+			supressRegex: []string{".*world2?"},
+			expected: Report{
+				entries: []ReportEntry{
+					{
+						diffs: []difflib.DiffRecord{},
+					},
+				},
+			},
+		},
+		{
+			name: "ignore partial",
+			input: Report{
+				entries: []ReportEntry{
+					{
+						diffs: diffStrings("hello: world", "hello: world2", false),
+					},
+				},
+			},
+			supressRegex: []string{".*world2"},
+			expected: Report{
+				entries: []ReportEntry{
+					{
+						diffs: []difflib.DiffRecord{
+							{
+								Payload: "hello: world",
+								Delta:   difflib.LeftOnly,
+							},
+						},
+					},
+				},
+			},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			report, err := doSuppress(tt.input, tt.supressRegex)
+			require.NoError(t, err)
+
+			require.Equal(t, tt.expected, report)
+		})
+	}
 }
