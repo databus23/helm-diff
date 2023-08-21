@@ -14,33 +14,53 @@ import (
 )
 
 var (
-	helmVersionRE  = regexp.MustCompile(`Version:\s*"([^"]+)"`)
-	minHelmVersion = semver.MustParse("v3.1.0-rc.1")
+	helmVersionRE                         = regexp.MustCompile(`Version:\s*"([^"]+)"`)
+	minHelmVersion                        = semver.MustParse("v3.1.0-rc.1")
+	minHelmVersionWithDryRunLookupSupport = semver.MustParse("v3.13.0")
 )
 
-func compatibleHelm3Version() error {
+func getHelmVersion() (*semver.Version, error) {
 	cmd := exec.Command(os.Getenv("HELM_BIN"), "version")
 	debugPrint("Executing %s", strings.Join(cmd.Args, " "))
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("Failed to run `%s version`: %v", os.Getenv("HELM_BIN"), err)
+		return nil, fmt.Errorf("Failed to run `%s version`: %v", os.Getenv("HELM_BIN"), err)
 	}
 	versionOutput := string(output)
 
 	matches := helmVersionRE.FindStringSubmatch(versionOutput)
 	if matches == nil {
-		return fmt.Errorf("Failed to find version in output %#v", versionOutput)
+		return nil, fmt.Errorf("Failed to find version in output %#v", versionOutput)
 	}
 	helmVersion, err := semver.NewVersion(matches[1])
 	if err != nil {
-		return fmt.Errorf("Failed to parse version %#v: %v", matches[1], err)
+		return nil, fmt.Errorf("Failed to parse version %#v: %v", matches[1], err)
 	}
 
-	if minHelmVersion.GreaterThan(helmVersion) {
+	return helmVersion, nil
+}
+
+func isHelmVersionAtLeast(versionToCompareTo *semver.Version) (bool, error) {
+	helmVersion, err := getHelmVersion()
+
+	if err != nil {
+		return false, err
+	}
+	if helmVersion.LessThan(versionToCompareTo) {
+		return false, nil
+	}
+	return true, nil
+}
+
+func compatibleHelm3Version() error {
+	if isCompatible, err := isHelmVersionAtLeast(minHelmVersion); err != nil {
+		return err
+	} else if !isCompatible {
 		return fmt.Errorf("helm diff upgrade requires at least helm version %s", minHelmVersion.String())
 	}
 	return nil
 }
+
 func getRelease(release, namespace string) ([]byte, error) {
 	args := []string{"get", "manifest", release}
 	if namespace != "" {
@@ -183,7 +203,11 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 			flags = append(flags, "--install")
 		}
 
-		flags = append(flags, "--dry-run")
+		if useDryRunService, err := isHelmVersionAtLeast(minHelmVersionWithDryRunLookupSupport); err == nil && useDryRunService {
+			flags = append(flags, "--dry-run=server")
+		} else {
+			flags = append(flags, "--dry-run")
+		}
 		subcmd = "upgrade"
 		filter = func(s []byte) []byte {
 			return extractManifestFromHelmUpgradeDryRunOutput(s, d.noHooks)
@@ -203,6 +227,10 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 
 		if d.kubeVersion != "" {
 			flags = append(flags, "--kube-version", d.kubeVersion)
+		}
+
+		if useDryRunService, err := isHelmVersionAtLeast(minHelmVersionWithDryRunLookupSupport); err == nil && useDryRunService {
+			flags = append(flags, "--dry-run=server")
 		}
 
 		subcmd = "template"
