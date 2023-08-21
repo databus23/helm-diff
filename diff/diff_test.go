@@ -5,6 +5,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/aryann/difflib"
 	"github.com/mgutz/ansi"
 	"github.com/stretchr/testify/require"
 
@@ -260,7 +261,7 @@ spec:
 
 	t.Run("OnChange", func(t *testing.T) {
 		var buf1 bytes.Buffer
-		diffOptions := Options{"diff", 10, false, true, []string{}, 0.0}
+		diffOptions := Options{"diff", 10, false, true, []string{}, 0.0, []string{}}
 
 		if changesSeen := Manifests(specBeta, specRelease, &diffOptions, &buf1); !changesSeen {
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
@@ -277,9 +278,21 @@ spec:
 `, buf1.String())
 	})
 
+	t.Run("OnChangeWithSuppress", func(t *testing.T) {
+		var buf1 bytes.Buffer
+		diffOptions := Options{"diff", 10, false, true, []string{}, 0.0, []string{"apiVersion"}}
+
+		if changesSeen := Manifests(specBeta, specRelease, &diffOptions, &buf1); !changesSeen {
+			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
+		}
+
+		require.Equal(t, `default, nginx, Deployment (apps) has changed:
+`, buf1.String())
+	})
+
 	t.Run("OnChangeRename", func(t *testing.T) {
 		var buf1 bytes.Buffer
-		diffOptions := Options{"diff", 10, false, true, []string{}, 0.5}
+		diffOptions := Options{"diff", 10, false, true, []string{}, 0.5, []string{}}
 
 		if changesSeen := Manifests(specReleaseSpec, specReleaseRenamed, &diffOptions, &buf1); !changesSeen {
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
@@ -300,7 +313,7 @@ spec:
 
 	t.Run("OnChangeRenameAndUpdate", func(t *testing.T) {
 		var buf1 bytes.Buffer
-		diffOptions := Options{"diff", 10, false, true, []string{}, 0.5}
+		diffOptions := Options{"diff", 10, false, true, []string{}, 0.5, []string{}}
 
 		if changesSeen := Manifests(specReleaseSpec, specReleaseRenamedAndUpdated, &diffOptions, &buf1); !changesSeen {
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
@@ -322,7 +335,7 @@ spec:
 
 	t.Run("OnChangeRenameAndAdded", func(t *testing.T) {
 		var buf1 bytes.Buffer
-		diffOptions := Options{"diff", 10, false, true, []string{}, 0.5}
+		diffOptions := Options{"diff", 10, false, true, []string{}, 0.5, []string{}}
 
 		if changesSeen := Manifests(specReleaseSpec, specReleaseRenamedAndAdded, &diffOptions, &buf1); !changesSeen {
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
@@ -344,9 +357,32 @@ spec:
 `, buf1.String())
 	})
 
+	t.Run("OnChangeRenameAndAddedWithPartialSuppress", func(t *testing.T) {
+		var buf1 bytes.Buffer
+		diffOptions := Options{"diff", 10, false, true, []string{}, 0.5, []string{"app: "}}
+
+		if changesSeen := Manifests(specReleaseSpec, specReleaseRenamedAndAdded, &diffOptions, &buf1); !changesSeen {
+			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
+		}
+
+		require.Equal(t, `default, nginx, Deployment (apps) has changed:
+
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+-   name: nginx
++   name: nginx-renamed
+  spec:
+    replicas: 3
++   selector:
++     matchLabels:
+
+`, buf1.String())
+	})
+
 	t.Run("OnChangeRenameAndRemoved", func(t *testing.T) {
 		var buf1 bytes.Buffer
-		diffOptions := Options{"diff", 10, false, true, []string{}, 0.5}
+		diffOptions := Options{"diff", 10, false, true, []string{}, 0.5, []string{}}
 
 		if changesSeen := Manifests(specReleaseRenamedAndAdded, specReleaseSpec, &diffOptions, &buf1); !changesSeen {
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
@@ -368,9 +404,32 @@ spec:
 `, buf1.String())
 	})
 
+	t.Run("OnChangeRenameAndRemovedWithPartialSuppress", func(t *testing.T) {
+		var buf1 bytes.Buffer
+		diffOptions := Options{"diff", 10, false, true, []string{}, 0.5, []string{"app: "}}
+
+		if changesSeen := Manifests(specReleaseRenamedAndAdded, specReleaseSpec, &diffOptions, &buf1); !changesSeen {
+			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
+		}
+
+		require.Equal(t, `default, nginx-renamed, Deployment (apps) has changed:
+
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+-   name: nginx-renamed
++   name: nginx
+  spec:
+    replicas: 3
+-   selector:
+-     matchLabels:
+
+`, buf1.String())
+	})
+
 	t.Run("OnNoChange", func(t *testing.T) {
 		var buf2 bytes.Buffer
-		diffOptions := Options{"diff", 10, false, true, []string{}, 0.0}
+		diffOptions := Options{"diff", 10, false, true, []string{}, 0.0, []string{}}
 
 		if changesSeen := Manifests(specRelease, specRelease, &diffOptions, &buf2); changesSeen {
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `false` to indicate that it has NOT seen any change(s), but was `true`")
@@ -381,7 +440,7 @@ spec:
 
 	t.Run("OnChangeSimple", func(t *testing.T) {
 		var buf1 bytes.Buffer
-		diffOptions := Options{"simple", 10, false, true, []string{}, 0.0}
+		diffOptions := Options{"simple", 10, false, true, []string{}, 0.0, []string{}}
 
 		if changesSeen := Manifests(specBeta, specRelease, &diffOptions, &buf1); !changesSeen {
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
@@ -394,7 +453,7 @@ Plan: 0 to add, 1 to change, 0 to destroy.
 
 	t.Run("OnNoChangeSimple", func(t *testing.T) {
 		var buf2 bytes.Buffer
-		diffOptions := Options{"simple", 10, false, true, []string{}, 0.0}
+		diffOptions := Options{"simple", 10, false, true, []string{}, 0.0, []string{}}
 		if changesSeen := Manifests(specRelease, specRelease, &diffOptions, &buf2); changesSeen {
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `false` to indicate that it has NOT seen any change(s), but was `true`")
 		}
@@ -404,7 +463,7 @@ Plan: 0 to add, 1 to change, 0 to destroy.
 
 	t.Run("OnChangeTemplate", func(t *testing.T) {
 		var buf1 bytes.Buffer
-		diffOptions := Options{"template", 10, false, true, []string{}, 0.0}
+		diffOptions := Options{"template", 10, false, true, []string{}, 0.0, []string{}}
 
 		if changesSeen := Manifests(specBeta, specRelease, &diffOptions, &buf1); !changesSeen {
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
@@ -422,7 +481,7 @@ Plan: 0 to add, 1 to change, 0 to destroy.
 
 	t.Run("OnChangeJSON", func(t *testing.T) {
 		var buf1 bytes.Buffer
-		diffOptions := Options{"json", 10, false, true, []string{}, 0.0}
+		diffOptions := Options{"json", 10, false, true, []string{}, 0.0, []string{}}
 
 		if changesSeen := Manifests(specBeta, specRelease, &diffOptions, &buf1); !changesSeen {
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
@@ -440,7 +499,7 @@ Plan: 0 to add, 1 to change, 0 to destroy.
 
 	t.Run("OnNoChangeTemplate", func(t *testing.T) {
 		var buf2 bytes.Buffer
-		diffOptions := Options{"template", 10, false, true, []string{}, 0.0}
+		diffOptions := Options{"template", 10, false, true, []string{}, 0.0, []string{}}
 
 		if changesSeen := Manifests(specRelease, specRelease, &diffOptions, &buf2); changesSeen {
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `false` to indicate that it has NOT seen any change(s), but was `true`")
@@ -452,7 +511,7 @@ Plan: 0 to add, 1 to change, 0 to destroy.
 	t.Run("OnChangeCustomTemplate", func(t *testing.T) {
 		var buf1 bytes.Buffer
 		os.Setenv("HELM_DIFF_TPL", "testdata/customTemplate.tpl")
-		diffOptions := Options{"template", 10, false, true, []string{}, 0.0}
+		diffOptions := Options{"template", 10, false, true, []string{}, 0.0, []string{}}
 
 		if changesSeen := Manifests(specBeta, specRelease, &diffOptions, &buf1); !changesSeen {
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `false` to indicate that it has NOT seen any change(s), but was `true`")
@@ -535,7 +594,7 @@ stringData:
 
 	t.Run("OnChangeSecretWithByteData", func(t *testing.T) {
 		var buf1 bytes.Buffer
-		diffOptions := Options{"diff", 10, false, false, []string{}, 0.5} //NOTE: ShowSecrets = false
+		diffOptions := Options{"diff", 10, false, false, []string{}, 0.5, []string{}} //NOTE: ShowSecrets = false
 
 		if changesSeen := Manifests(specSecretWithByteData, specSecretWithByteDataChanged, &diffOptions, &buf1); !changesSeen {
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
@@ -560,7 +619,7 @@ stringData:
 
 	t.Run("OnChangeSecretWithStringData", func(t *testing.T) {
 		var buf1 bytes.Buffer
-		diffOptions := Options{"diff", 10, false, false, []string{}, 0.5} //NOTE: ShowSecrets = false
+		diffOptions := Options{"diff", 10, false, false, []string{}, 0.5, []string{}} //NOTE: ShowSecrets = false
 
 		if changesSeen := Manifests(specSecretWithStringData, specSecretWithStringDataChanged, &diffOptions, &buf1); !changesSeen {
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
@@ -581,4 +640,86 @@ stringData:
 
 `, buf1.String())
 	})
+}
+
+func TestDoSuppress(t *testing.T) {
+	for _, tt := range []struct {
+		name         string
+		input        Report
+		supressRegex []string
+		expected     Report
+	}{
+		{
+			name:         "noop",
+			input:        Report{},
+			supressRegex: []string{},
+			expected:     Report{},
+		},
+		{
+			name: "simple",
+			input: Report{
+				entries: []ReportEntry{
+					{
+						diffs: diffStrings("hello: world", "hello: world2", false),
+					},
+				},
+			},
+			supressRegex: []string{},
+			expected: Report{
+				entries: []ReportEntry{
+					{
+						diffs: diffStrings("hello: world", "hello: world2", false),
+					},
+				},
+			},
+		},
+		{
+			name: "ignore all",
+			input: Report{
+				entries: []ReportEntry{
+					{
+						diffs: diffStrings("hello: world", "hello: world2", false),
+					},
+				},
+			},
+			supressRegex: []string{".*world2?"},
+			expected: Report{
+				entries: []ReportEntry{
+					{
+						diffs: []difflib.DiffRecord{},
+					},
+				},
+			},
+		},
+		{
+			name: "ignore partial",
+			input: Report{
+				entries: []ReportEntry{
+					{
+						diffs: diffStrings("hello: world", "hello: world2", false),
+					},
+				},
+			},
+			supressRegex: []string{".*world2"},
+			expected: Report{
+				entries: []ReportEntry{
+					{
+						diffs: []difflib.DiffRecord{
+							{
+								Payload: "hello: world",
+								Delta:   difflib.LeftOnly,
+							},
+						},
+					},
+				},
+			},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			report, err := doSuppress(tt.input, tt.supressRegex)
+			require.NoError(t, err)
+
+			require.Equal(t, tt.expected, report)
+		})
+	}
 }

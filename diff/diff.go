@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -20,12 +21,13 @@ import (
 
 // Options are all the options to be passed to generate a diff
 type Options struct {
-	OutputFormat    string
-	OutputContext   int
-	StripTrailingCR bool
-	ShowSecrets     bool
-	SuppressedKinds []string
-	FindRenames     float32
+	OutputFormat              string
+	OutputContext             int
+	StripTrailingCR           bool
+	ShowSecrets               bool
+	SuppressedKinds           []string
+	FindRenames               float32
+	SuppressedOutputLineRegex []string
 }
 
 // Manifests diff on manifests
@@ -65,9 +67,69 @@ func Manifests(oldIndex, newIndex map[string]*manifest.MappingResult, options *O
 	}
 
 	seenAnyChanges := len(report.entries) > 0
+
+	report, err := doSuppress(report, options.SuppressedOutputLineRegex)
+	if err != nil {
+		panic(err)
+	}
+
 	report.print(to)
 	report.clean()
 	return seenAnyChanges
+}
+
+func doSuppress(report Report, suppressedOutputLineRegex []string) (Report, error) {
+	if len(report.entries) == 0 || len(suppressedOutputLineRegex) == 0 {
+		return report, nil
+	}
+
+	filteredReport := Report{}
+	filteredReport.format = report.format
+	filteredReport.entries = []ReportEntry{}
+
+	var suppressOutputRegexes []*regexp.Regexp
+
+	for _, suppressOutputRegex := range suppressedOutputLineRegex {
+		regex, err := regexp.Compile(suppressOutputRegex)
+		if err != nil {
+			return Report{}, err
+		}
+
+		suppressOutputRegexes = append(suppressOutputRegexes, regex)
+	}
+
+	for _, entry := range report.entries {
+		var diffs []difflib.DiffRecord
+
+	DIFFS:
+		for _, diff := range entry.diffs {
+			for _, suppressOutputRegex := range suppressOutputRegexes {
+				if suppressOutputRegex.MatchString(diff.Payload) {
+					continue DIFFS
+				}
+			}
+
+			diffs = append(diffs, diff)
+		}
+
+		containsDiff := false
+
+		// Add entry to the report, if diffs are present.
+		for _, diff := range diffs {
+			if diff.Delta.String() != " " {
+				containsDiff = true
+				break
+			}
+		}
+
+		if containsDiff {
+			filteredReport.addEntry(entry.key, entry.suppressedKinds, entry.kind, entry.context, diffs, entry.changeType)
+		} else {
+			filteredReport.addEntry(entry.key, entry.suppressedKinds, entry.kind, entry.context, []difflib.DiffRecord{}, entry.changeType)
+		}
+	}
+
+	return filteredReport, nil
 }
 
 func actualChanges(diff []difflib.DiffRecord) int {
