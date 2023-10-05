@@ -127,10 +127,10 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 	if d.insecureSkipTLSVerify {
 		flags = append(flags, "--insecure-skip-tls-verify")
 	}
-	// Helm automatically enable --reuse-values when there's no --set, --set-string, --set-values, --set-file present.
+	// Helm automatically enable --reuse-values when there's no --set, --set-string, --set-json, --set-values, --set-file present.
 	// Let's simulate that in helm-diff.
 	// See https://medium.com/@kcatstack/understand-helm-upgrade-flags-reset-values-reuse-values-6e58ac8f127e
-	shouldDefaultReusingValues := isUpgrade && len(d.values) == 0 && len(d.stringValues) == 0 && len(d.valueFiles) == 0 && len(d.fileValues) == 0
+	shouldDefaultReusingValues := isUpgrade && len(d.values) == 0 && len(d.stringValues) == 0 && len(d.jsonValues) == 0 && len(d.valueFiles) == 0 && len(d.fileValues) == 0
 	if (d.reuseValues || shouldDefaultReusingValues) && !d.resetValues && !d.dryRun {
 		tmpfile, err := os.CreateTemp("", "existing-values")
 		if err != nil {
@@ -149,6 +149,9 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 	}
 	for _, stringValue := range d.stringValues {
 		flags = append(flags, "--set-string", stringValue)
+	}
+	for _, jsonValue := range d.jsonValues {
+		flags = append(flags, "--set-json", jsonValue)
 	}
 	for _, valueFile := range d.valueFiles {
 		if strings.TrimSpace(valueFile) == "-" {
