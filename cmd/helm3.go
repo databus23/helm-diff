@@ -14,8 +14,9 @@ import (
 )
 
 var (
-	helmVersionRE                         = regexp.MustCompile(`Version:\s*"([^"]+)"`)
-	minHelmVersion                        = semver.MustParse("v3.1.0-rc.1")
+	helmVersionRE  = regexp.MustCompile(`Version:\s*"([^"]+)"`)
+	minHelmVersion = semver.MustParse("v3.1.0-rc.1")
+	// See https://github.com/helm/helm/pull/9426
 	minHelmVersionWithDryRunLookupSupport = semver.MustParse("v3.13.0")
 )
 
@@ -131,7 +132,7 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 	// Let's simulate that in helm-diff.
 	// See https://medium.com/@kcatstack/understand-helm-upgrade-flags-reset-values-reuse-values-6e58ac8f127e
 	shouldDefaultReusingValues := isUpgrade && len(d.values) == 0 && len(d.stringValues) == 0 && len(d.jsonValues) == 0 && len(d.valueFiles) == 0 && len(d.fileValues) == 0
-	if (d.reuseValues || shouldDefaultReusingValues) && !d.resetValues && !d.dryRun {
+	if (d.reuseValues || shouldDefaultReusingValues) && !d.resetValues && d.clusterAccessAllowed() {
 		tmpfile, err := os.CreateTemp("", "existing-values")
 		if err != nil {
 			return nil, err
@@ -195,17 +196,28 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 		filter func([]byte) []byte
 	)
 
+	// `--dry-run=client` or `--dry-run=server`?
+	//
+	// Or what's the relationoship between helm-diff's --dry-run flag,
+	// HELM_DIFF_UPGRADE_DRY_RUN env var and the helm upgrade --dry-run flag?
+	//
+	// Read on to find out.
 	if d.useUpgradeDryRun {
-		if d.dryRun {
-			return nil, fmt.Errorf("`diff upgrade --dry-run` conflicts with HELM_DIFF_USE_UPGRADE_DRY_RUN_AS_TEMPLATE. Either remove --dry-run to enable cluster access, or unset HELM_DIFF_USE_UPGRADE_DRY_RUN_AS_TEMPLATE to make cluster access unnecessary")
-		}
-
 		if d.isAllowUnreleased() {
 			// Otherwise you get the following error when this is a diff for a new install
 			//   Error: UPGRADE FAILED: "$RELEASE_NAME" has no deployed releases
 			flags = append(flags, "--install")
 		}
 
+		// If the program reaches here,
+		// we are sure that the user wants to user the `helm upgrade --dry-run` command
+		// for generating the manifests to be diffed.
+		//
+		// So the question is only whether to use `--dry-run=client` or `--dry-run=server`.
+		//
+		// As HELM_DIFF_UPGRADE_DRY_RUN is there for producing more complete and correct diff results,
+		// we use --dry-run=server if the version of helm supports it.
+		// Otherwise, we use --dry-run=client, as that's the best we can do.
 		if useDryRunService, err := isHelmVersionAtLeast(minHelmVersionWithDryRunLookupSupport); err == nil && useDryRunService {
 			flags = append(flags, "--dry-run=server")
 		} else {
@@ -216,7 +228,7 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 			return extractManifestFromHelmUpgradeDryRunOutput(s, d.noHooks)
 		}
 	} else {
-		if !d.disableValidation && !d.dryRun {
+		if !d.disableValidation && d.clusterAccessAllowed() {
 			flags = append(flags, "--validate")
 		}
 
@@ -232,8 +244,46 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 			flags = append(flags, "--kube-version", d.kubeVersion)
 		}
 
+		// To keep the full compatibility with older helm-diff versions,
+		// we pass --dry-run to `helm template` only if Helm is greater than v3.13.0.
 		if useDryRunService, err := isHelmVersionAtLeast(minHelmVersionWithDryRunLookupSupport); err == nil && useDryRunService {
-			flags = append(flags, "--dry-run=server")
+			// However, which dry-run mode to use is still not clear.
+			//
+			// For compatibility with the old and new helm-diff options,
+			// old and new helm, we assume that the user wants to use the older `helm template --dry-run=client` mode
+			// if helm-diff has been invoked with any of the following flags:
+			//
+			// * no dry-run flags (to be consistent with helm-template)
+			// * --dry-run
+			// * --dry-run=""
+			// * --dry-run=client
+			//
+			// and the newer `helm template --dry-run=server` mode when invoked with:
+			//
+			// * --dry-run=server
+			//
+			// Any other values should result in errors.
+			//
+			// See the fllowing link for more details:
+			// - https://github.com/databus23/helm-diff/pull/458
+			// - https://github.com/helm/helm/pull/9426#issuecomment-1501005666
+			if d.dryRunMode == "server" {
+				// This is for security reasons!
+				//
+				// We give helm-template the additional cluster access for the helm `lookup` function
+				// only if the user has explicitly requested it by --dry-run=server,
+				//
+				// In other words, although helm-diff-upgrade implies limited cluster access by default,
+				// helm-diff-upgrade without a --dry-run flag does NOT imply
+				// full cluster-access via helm-template --dry-run=server!
+				flags = append(flags, "--dry-run=server")
+			} else {
+				// Since helm-diff 3.9.0 and helm 3.13.0, we pass --dry-run=client to `helm template` by default.
+				// This doesn't make any difference for helm-diff itself,
+				// because helm-template w/o flags is equivalent to helm-template --dry-run=client.
+				// See https://github.com/helm/helm/pull/9426#discussion_r1181397259
+				flags = append(flags, "--dry-run=client")
+			}
 		}
 
 		subcmd = "template"
