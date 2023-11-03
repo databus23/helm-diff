@@ -3,6 +3,7 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -11,7 +12,6 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	jsoniterator "github.com/json-iterator/go"
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/cli"
@@ -249,15 +249,15 @@ func (d *diffCmd) runHelm3() error {
 		}
 		original, err := actionConfig.KubeClient.Build(bytes.NewBuffer(releaseManifest), false)
 		if err != nil {
-			return errors.Wrap(err, "unable to build kubernetes objects from original release manifest")
+			return fmt.Errorf("unable to build kubernetes objects from original release manifest: %w", err)
 		}
 		target, err := actionConfig.KubeClient.Build(bytes.NewBuffer(installManifest), false)
 		if err != nil {
-			return errors.Wrap(err, "unable to build kubernetes objects from new release manifest")
+			return fmt.Errorf("unable to build kubernetes objects from new release manifest: %w", err)
 		}
 		releaseManifest, installManifest, err = genManifest(original, target)
 		if err != nil {
-			return errors.Wrap(err, "unable to generate manifests")
+			return fmt.Errorf("unable to generate manifests: %w", err)
 		}
 	}
 
@@ -325,7 +325,7 @@ func genManifest(original, target kube.ResourceList) ([]byte, []byte, error) {
 
 	toBeUpdated, err := existingResourceConflict(toBeCreated)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "rendered manifests contain a resource that already exists. Unable to continue with update")
+		return nil, nil, fmt.Errorf("rendered manifests contain a resource that already exists. Unable to continue with update: %w", err)
 	}
 
 	_ = toBeUpdated.Visit(func(r *resource.Info, err error) error {
@@ -347,7 +347,7 @@ func genManifest(original, target kube.ResourceList) ([]byte, []byte, error) {
 		currentObj, err := helper.Get(info.Namespace, info.Name)
 		if err != nil {
 			if !apierrors.IsNotFound(err) {
-				return errors.Wrap(err, "could not get information about the resource")
+				return fmt.Errorf("could not get information about the resource: %w", err)
 			}
 			// to be created
 			out, _ := yaml.Marshal(info.Object)
@@ -359,11 +359,11 @@ func genManifest(original, target kube.ResourceList) ([]byte, []byte, error) {
 		out, _ := jsoniterator.ConfigCompatibleWithStandardLibrary.Marshal(currentObj)
 		pruneObj, err := deleteStatusAndTidyMetadata(out)
 		if err != nil {
-			return errors.Wrapf(err, "prune current obj %q with kind %s", info.Name, kind)
+			return fmt.Errorf("prune current obj %q with kind %s: %w", info.Name, kind, err)
 		}
 		pruneOut, err := yaml.Marshal(pruneObj)
 		if err != nil {
-			return errors.Wrapf(err, "prune current out %q with kind %s", info.Name, kind)
+			return fmt.Errorf("prune current out %q with kind %s: %w", info.Name, kind, err)
 		}
 		releaseManifest = append(releaseManifest, yamlSeperator...)
 		releaseManifest = append(releaseManifest, pruneOut...)
@@ -381,16 +381,16 @@ func genManifest(original, target kube.ResourceList) ([]byte, []byte, error) {
 		helper.ServerDryRun = true
 		targetObj, err := helper.Patch(info.Namespace, info.Name, patchType, patch, nil)
 		if err != nil {
-			return errors.Wrapf(err, "cannot patch %q with kind %s", info.Name, kind)
+			return fmt.Errorf("cannot patch %q with kind %s: %w", info.Name, kind, err)
 		}
 		out, _ = jsoniterator.ConfigCompatibleWithStandardLibrary.Marshal(targetObj)
 		pruneObj, err = deleteStatusAndTidyMetadata(out)
 		if err != nil {
-			return errors.Wrapf(err, "prune current obj %q with kind %s", info.Name, kind)
+			return fmt.Errorf("prune current obj %q with kind %s: %w", info.Name, kind, err)
 		}
 		pruneOut, err = yaml.Marshal(pruneObj)
 		if err != nil {
-			return errors.Wrapf(err, "prune current out %q with kind %s", info.Name, kind)
+			return fmt.Errorf("prune current out %q with kind %s: %w", info.Name, kind, err)
 		}
 		installManifest = append(installManifest, yamlSeperator...)
 		installManifest = append(installManifest, pruneOut...)
@@ -403,17 +403,17 @@ func genManifest(original, target kube.ResourceList) ([]byte, []byte, error) {
 func createPatch(originalObj, currentObj runtime.Object, target *resource.Info) ([]byte, types.PatchType, error) {
 	oldData, err := json.Marshal(originalObj)
 	if err != nil {
-		return nil, types.StrategicMergePatchType, errors.Wrap(err, "serializing current configuration")
+		return nil, types.StrategicMergePatchType, fmt.Errorf("serializing current configuration: %w", err)
 	}
 	newData, err := json.Marshal(target.Object)
 	if err != nil {
-		return nil, types.StrategicMergePatchType, errors.Wrap(err, "serializing target configuration")
+		return nil, types.StrategicMergePatchType, fmt.Errorf("serializing target configuration: %w", err)
 	}
 
 	// Even if currentObj is nil (because it was not found), it will marshal just fine
 	currentData, err := json.Marshal(currentObj)
 	if err != nil {
-		return nil, types.StrategicMergePatchType, errors.Wrap(err, "serializing live configuration")
+		return nil, types.StrategicMergePatchType, fmt.Errorf("serializing live configuration: %w", err)
 	}
 	// kind := target.Mapping.GroupVersionKind.Kind
 	// if kind == "Deployment" {
@@ -441,7 +441,7 @@ func createPatch(originalObj, currentObj runtime.Object, target *resource.Info) 
 
 	patchMeta, err := strategicpatch.NewPatchMetaFromStruct(versionedObject)
 	if err != nil {
-		return nil, types.StrategicMergePatchType, errors.Wrap(err, "unable to create patch metadata from object")
+		return nil, types.StrategicMergePatchType, fmt.Errorf("unable to create patch metadata from object: %w", err)
 	}
 
 	patch, err := strategicpatch.CreateThreeWayMergePatch(oldData, newData, currentData, patchMeta, true)
@@ -467,7 +467,7 @@ func existingResourceConflict(resources kube.ResourceList) (kube.ResourceList, e
 			if apierrors.IsNotFound(err) {
 				return nil
 			}
-			return errors.Wrap(err, "could not get information about the resource")
+			return fmt.Errorf("could not get information about the resource: %w", err)
 		}
 
 		requireUpdate.Append(info)
@@ -481,7 +481,7 @@ func deleteStatusAndTidyMetadata(obj []byte) (map[string]interface{}, error) {
 	var objectMap map[string]interface{}
 	err := jsoniterator.Unmarshal(obj, &objectMap)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not unmarshal byte sequence")
+		return nil, fmt.Errorf("could not unmarshal byte sequence: %w", err)
 	}
 
 	delete(objectMap, "status")
