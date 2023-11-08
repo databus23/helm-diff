@@ -8,6 +8,7 @@ import (
 	"github.com/mgutz/ansi"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
+	"github.com/gonvenience/bunt"
 )
 
 const rootCmdLongUsage = `
@@ -61,15 +62,19 @@ func New() *cobra.Command {
 				}
 			}
 
+			// Dyff relies on bunt, default to color=on
+			bunt.SetColorSettings(bunt.ON, bunt.ON)
 			nc, _ := cmd.Flags().GetBool("no-color")
 
 			if nc || (fc != nil && !*fc) {
 				ansi.DisableColors(true)
+				bunt.SetColorSettings(bunt.OFF, bunt.OFF)
 			} else if !cmd.Flags().Changed("no-color") && fc == nil {
 				term := term.IsTerminal(int(os.Stdout.Fd()))
 				// https://github.com/databus23/helm-diff/issues/281
 				dumb := os.Getenv("TERM") == "dumb"
 				ansi.DisableColors(!term || dumb)
+				bunt.SetColorSettings(bunt.OFF, bunt.OFF)
 			}
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
