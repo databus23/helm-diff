@@ -29,8 +29,8 @@ install/helm3: build
 lint:
 	scripts/update-gofmt.sh
 	scripts/verify-gofmt.sh
-	scripts/verify-golint.sh
 	scripts/verify-govet.sh
+	scripts/verify-staticcheck.sh
 
 .PHONY: build
 build: lint
@@ -45,7 +45,7 @@ test:
 .PHONY: bootstrap
 bootstrap:
 	go mod download
-	command -v golint || GO111MODULE=off go get -u golang.org/x/lint/golint
+	command -v staticcheck || go install honnef.co/go/tools/cmd/staticcheck@latest
 
 .PHONY: docker-run-release
 docker-run-release: export pkg=/go/src/github.com/databus23/helm-diff
