@@ -1,20 +1,19 @@
 #!/bin/bash
 # script credits : https://github.com/infracloudio/botkube
 
-set -o errexit
 set -o nounset
 set -o pipefail
 
-find_files() {
+find_packages() {
   find . -not \( \
       \( \
         -wholename '*/vendor/*' \
       \) -prune \
-    \) -name '*.go'
+    \) -name '*.go' -exec dirname '{}' ';' | sort -u
 }
 
-bad_files=$(find_files | xargs -I@ bash -c "golint @")
-if [[ -n "${bad_files}" ]]; then
-  echo "${bad_files}"
+errors="$(find_packages | xargs -I@ bash -c "staticcheck @")"
+if [[ -n "${errors}" ]]; then
+  echo "${errors}"
   exit 1
 fi
