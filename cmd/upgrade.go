@@ -113,60 +113,6 @@ func newChartCommand() *cobra.Command {
 		Short:              "Show a diff explaining what a helm upgrade would change.",
 		Long:               globalUsage,
 		DisableFlagParsing: true,
-		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			const (
-				dryRunUsage = "--dry-run, --dry-run=client, or --dry-run=true disables cluster access and show diff as if it was install. Implies --install, --reset-values, and --disable-validation." +
-					" --dry-run=server enables the cluster access with helm-get and the lookup template function."
-			)
-
-			legacyDryRunFlagSet := pflag.NewFlagSet("upgrade", pflag.ContinueOnError)
-			legacyDryRun := legacyDryRunFlagSet.Bool("dry-run", false, dryRunUsage)
-			if err := legacyDryRunFlagSet.Parse(args); err == nil && *legacyDryRun {
-				diff.dryRunModeSpecified = true
-				args = legacyDryRunFlagSet.Args()
-			} else {
-				cmd.Flags().StringVar(&diff.dryRunMode, "dry-run", "", dryRunUsage)
-			}
-
-			fmt.Fprintf(os.Stderr, "args after legacy dry-run parsing: %v\n", args)
-
-			// Here we parse the flags ourselves so that we can support
-			// both --dry-run and --dry-run=ARG syntaxes.
-			//
-			// If you don't do this, then cobra will treat --dry-run as
-			// a "flag needs an argument: --dry-run" error.
-			//
-			// This works becase we have `DisableFlagParsing: true`` above.
-			// Never turn that off, or you'll get the error again.
-			if err := cmd.Flags().Parse(args); err != nil {
-				return err
-			}
-
-			args = cmd.Flags().Args()
-
-			if !diff.dryRunModeSpecified {
-				dryRunModeSpecified := cmd.Flags().Changed("dry-run")
-				diff.dryRunModeSpecified = dryRunModeSpecified
-
-				if dryRunModeSpecified && !(diff.dryRunMode == "client" || diff.dryRunMode == "server") {
-					return fmt.Errorf("flag %q must take an argument of %q or %q but got %q", "dry-run", "client", "server", diff.dryRunMode)
-				}
-			}
-
-			cmd.SetArgs(args)
-
-			// We have to do this here because we have to sort out the
-			// --dry-run flag ambiguity to determine the args to be checked.
-			//
-			// In other words, we can't just do:
-			//
-			// cmd.Args = func(cmd *cobra.Command, args []string) error {
-			//     return checkArgsLength(len(args), "release name", "chart path")
-			// }
-			//
-			// Because it seems to take precedence over the PersistentPreRunE
-			return checkArgsLength(len(args), "release name", "chart path")
-		},
 		Example: strings.Join([]string{
 			"  helm diff upgrade my-release stable/postgresql --values values.yaml",
 			"",
@@ -206,6 +152,69 @@ func newChartCommand() *cobra.Command {
 			"HELM_DIFF_OUTPUT_CONTEXT=5 helm diff upgrade my-release datadog/datadog",
 		}, "\n"),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Note that we can't just move this block to PersistentPreRunE,
+			// because cmd.SetArgs(args) does not persist between PersistentPreRunE and RunE.
+			// The choice is between:
+			// 1. Doing this in RunE
+			// 2. Doing this in PersistentPreRunE, saving args somewhere, and calling cmd.SetArgs(args) again in RunE
+			// 2 is more complicated without much benefit, so we choose 1.
+			{
+				const (
+					dryRunUsage = "--dry-run, --dry-run=client, or --dry-run=true disables cluster access and show diff as if it was install. Implies --install, --reset-values, and --disable-validation." +
+						" --dry-run=server enables the cluster access with helm-get and the lookup template function."
+				)
+
+				legacyDryRunFlagSet := pflag.NewFlagSet("upgrade", pflag.ContinueOnError)
+				legacyDryRun := legacyDryRunFlagSet.Bool("dry-run", false, dryRunUsage)
+				if err := legacyDryRunFlagSet.Parse(args); err == nil && *legacyDryRun {
+					diff.dryRunModeSpecified = true
+					args = legacyDryRunFlagSet.Args()
+				} else {
+					cmd.Flags().StringVar(&diff.dryRunMode, "dry-run", "", dryRunUsage)
+				}
+
+				fmt.Fprintf(os.Stderr, "args after legacy dry-run parsing: %v\n", args)
+
+				// Here we parse the flags ourselves so that we can support
+				// both --dry-run and --dry-run=ARG syntaxes.
+				//
+				// If you don't do this, then cobra will treat --dry-run as
+				// a "flag needs an argument: --dry-run" error.
+				//
+				// This works becase we have `DisableFlagParsing: true`` above.
+				// Never turn that off, or you'll get the error again.
+				if err := cmd.Flags().Parse(args); err != nil {
+					return err
+				}
+
+				args = cmd.Flags().Args()
+
+				if !diff.dryRunModeSpecified {
+					dryRunModeSpecified := cmd.Flags().Changed("dry-run")
+					diff.dryRunModeSpecified = dryRunModeSpecified
+
+					if dryRunModeSpecified && !(diff.dryRunMode == "client" || diff.dryRunMode == "server") {
+						return fmt.Errorf("flag %q must take an argument of %q or %q but got %q", "dry-run", "client", "server", diff.dryRunMode)
+					}
+				}
+
+				cmd.SetArgs(args)
+
+				// We have to do this here because we have to sort out the
+				// --dry-run flag ambiguity to determine the args to be checked.
+				//
+				// In other words, we can't just do:
+				//
+				// cmd.Args = func(cmd *cobra.Command, args []string) error {
+				//     return checkArgsLength(len(args), "release name", "chart path")
+				// }
+				//
+				// Because it seems to take precedence over the PersistentPreRunE
+				if err := checkArgsLength(len(args), "release name", "chart path"); err != nil {
+					return err
+				}
+			}
+
 			// Suppress the command usage on error. See #77 for more info
 			cmd.SilenceUsage = true
 
