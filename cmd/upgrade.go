@@ -13,6 +13,7 @@ import (
 	jsoniterator "github.com/json-iterator/go"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/kube"
@@ -37,7 +38,8 @@ type diffCmd struct {
 	devel                    bool
 	disableValidation        bool
 	disableOpenAPIValidation bool
-	dryRun                   bool
+	dryRunMode               string
+	dryRunModeSpecified      bool
 	namespace                string // namespace to assume the release to be installed into. Defaults to the current kube config namespace.
 	valueFiles               valueFiles
 	values                   []string
@@ -68,6 +70,28 @@ func (d *diffCmd) isAllowUnreleased() bool {
 	return d.allowUnreleased || d.install
 }
 
+// clusterAccessAllowed returns true if the diff command is allowed to access the cluster at some degree.
+//
+// helm-diff basically have 3 modes of operation:
+// 1. no cluster access at all when --dry-run, --dry-run=client, or --dry-run=true is specified.
+// 2. basic cluster access when --dry-run is not specified.
+// 3. extra cluster access when --dry-run=server is specified.
+//
+// clusterAccessAllowed returns true when the mode is either 2 or 3.
+//
+// If false, helm-diff should not access the cluster at all.
+// More concretely:
+// - It shouldn't pass --validate to helm-template because it requires cluster access.
+// - It shouldn't get the current release manifest using helm-get-manifest because it requires cluster access.
+// - It shouldn't get the current release hooks using helm-get-hooks because it requires cluster access.
+// - It shouldn't get the current release values using helm-get-values because it requires cluster access.
+//
+// See also https://github.com/helm/helm/pull/9426#discussion_r1181397259
+func (d *diffCmd) clusterAccessAllowed() bool {
+	clientOnly := (d.dryRunModeSpecified && d.dryRunMode == "") || d.dryRunMode == "true" || d.dryRunMode == "client"
+	return !clientOnly
+}
+
 const globalUsage = `Show a diff explaining what a helm upgrade would change.
 
 This fetches the currently deployed version of a release
@@ -85,9 +109,10 @@ func newChartCommand() *cobra.Command {
 	}
 
 	cmd := &cobra.Command{
-		Use:   "upgrade [flags] [RELEASE] [CHART]",
-		Short: "Show a diff explaining what a helm upgrade would change.",
-		Long:  globalUsage,
+		Use:                "upgrade [flags] [RELEASE] [CHART]",
+		Short:              "Show a diff explaining what a helm upgrade would change.",
+		Long:               globalUsage,
+		DisableFlagParsing: true,
 		Example: strings.Join([]string{
 			"  helm diff upgrade my-release stable/postgresql --values values.yaml",
 			"",
@@ -95,6 +120,14 @@ func newChartCommand() *cobra.Command {
 			"  # It's useful when you're using `helm-diff` in a `helm upgrade` wrapper.",
 			"  # See https://github.com/databus23/helm-diff/issues/278 for more information.",
 			"  HELM_DIFF_IGNORE_UNKNOWN_FLAGS=true helm diff upgrade my-release stable/postgres --wait",
+			"",
+			"  # helm-diff disallows the use of the `lookup` function by default.",
+			"  # To enable it, you must set HELM_DIFF_USE_INSECURE_SERVER_SIDE_DRY_RUN=true to",
+			"  # use `helm template --dry-run=server` or",
+			"  # `helm upgrade --dry-run=server` (in case you also set `HELM_DIFF_USE_UPGRADE_DRY_RUN`)",
+			"  # See https://github.com/databus23/helm-diff/pull/458",
+			"  # for more information.",
+			"  HELM_DIFF_USE_INSECURE_SERVER_SIDE_DRY_RUN=true helm diff upgrade my-release datadog/datadog",
 			"",
 			"  # Set HELM_DIFF_USE_UPGRADE_DRY_RUN=true to",
 			"  # use `helm upgrade --dry-run` instead of `helm template` to render manifests from the chart.",
@@ -118,10 +151,70 @@ func newChartCommand() *cobra.Command {
 			"# Read the flag usage below for more information on --context.",
 			"HELM_DIFF_OUTPUT_CONTEXT=5 helm diff upgrade my-release datadog/datadog",
 		}, "\n"),
-		Args: func(cmd *cobra.Command, args []string) error {
-			return checkArgsLength(len(args), "release name", "chart path")
-		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Note that we can't just move this block to PersistentPreRunE,
+			// because cmd.SetArgs(args) does not persist between PersistentPreRunE and RunE.
+			// The choice is between:
+			// 1. Doing this in RunE
+			// 2. Doing this in PersistentPreRunE, saving args somewhere, and calling cmd.SetArgs(args) again in RunE
+			// 2 is more complicated without much benefit, so we choose 1.
+			{
+				const (
+					dryRunUsage = "--dry-run, --dry-run=client, or --dry-run=true disables cluster access and show diff as if it was install. Implies --install, --reset-values, and --disable-validation." +
+						" --dry-run=server enables the cluster access with helm-get and the lookup template function."
+				)
+
+				legacyDryRunFlagSet := pflag.NewFlagSet("upgrade", pflag.ContinueOnError)
+				legacyDryRun := legacyDryRunFlagSet.Bool("dry-run", false, dryRunUsage)
+				if err := legacyDryRunFlagSet.Parse(args); err == nil && *legacyDryRun {
+					diff.dryRunModeSpecified = true
+					args = legacyDryRunFlagSet.Args()
+				} else {
+					cmd.Flags().StringVar(&diff.dryRunMode, "dry-run", "", dryRunUsage)
+				}
+
+				fmt.Fprintf(os.Stderr, "args after legacy dry-run parsing: %v\n", args)
+
+				// Here we parse the flags ourselves so that we can support
+				// both --dry-run and --dry-run=ARG syntaxes.
+				//
+				// If you don't do this, then cobra will treat --dry-run as
+				// a "flag needs an argument: --dry-run" error.
+				//
+				// This works becase we have `DisableFlagParsing: true`` above.
+				// Never turn that off, or you'll get the error again.
+				if err := cmd.Flags().Parse(args); err != nil {
+					return err
+				}
+
+				args = cmd.Flags().Args()
+
+				if !diff.dryRunModeSpecified {
+					dryRunModeSpecified := cmd.Flags().Changed("dry-run")
+					diff.dryRunModeSpecified = dryRunModeSpecified
+
+					if dryRunModeSpecified && !(diff.dryRunMode == "client" || diff.dryRunMode == "server") {
+						return fmt.Errorf("flag %q must take an argument of %q or %q but got %q", "dry-run", "client", "server", diff.dryRunMode)
+					}
+				}
+
+				cmd.SetArgs(args)
+
+				// We have to do this here because we have to sort out the
+				// --dry-run flag ambiguity to determine the args to be checked.
+				//
+				// In other words, we can't just do:
+				//
+				// cmd.Args = func(cmd *cobra.Command, args []string) error {
+				//     return checkArgsLength(len(args), "release name", "chart path")
+				// }
+				//
+				// Because it seems to take precedence over the PersistentPreRunE
+				if err := checkArgsLength(len(args), "release name", "chart path"); err != nil {
+					return err
+				}
+			}
+
 			// Suppress the command usage on error. See #77 for more info
 			cmd.SilenceUsage = true
 
@@ -195,7 +288,6 @@ func newChartCommand() *cobra.Command {
 	f.BoolVar(&diff.devel, "devel", false, "use development versions, too. Equivalent to version '>0.0.0-0'. If --version is set, this is ignored.")
 	f.BoolVar(&diff.disableValidation, "disable-validation", false, "disables rendered templates validation against the Kubernetes cluster you are currently pointing to. This is the same validation performed on an install")
 	f.BoolVar(&diff.disableOpenAPIValidation, "disable-openapi-validation", false, "disables rendered templates validation against the Kubernetes OpenAPI Schema")
-	f.BoolVar(&diff.dryRun, "dry-run", false, "disables cluster access and show diff as if it was install. Implies --install, --reset-values, and --disable-validation")
 	f.StringVar(&diff.postRenderer, "post-renderer", "", "the path to an executable to be used for post rendering. If it exists in $PATH, the binary will be used, otherwise it will try to look for the executable at the given path")
 	f.StringArrayVar(&diff.postRendererArgs, "post-renderer-args", []string{}, "an argument to the post-renderer (can specify multiple)")
 	f.BoolVar(&diff.insecureSkipTLSVerify, "insecure-skip-tls-verify", false, "skip tls certificate checks for the chart download")
@@ -215,7 +307,7 @@ func (d *diffCmd) runHelm3() error {
 
 	var err error
 
-	if !d.dryRun {
+	if d.clusterAccessAllowed() {
 		releaseManifest, err = getRelease(d.release, d.namespace)
 	}
 
@@ -262,7 +354,7 @@ func (d *diffCmd) runHelm3() error {
 	}
 
 	currentSpecs := make(map[string]*manifest.MappingResult)
-	if !newInstall && !d.dryRun {
+	if !newInstall && d.clusterAccessAllowed() {
 		if !d.noHooks && !d.threeWayMerge {
 			hooks, err := getHooks(d.release, d.namespace)
 			if err != nil {
