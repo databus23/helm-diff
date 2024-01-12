@@ -1,3 +1,7 @@
+# To test this manually, run:
+#  go install github.com/goreleaser/goreleaser@latest
+#  goreleaser --snapshot --clean
+#  for f in dist/helm-diff*.tgz; do echo Testing $f...; tar tzvf $f; done
 project_name: helm-diff
 builds:
   - id: default
@@ -24,6 +28,7 @@ archives:
     - default
     format: tgz
     name_template: '{{ .ProjectName }}-{{ if eq .Os "darwin" }}macos{{ else }}{{ .Os }}{{ end }}-{{ .Arch }}'
+    wrap_in_directory: diff
     files:
     - README.md
     - plugin.yaml
