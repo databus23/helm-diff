@@ -173,8 +173,6 @@ func newChartCommand() *cobra.Command {
 					cmd.Flags().StringVar(&diff.dryRunMode, "dry-run", "", dryRunUsage)
 				}
 
-				fmt.Fprintf(os.Stderr, "args after legacy dry-run parsing: %v\n", args)
-
 				// Here we parse the flags ourselves so that we can support
 				// both --dry-run and --dry-run=ARG syntaxes.
 				//
