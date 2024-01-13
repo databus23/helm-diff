@@ -113,7 +113,7 @@ Flags:
       --set-string stringArray           set STRING values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)
       --show-secrets                     do not redact secret values in the output
       --strip-trailing-cr                strip trailing carriage return on input
-      --suppress stringArray             allows suppression of the values listed in the diff output
+      --suppress stringArray             allows suppression of the kinds listed in the diff output (can specify multiple, like '--suppress Deployment --suppress Service')
   -q, --suppress-secrets                 suppress secrets in the output
       --three-way-merge                  use three-way-merge to compute patch and generate diff output
   -f, --values valueFiles                specify values in a YAML file (can specify multiple) (default [])
@@ -148,6 +148,14 @@ Examples:
   # It's useful when you're using `helm-diff` in a `helm upgrade` wrapper.
   # See https://github.com/databus23/helm-diff/issues/278 for more information.
   HELM_DIFF_IGNORE_UNKNOWN_FLAGS=true helm diff upgrade my-release stable/postgres --wait
+
+  # helm-diff disallows the use of the `lookup` function by default.
+  # To enable it, you must set HELM_DIFF_USE_INSECURE_SERVER_SIDE_DRY_RUN=true to
+  # use `helm template --dry-run=server` or
+  # `helm upgrade --dry-run=server` (in case you also set `HELM_DIFF_USE_UPGRADE_DRY_RUN`)
+  # See https://github.com/databus23/helm-diff/pull/458
+  # for more information.
+  HELM_DIFF_USE_INSECURE_SERVER_SIDE_DRY_RUN=true helm diff upgrade my-release datadog/datadog
 
   # Set HELM_DIFF_USE_UPGRADE_DRY_RUN=true to
   # use `helm upgrade --dry-run` instead of `helm template` to render manifests from the chart.

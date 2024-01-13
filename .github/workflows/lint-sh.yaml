@@ -1,0 +1,22 @@
+name: Lint sh
+
+on:
+  push:
+    branches: [master]
+    paths: ['install-binary.sh']
+  pull_request:
+    branches: [master]
+    paths: ['install-binary.sh']
+
+jobs:
+  lint-sh:
+    name: Lint install-binary.sh
+    runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, '[ci skip]')"
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v3
+      - uses: luizm/action-sh-checker@v0.7.0
+        with:
+          sh_checker_exclude: 'scripts'
+          sh_checker_checkbashisms_enable: true

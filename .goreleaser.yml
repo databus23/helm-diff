@@ -1,0 +1,40 @@
+# To test this manually, run:
+#  go install github.com/goreleaser/goreleaser@latest
+#  goreleaser --snapshot --clean
+#  for f in dist/helm-diff*.tgz; do echo Testing $f...; tar tzvf $f; done
+project_name: helm-diff
+builds:
+  - id: default
+    main: .
+    binary: bin/diff
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -X github.com/databus23/helm-diff/v3/cmd.Version={{ .Version }}
+    goos:
+      - freebsd
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - id: default
+    builds:
+    - default
+    format: tgz
+    name_template: '{{ .ProjectName }}-{{ if eq .Os "darwin" }}macos{{ else }}{{ .Os }}{{ end }}-{{ .Arch }}'
+    wrap_in_directory: diff
+    files:
+    - README.md
+    - plugin.yaml
+    - LICENSE
+changelog:
+  use: github-native
+
+release:
+  prerelease: auto
