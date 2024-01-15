@@ -15,7 +15,7 @@ jobs:
     if: "!contains(github.event.head_commit.message, '[ci skip]')"
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: luizm/action-sh-checker@v0.8.0
         with:
           sh_checker_exclude: 'scripts'
