@@ -26,7 +26,7 @@ require (
 
 require (
 	github.com/gonvenience/ytbx v1.4.4
-	github.com/google/go-cmp v0.5.9
+	github.com/google/go-cmp v0.6.0
 	github.com/homeport/dyff v1.6.0
 	golang.org/x/term v0.16.0
 )
