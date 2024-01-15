@@ -5,7 +5,7 @@ go 1.20
 require (
 	github.com/Masterminds/semver v1.5.0
 	github.com/aryann/difflib v0.0.0-20170710044230-e206f873d14a
-	github.com/evanphx/json-patch v5.6.0+incompatible
+	github.com/evanphx/json-patch v5.8.0+incompatible
 	github.com/json-iterator/go v1.1.12
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
 	github.com/pkg/errors v0.9.1
