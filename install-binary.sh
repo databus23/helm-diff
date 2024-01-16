@@ -147,7 +147,11 @@ exit_trap() {
 testVersion() {
   set +e
   echo "$PROJECT_NAME installed into $HELM_PLUGIN_DIR/$PROJECT_NAME"
-  "${HELM_PLUGIN_DIR}/bin/diff" -h
+  if [ "${CI}" = "true" ]; then
+    "${HELM_PLUGIN_DIR}/bin/diff" version
+  else
+    "${HELM_PLUGIN_DIR}/bin/diff" -h
+  fi
   set -e
 }
 
