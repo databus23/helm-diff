@@ -18,7 +18,7 @@ require (
 	helm.sh/helm/v3 v3.14.0
 	k8s.io/api v0.29.0
 	k8s.io/apiextensions-apiserver v0.29.0
-	k8s.io/apimachinery v0.29.0
+	k8s.io/apimachinery v0.29.1
 	k8s.io/cli-runtime v0.29.0
 	k8s.io/client-go v0.29.0
 	sigs.k8s.io/yaml v1.4.0
@@ -142,7 +142,7 @@ require (
 	go.opentelemetry.io/otel/metric v1.19.0 // indirect
 	go.opentelemetry.io/otel/trace v1.19.0 // indirect
 	go.starlark.net v0.0.0-20230525235612-a134d8f9ddca // indirect
-	golang.org/x/net v0.17.0 // indirect
+	golang.org/x/net v0.19.0 // indirect
 	golang.org/x/oauth2 v0.10.0 // indirect
 	golang.org/x/sync v0.4.0 // indirect
 	golang.org/x/sys v0.16.0 // indirect
