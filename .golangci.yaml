@@ -138,14 +138,44 @@ linters-settings:
     min-len: 3
     # minimal occurrences count to trigger, 3 by default
     min-occurrences: 8
-  # depguard:
-  #   list-type: blacklist
-  #   include-go-root: false
-  #   packages:
-  #     - github.com/sirupsen/logrus
-  #   packages-with-error-messages:
-  #     # specify an error message to output when a blacklisted package is used
-  #     github.com/sirupsen/logrus: "logging is allowed only by logutils.Log"
+  depguard:
+    # Rules to apply.
+    # Default: Only allow $gostd in all files.
+    rules:
+      # Name of a rule.
+      main:
+        # List of file globs that will match this list of settings to compare against.
+        # Default: $all
+        files:
+          - $all
+        # List of allowed packages.
+        allow:
+          - $gostd
+          - github.com/Masterminds/semver
+          - github.com/aryann/difflib
+          - github.com/databus23/helm-diff/v3
+          - github.com/evanphx/json-patch
+          - github.com/gonvenience/ytbx
+          - github.com/google/go-cmp/cmp
+          - github.com/homeport/dyff/pkg/dyff
+          - github.com/json-iterator/go
+          - github.com/mgutz/ansi
+          - github.com/spf13/cobra
+          - github.com/spf13/pflag
+          - github.com/stretchr/testify/require
+          - helm.sh/helm/v3
+          - k8s.io/api/core/v1
+          - k8s.io/apiextensions-apiserver
+          - k8s.io/apimachinery
+          - k8s.io/cli-runtime
+          - k8s.io/client-go
+          - sigs.k8s.io/yaml
+        # Packages that are not allowed where the value is a suggestion.
+        deny:
+          - pkg: "github.com/sirupsen/logrus"
+            desc: not allowed
+          - pkg: "github.com/pkg/errors"
+            desc: Should be replaced by standard lib errors package
   misspell:
     # Correct spellings using locale preferences for US or UK.
     # Default is to use a neutral variety of English.
