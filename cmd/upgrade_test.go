@@ -9,39 +9,44 @@ func TestIsRemoteAccessAllowed(t *testing.T) {
 		expected bool
 	}{
 		{
-			name:     "no flags",
-			cmd:      diffCmd{},
+			name: "no flags",
+			cmd: diffCmd{
+				dryRunMode: "none",
+			},
 			expected: true,
 		},
 		{
-			name: "legacy explicit dry-run flag",
+			name: "legacy explicit dry-run=true flag",
 			cmd: diffCmd{
-				dryRunModeSpecified: true,
-				dryRunMode:          "true",
+				dryRunMode: "true",
 			},
 			expected: false,
 		},
 		{
+			name: "legacy explicit dry-run=false flag",
+			cmd: diffCmd{
+				dryRunMode: "false",
+			},
+			expected: true,
+		},
+		{
 			name: "legacy empty dry-run flag",
 			cmd: diffCmd{
-				dryRunModeSpecified: true,
-				dryRunMode:          "",
+				dryRunMode: dryRunNoOptDefVal,
 			},
 			expected: false,
 		},
 		{
 			name: "server-side dry-run flag",
 			cmd: diffCmd{
-				dryRunModeSpecified: true,
-				dryRunMode:          "server",
+				dryRunMode: "server",
 			},
 			expected: true,
 		},
 		{
 			name: "client-side dry-run flag",
 			cmd: diffCmd{
-				dryRunModeSpecified: true,
-				dryRunMode:          "client",
+				dryRunMode: "client",
 			},
 			expected: false,
 		},
