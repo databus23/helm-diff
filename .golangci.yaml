@@ -147,7 +147,7 @@ linters-settings:
         # List of file globs that will match this list of settings to compare against.
         # Default: $all
         files:
-          - "!**/*_a _file.go"
+          - $all
         # List of allowed packages.
         allow:
           - $gostd
