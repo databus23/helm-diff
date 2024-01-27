@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -26,6 +27,10 @@ import (
 
 	"github.com/databus23/helm-diff/v3/diff"
 	"github.com/databus23/helm-diff/v3/manifest"
+)
+
+var (
+	validDryRunValues = []string{"server", "client", "true", "false"}
 )
 
 const (
@@ -165,7 +170,7 @@ func newChartCommand() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if diff.dryRunMode == "" {
 				diff.dryRunMode = "none"
-			} else if diff.dryRunMode != "true" && diff.dryRunMode != "false" && diff.dryRunMode != "client" && diff.dryRunMode != "server" {
+			} else if !slices.Contains(validDryRunValues, diff.dryRunMode) {
 				return fmt.Errorf("flag %q must take a bool value or either %q or %q, but got %q", "dry-run", "client", "server", diff.dryRunMode)
 			}
 
