@@ -108,6 +108,7 @@ func newChartCommand() *cobra.Command {
 	diff := diffCmd{
 		namespace: os.Getenv("HELM_NAMESPACE"),
 	}
+	unknownFlags := os.Getenv("HELM_DIFF_IGNORE_UNKNOWN_FLAGS") == "true"
 
 	cmd := &cobra.Command{
 		Use:                "upgrade [flags] [RELEASE] [CHART]",
@@ -165,13 +166,18 @@ func newChartCommand() *cobra.Command {
 						" --dry-run=server enables the cluster access with helm-get and the lookup template function."
 				)
 
+				cmdFlags := cmd.Flags()
+
+				// see: https://github.com/databus23/helm-diff/issues/537
+				cmdFlags.ParseErrorsWhitelist.UnknownFlags = unknownFlags
+
 				legacyDryRunFlagSet := pflag.NewFlagSet("upgrade", pflag.ContinueOnError)
 				legacyDryRun := legacyDryRunFlagSet.Bool("dry-run", false, dryRunUsage)
 				if err := legacyDryRunFlagSet.Parse(args); err == nil && *legacyDryRun {
 					diff.dryRunModeSpecified = true
 					args = legacyDryRunFlagSet.Args()
 				} else {
-					cmd.Flags().StringVar(&diff.dryRunMode, "dry-run", "", dryRunUsage)
+					cmdFlags.StringVar(&diff.dryRunMode, "dry-run", "", dryRunUsage)
 				}
 
 				// Here we parse the flags ourselves so that we can support
@@ -182,11 +188,11 @@ func newChartCommand() *cobra.Command {
 				//
 				// This works becase we have `DisableFlagParsing: true`` above.
 				// Never turn that off, or you'll get the error again.
-				if err := cmd.Flags().Parse(args); err != nil {
+				if err := cmdFlags.Parse(args); err != nil {
 					return err
 				}
 
-				args = cmd.Flags().Args()
+				args = cmdFlags.Args()
 
 				if !diff.dryRunModeSpecified {
 					dryRunModeSpecified := cmd.Flags().Changed("dry-run")
@@ -255,7 +261,7 @@ func newChartCommand() *cobra.Command {
 			return diff.runHelm3()
 		},
 		FParseErrWhitelist: cobra.FParseErrWhitelist{
-			UnknownFlags: os.Getenv("HELM_DIFF_IGNORE_UNKNOWN_FLAGS") == "true",
+			UnknownFlags: unknownFlags,
 		},
 	}
 

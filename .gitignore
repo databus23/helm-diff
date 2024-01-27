@@ -5,3 +5,4 @@ release/
 .envrc
 .idea
 docker-run-release-cache/
+.vscode/
