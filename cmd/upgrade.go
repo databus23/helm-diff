@@ -40,6 +40,7 @@ type diffCmd struct {
 	disableOpenAPIValidation bool
 	dryRunMode               string
 	dryRunModeSpecified      bool
+	enableDNS                bool
 	namespace                string // namespace to assume the release to be installed into. Defaults to the current kube config namespace.
 	valueFiles               valueFiles
 	values                   []string
@@ -286,6 +287,7 @@ func newChartCommand() *cobra.Command {
 	f.BoolVar(&diff.devel, "devel", false, "use development versions, too. Equivalent to version '>0.0.0-0'. If --version is set, this is ignored.")
 	f.BoolVar(&diff.disableValidation, "disable-validation", false, "disables rendered templates validation against the Kubernetes cluster you are currently pointing to. This is the same validation performed on an install")
 	f.BoolVar(&diff.disableOpenAPIValidation, "disable-openapi-validation", false, "disables rendered templates validation against the Kubernetes OpenAPI Schema")
+	f.BoolVar(&diff.enableDNS, "enable-dns", false, "enable DNS lookups when rendering templates")
 	f.StringVar(&diff.postRenderer, "post-renderer", "", "the path to an executable to be used for post rendering. If it exists in $PATH, the binary will be used, otherwise it will try to look for the executable at the given path")
 	f.StringArrayVar(&diff.postRendererArgs, "post-renderer-args", []string{}, "an argument to the post-renderer (can specify multiple)")
 	f.BoolVar(&diff.insecureSkipTLSVerify, "insecure-skip-tls-verify", false, "skip tls certificate checks for the chart download")

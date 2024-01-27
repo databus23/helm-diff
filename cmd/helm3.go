@@ -191,6 +191,10 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 		flags = append(flags, "--disable-openapi-validation")
 	}
 
+	if d.enableDNS {
+		flags = append(flags, "--enable-dns")
+	}
+
 	var (
 		subcmd string
 		filter func([]byte) []byte
