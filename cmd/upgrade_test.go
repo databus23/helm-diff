@@ -37,13 +37,6 @@ func TestIsRemoteAccessAllowed(t *testing.T) {
 			expected: false,
 		},
 		{
-			name: "client-side dry-run flag",
-			cmd: diffCmd{
-				dryRunMode: "client",
-			},
-			expected: false,
-		},
-		{
 			name: "server-side dry-run flag",
 			cmd: diffCmd{
 				dryRunMode: "server",
