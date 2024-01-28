@@ -30,21 +30,15 @@ curl -L $TARBALL_URL | tar -C $(helm home)/plugins -xzv
 
 ### From Source
 #### Prerequisites
- - GoLang `>= 1.17`
+ - GoLang `>= 1.21`
 
 Make sure you do not have a version of `helm-diff` installed. You can remove it by running `helm plugin uninstall diff`
 
 #### Installation Steps
 The first step is to download the repository and enter the directory. You can do this via `git clone` or downloading and extracting the release. If you clone via git, remember to checkout the latest tag for the latest release.
 
-Next, depending on which helm version you have, install the plugin into helm.
+Next, install the plugin into helm.
 
-##### Helm 2
-```bash
-make install
-```
-
-##### Helm 3
 ```bash
 make install/helm3
 ```
@@ -58,17 +52,17 @@ The Helm Diff Plugin
 * Shows a diff explaining what a helm upgrade would change:
     This fetches the currently deployed version of a release
   and compares it to a local chart plus values. This can be 
-  used visualize what changes a helm upgrade will perform.
+  used to visualize what changes a helm upgrade will perform.
 
-* Shows a diff explaining what had changed between two revisions:
+* Shows a diff explaining what had changed between the two revisions:
     This fetches previously deployed versions of a release
-  and compares them. This can be used visualize what changes 
+  and compares them. This can be used to visualize what changes 
   were made during revision change.
 
 * Shows a diff explaining what a helm rollback would change:
     This fetches the currently deployed version of a release
-  and compares it to the previously deployed version of the release, that you 
-  want to rollback. This can be used visualize what changes a 
+  and compares it to the previously deployed version of the release that you 
+  want to rollback. This can be used to visualize what changes a 
   helm rollback will perform.
 
 Usage:
@@ -136,7 +130,7 @@ Show a diff explaining what a helm upgrade would change.
 
 This fetches the currently deployed version of a release
 and compares it to a chart plus values.
-This can be used visualize what changes a helm upgrade will
+This can be used to visualize what changes a helm upgrade will
 perform.
 
 Usage:
