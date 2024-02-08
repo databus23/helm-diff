@@ -1,9 +1,6 @@
 ---
 name: CI
 
-env:
-  VERSION_HELM: 'v3.11.3'
-
 on:
   pull_request:
   push:
@@ -46,6 +43,7 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
         shell: [ default ]
         experimental: [ false ]
+        helm-version: [ v3.13.3, v3.14.0 ]
         include:
           - os: windows-latest
             shell: wsl
