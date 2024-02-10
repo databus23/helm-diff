@@ -1,9 +1,6 @@
 ---
 name: CI
 
-env:
-  VERSION_HELM: 'v3.11.3'
-
 on:
   pull_request:
   push:
@@ -46,17 +43,34 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
         shell: [ default ]
         experimental: [ false ]
+        helm-version: [ v3.13.3, v3.14.0 ]
         include:
           - os: windows-latest
             shell: wsl
             experimental: false
+            helm-version: v3.13.3
           - os: windows-latest
             shell: cygwin
             experimental: false
+            helm-version: v3.13.3
           - os: ubuntu-latest
             container: alpine
             shell: sh
             experimental: false
+            helm-version: v3.13.3
+          - os: windows-latest
+            shell: wsl
+            experimental: false
+            helm-version: v3.14.0
+          - os: windows-latest
+            shell: cygwin
+            experimental: false
+            helm-version: v3.14.0
+          - os: ubuntu-latest
+            container: alpine
+            shell: sh
+            experimental: false
+            helm-version: v3.14.0
 
     steps:
       - name: Disable autocrlf
@@ -70,7 +84,7 @@ jobs:
       - name: Setup Helm
         uses: azure/setup-helm@v3
         with:
-          version: ${{ env.VERSION_HELM }}
+          version: ${{ matrix.helm-version }}
 
       - name: Setup WSL
         if: "contains(matrix.shell, 'wsl')"
@@ -90,6 +104,14 @@ jobs:
     if: "!contains(github.event.head_commit.message, '[ci skip]')"
     needs: [build]
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          # Helm maintains the latest minor version only and therefore each Helmfile version supports 2 Helm minor versions.
+          # That's why we cover only 2 Helm minor versions in this matrix.
+          # See https://github.com/helmfile/helmfile/pull/286#issuecomment-1250161182 for more context.
+          - helm-version: v3.13.3
+          - helm-version: v3.14.0
     steps:
       - uses: engineerd/setup-kind@v0.5.0
         with:
@@ -100,7 +122,7 @@ jobs:
       - name: Setup Helm
         uses: azure/setup-helm@v3
         with:
-          version: ${{ env.VERSION_HELM }}
+          version: ${{ matrix.helm-version }}
 
       - name: helm plugin install
         run: helm plugin install .
