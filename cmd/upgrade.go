@@ -109,7 +109,7 @@ const globalUsage = `Show a diff explaining what a helm upgrade would change.
 
 This fetches the currently deployed version of a release
 and compares it to a chart plus values.
-This can be used visualize what changes a helm upgrade will
+This can be used to visualize what changes a helm upgrade will
 perform.
 `
 
