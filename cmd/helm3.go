@@ -214,7 +214,7 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 		}
 
 		// If the program reaches here,
-		// we are sure that the user wants to user the `helm upgrade --dry-run` command
+		// we are sure that the user wants to use the `helm upgrade --dry-run` command
 		// for generating the manifests to be diffed.
 		//
 		// So the question is only whether to use `--dry-run=client` or `--dry-run=server`.
