@@ -58,7 +58,9 @@ func Manifests(oldIndex, newIndex map[string]*manifest.MappingResult, options *O
 
 	for _, key := range removed {
 		oldContent := oldIndex[key]
-		doDiff(&report, key, oldContent, nil, options)
+		if oldContent.ResourcePolicy != "keep" {
+			doDiff(&report, key, oldContent, nil, options)
+		}
 	}
 
 	for _, key := range added {

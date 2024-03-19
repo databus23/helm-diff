@@ -259,6 +259,22 @@ spec:
 `,
 		}}
 
+	specReleaseKeep := map[string]*manifest.MappingResult{
+		"default, nginx, Deployment (apps)": {
+
+			Name: "default, nginx, Deployment (apps)",
+			Kind: "Deployment",
+			Content: `
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx
+annotations:
+  helm.sh/resource-policy: keep
+`,
+			ResourcePolicy: "keep",
+		}}
+
 	t.Run("OnChange", func(t *testing.T) {
 		var buf1 bytes.Buffer
 		diffOptions := Options{"diff", 10, false, true, []string{}, 0.0, []string{}}
@@ -432,6 +448,35 @@ spec:
 		diffOptions := Options{"diff", 10, false, true, []string{}, 0.0, []string{}}
 
 		if changesSeen := Manifests(specRelease, specRelease, &diffOptions, &buf2); changesSeen {
+			t.Error("Unexpected return value from Manifests: Expected the return value to be `false` to indicate that it has NOT seen any change(s), but was `true`")
+		}
+
+		require.Equal(t, ``, buf2.String())
+	})
+
+	t.Run("OnChangeRemoved", func(t *testing.T) {
+		var buf1 bytes.Buffer
+		diffOptions := Options{"diff", 10, false, true, []string{}, 0.5, []string{}}
+
+		if changesSeen := Manifests(specRelease, nil, &diffOptions, &buf1); !changesSeen {
+			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
+		}
+
+		require.Equal(t, `default, nginx, Deployment (apps) has been removed:
+
+- apiVersion: apps/v1
+- kind: Deployment
+- metadata:
+-   name: nginx
+- `+`
+`, buf1.String())
+	})
+
+	t.Run("OnChangeRemovedWithResourcePolicyKeep", func(t *testing.T) {
+		var buf2 bytes.Buffer
+		diffOptions := Options{"diff", 10, false, true, []string{}, 0.0, []string{}}
+
+		if changesSeen := Manifests(specReleaseKeep, nil, &diffOptions, &buf2); changesSeen {
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `false` to indicate that it has NOT seen any change(s), but was `true`")
 		}
 
