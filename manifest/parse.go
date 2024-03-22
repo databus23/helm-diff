@@ -11,16 +11,18 @@ import (
 )
 
 const (
-	hookAnnotation = "helm.sh/hook"
+	hookAnnotation           = "helm.sh/hook"
+	resourcePolicyAnnotation = "helm.sh/resource-policy"
 )
 
 var yamlSeparator = []byte("\n---\n")
 
 // MappingResult to store result of diff
 type MappingResult struct {
-	Name    string
-	Kind    string
-	Content string
+	Name           string
+	Kind           string
+	Content        string
+	ResourcePolicy string
 }
 
 type metadata struct {
@@ -169,9 +171,10 @@ func parseContent(content string, defaultNamespace string, normalizeManifests bo
 	name := parsedMetadata.String()
 	return []*MappingResult{
 		{
-			Name:    name,
-			Kind:    parsedMetadata.Kind,
-			Content: content,
+			Name:           name,
+			Kind:           parsedMetadata.Kind,
+			Content:        content,
+			ResourcePolicy: parsedMetadata.Metadata.Annotations[resourcePolicyAnnotation],
 		},
 	}, nil
 }
