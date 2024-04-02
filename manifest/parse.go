@@ -144,18 +144,11 @@ func parseContent(content string, defaultNamespace string, normalizeManifests bo
 	}
 
 	if normalizeManifests {
-		// Unmarshal and marshal again content to normalize yaml structure
-		// This avoids style differences to show up as diffs but it can
-		// make the output different from the original template (since it is in normalized form)
-		var object map[interface{}]interface{}
-		if err := yaml.Unmarshal([]byte(content), &object); err != nil {
-			log.Fatalf("YAML unmarshal error: %s\nCan't unmarshal %s", err, content)
+		var normalizeErr error
+		content, normalizeErr = ContentNormalizeManifests(content)
+		if normalizeErr != nil {
+			log.Fatalf("Error normalizing manifests: %v", normalizeErr)
 		}
-		normalizedContent, err := yaml.Marshal(object)
-		if err != nil {
-			log.Fatalf("YAML marshal error: %s\nCan't marshal %v", err, object)
-		}
-		content = string(normalizedContent)
 	}
 
 	if isHook(parsedMetadata, excludedHooks...) {
@@ -174,6 +167,22 @@ func parseContent(content string, defaultNamespace string, normalizeManifests bo
 			Content: content,
 		},
 	}, nil
+}
+
+func ContentNormalizeManifests(content string) (string, error) {
+	// Unmarshal and marshal again content to normalize yaml structure
+	// This avoids style differences to show up as diffs but it can
+	// make the output different from the original template (since it is in normalized form)
+	log.Printf("Normalizing content: \n%s", content)
+	var object map[interface{}]interface{}
+	if err := yaml.Unmarshal([]byte(content), &object); err != nil {
+		return "", err
+	}
+	normalizedContent, err := yaml.Marshal(object)
+	if err != nil {
+		return "", err
+	}
+	return string(normalizedContent), nil
 }
 
 func isHook(metadata metadata, hooks ...string) bool {
