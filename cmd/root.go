@@ -5,10 +5,10 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/gonvenience/bunt"
 	"github.com/mgutz/ansi"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
-	"github.com/gonvenience/bunt"
 )
 
 const rootCmdLongUsage = `
