@@ -155,6 +155,7 @@ linters-settings:
           - github.com/aryann/difflib
           - github.com/databus23/helm-diff/v3
           - github.com/evanphx/json-patch
+          - github.com/gonvenience/bunt
           - github.com/gonvenience/ytbx
           - github.com/google/go-cmp/cmp
           - github.com/homeport/dyff/pkg/dyff
