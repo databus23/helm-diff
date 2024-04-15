@@ -5,7 +5,7 @@ go 1.22
 require (
 	github.com/Masterminds/semver/v3 v3.2.1
 	github.com/aryann/difflib v0.0.0-20170710044230-e206f873d14a
-	github.com/evanphx/json-patch v5.9.0+incompatible
+	github.com/evanphx/json-patch/v5 v5.9.0
 	github.com/gonvenience/bunt v1.3.5
 	github.com/gonvenience/ytbx v1.4.4
 	github.com/google/go-cmp v0.6.0
@@ -51,6 +51,7 @@ require (
 	github.com/docker/go-metrics v0.0.1 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/emicklei/go-restful/v3 v3.11.0 // indirect
+	github.com/evanphx/json-patch v5.9.0+incompatible // indirect
 	github.com/exponent-io/jsonpath v0.0.0-20151013193312-d6023ce2651d // indirect
 	github.com/fatih/color v1.13.0 // indirect
 	github.com/felixge/httpsnoop v1.0.3 // indirect
