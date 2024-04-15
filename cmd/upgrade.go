@@ -51,6 +51,7 @@ type diffCmd struct {
 	valueFiles               valueFiles
 	values                   []string
 	stringValues             []string
+	stringLiteralValues      []string
 	jsonValues               []string
 	fileValues               []string
 	reuseValues              bool
@@ -236,6 +237,7 @@ func newChartCommand() *cobra.Command {
 	f.VarP(&diff.valueFiles, "values", "f", "specify values in a YAML file (can specify multiple)")
 	f.StringArrayVar(&diff.values, "set", []string{}, "set values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)")
 	f.StringArrayVar(&diff.stringValues, "set-string", []string{}, "set STRING values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)")
+	f.StringArrayVar(&diff.stringLiteralValues, "set-literal", []string{}, "set STRING literal values on the command line")
 	f.StringArrayVar(&diff.jsonValues, "set-json", []string{}, "set JSON values on the command line (can specify multiple or separate values with commas: key1=jsonval1,key2=jsonval2)")
 	f.StringArrayVar(&diff.fileValues, "set-file", []string{}, "set values from respective files specified via the command line (can specify multiple or separate values with commas: key1=path1,key2=path2)")
 	f.BoolVar(&diff.reuseValues, "reuse-values", false, "reuse the last release's values and merge in any new values. If '--reset-values' is specified, this is ignored")
