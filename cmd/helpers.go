@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -32,7 +33,8 @@ func debugPrint(format string, a ...interface{}) {
 func outputWithRichError(cmd *exec.Cmd) ([]byte, error) {
 	debugPrint("Executing %s", strings.Join(cmd.Args, " "))
 	output, err := cmd.Output()
-	if exitError, ok := err.(*exec.ExitError); ok {
+	var exitError *exec.ExitError
+	if errors.As(err, &exitError) {
 		return output, fmt.Errorf("%s: %s", exitError.Error(), string(exitError.Stderr))
 	}
 	return output, err
