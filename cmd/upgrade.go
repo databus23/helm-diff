@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"strings"
 
-	jsonpatch "github.com/evanphx/json-patch"
+	jsonpatch "github.com/evanphx/json-patch/v5"
 	jsoniterator "github.com/json-iterator/go"
 	"github.com/spf13/cobra"
 	"helm.sh/helm/v3/pkg/action"
