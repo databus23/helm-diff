@@ -288,28 +288,29 @@ linters:
   enable:
     - bodyclose
     - depguard
-    - usestdlibvars
-    - reassign
     - errcheck
+    - exportloopref
     - funlen
+    - gci
     - gocognit
     - goconst
     - gofmt
     - goimports
-    - revive
     - gosimple
     - govet
     - ineffassign
     - misspell
     - nakedret
-    - exportloopref
+    - reassign
+    - revive
     - staticcheck
+    - testifylint
     - typecheck
     - unconvert
     - unparam
     - unused
+    - usestdlibvars
     - whitespace
-    - gci
     # - gocritic
     # - godox
     # - gosec
