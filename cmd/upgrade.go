@@ -288,12 +288,12 @@ func (d *diffCmd) runHelm3() error {
 		}
 	}
 	if err != nil {
-		return fmt.Errorf("Failed to get release %s in namespace %s: %s", d.release, d.namespace, err)
+		return fmt.Errorf("Failed to get release %s in namespace %s: %w", d.release, d.namespace, err)
 	}
 
 	installManifest, err := d.template(!newInstall)
 	if err != nil {
-		return fmt.Errorf("Failed to render chart: %s", err)
+		return fmt.Errorf("Failed to render chart: %w", err)
 	}
 
 	if d.threeWayMerge {

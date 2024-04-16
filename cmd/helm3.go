@@ -25,7 +25,7 @@ func getHelmVersion() (*semver.Version, error) {
 	debugPrint("Executing %s", strings.Join(cmd.Args, " "))
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return nil, fmt.Errorf("Failed to run `%s version`: %v", os.Getenv("HELM_BIN"), err)
+		return nil, fmt.Errorf("Failed to run `%s version`: %w", os.Getenv("HELM_BIN"), err)
 	}
 	versionOutput := string(output)
 
@@ -35,7 +35,7 @@ func getHelmVersion() (*semver.Version, error) {
 	}
 	helmVersion, err := semver.NewVersion(matches[1])
 	if err != nil {
-		return nil, fmt.Errorf("Failed to parse version %#v: %v", matches[1], err)
+		return nil, fmt.Errorf("Failed to parse version %#v: %w", matches[1], err)
 	}
 
 	return helmVersion, nil
