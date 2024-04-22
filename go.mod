@@ -1,6 +1,7 @@
 module github.com/databus23/helm-diff/v3
 
-go 1.22
+go 1.22.0
+
 toolchain go1.22.2
 
 require (
