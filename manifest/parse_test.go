@@ -92,6 +92,32 @@ func TestList(t *testing.T) {
 	)
 }
 
+func TestConfigMapList(t *testing.T) {
+	spec, err := os.ReadFile("testdata/configmaplist_v1.yaml")
+	require.NoError(t, err)
+
+	require.Equal(t,
+		[]string{
+			"default, configmap-2-1, ConfigMap (v1)",
+			"default, configmap-2-2, ConfigMap (v1)",
+		},
+		foundObjects(Parse(string(spec), "default", false)),
+	)
+}
+
+func TestSecretList(t *testing.T) {
+	spec, err := os.ReadFile("testdata/secretlist_v1.yaml")
+	require.NoError(t, err)
+
+	require.Equal(t,
+		[]string{
+			"default, my-secret-1, Secret (v1)",
+			"default, my-secret-2, Secret (v1)",
+		},
+		foundObjects(Parse(string(spec), "default", false)),
+	)
+}
+
 func TestEmpty(t *testing.T) {
 	spec, err := os.ReadFile("testdata/empty.yaml")
 	require.NoError(t, err)

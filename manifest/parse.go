@@ -113,7 +113,7 @@ func parseContent(content string, defaultNamespace string, normalizeManifests bo
 		return nil, nil
 	}
 
-	if parsedMetadata.Kind == "List" {
+	if strings.HasSuffix(parsedMetadata.Kind, "List") {
 		type ListV1 struct {
 			Items []yaml.MapSlice `yaml:"items"`
 		}
