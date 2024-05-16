@@ -43,21 +43,21 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
         shell: [ default ]
         experimental: [ false ]
-        helm-version: [ v3.14.5, v3.15.0 ]
+        helm-version: [ v3.14.4, v3.15.0 ]
         include:
           - os: windows-latest
             shell: wsl
             experimental: false
-            helm-version: v3.14.5
+            helm-version: v3.14.4
           - os: windows-latest
             shell: cygwin
             experimental: false
-            helm-version: v3.14.5
+            helm-version: v3.14.4
           - os: ubuntu-latest
             container: alpine
             shell: sh
             experimental: false
-            helm-version: v3.14.5
+            helm-version: v3.14.4
           - os: windows-latest
             shell: wsl
             experimental: false
@@ -110,7 +110,7 @@ jobs:
           # Helm maintains the latest minor version only and therefore each Helmfile version supports 2 Helm minor versions.
           # That's why we cover only 2 Helm minor versions in this matrix.
           # See https://github.com/helmfile/helmfile/pull/286#issuecomment-1250161182 for more context.
-          - helm-version: v3.14.5
+          - helm-version: v3.14.4
           - helm-version: v3.15.0
     steps:
       - uses: engineerd/setup-kind@v0.5.0
