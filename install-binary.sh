@@ -143,14 +143,6 @@ exit_trap() {
   exit $result
 }
 
-# testVersion tests the installed client to make sure it is working.
-testVersion() {
-  set +e
-  echo "$PROJECT_NAME installed into $HELM_PLUGIN_DIR/$PROJECT_NAME"
-  "${HELM_PLUGIN_DIR}/bin/diff" -h
-  set -e
-}
-
 # Execution
 
 #Stop execution on any error
@@ -163,4 +155,3 @@ getDownloadURL
 mkTempDir
 downloadFile
 installFile
-testVersion
