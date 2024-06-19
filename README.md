@@ -97,7 +97,7 @@ Flags:
       --no-color                         remove colors from the output. If both --no-color and --color are unspecified, coloring enabled only when the stdout is a term and TERM is not "dumb"
       --no-hooks                         disable diffing of hooks
       --normalize-manifests              normalize manifests before running diff to exclude style differences from the output
-      --output string                    Possible values: diff, simple, template. When set to "template", use the env var HELM_DIFF_TPL to specify the template. (default "diff")
+      --output string                    Possible values: diff, simple, template, dyff. When set to "template", use the env var HELM_DIFF_TPL to specify the template. (default "diff")
       --post-renderer string             the path to an executable to be used for post rendering. If it exists in $PATH, the binary will be used, otherwise it will try to look for the executable at the given path
       --post-renderer-args stringArray   an argument to the post-renderer (can specify multiple)
       --repo string                      specify the chart repository url to locate the requested chart
@@ -192,7 +192,7 @@ Flags:
       --kubeconfig string                This flag is ignored, to allow passing of this top level flag to helm
       --no-hooks                         disable diffing of hooks
       --normalize-manifests              normalize manifests before running diff to exclude style differences from the output
-      --output string                    Possible values: diff, simple, template. When set to "template", use the env var HELM_DIFF_TPL to specify the template. (default "diff")
+      --output string                    Possible values: diff, simple, template, dyff. When set to "template", use the env var HELM_DIFF_TPL to specify the template. (default "diff")
       --post-renderer string             the path to an executable to be used for post rendering. If it exists in $PATH, the binary will be used, otherwise it will try to look for the executable at the given path
       --post-renderer-args stringArray   an argument to the post-renderer (can specify multiple)
       --repo string                      specify the chart repository url to locate the requested chart
@@ -238,7 +238,7 @@ Flags:
   -h, --help                   help for release
       --include-tests          enable the diffing of the helm test hooks
       --normalize-manifests    normalize manifests before running diff to exclude style differences from the output
-      --output string          Possible values: diff, simple, template. When set to "template", use the env var HELM_DIFF_TPL to specify the template. (default "diff")
+      --output string          Possible values: diff, simple, template, dyff. When set to "template", use the env var HELM_DIFF_TPL to specify the template. (default "diff")
       --show-secrets           do not redact secret values in the output
       --strip-trailing-cr      strip trailing carriage return on input
       --suppress stringArray   allows suppression of the values listed in the diff output
@@ -278,7 +278,7 @@ Flags:
   -h, --help                   help for revision
       --include-tests          enable the diffing of the helm test hooks
       --normalize-manifests    normalize manifests before running diff to exclude style differences from the output
-      --output string          Possible values: diff, simple, template. When set to "template", use the env var HELM_DIFF_TPL to specify the template. (default "diff")
+      --output string          Possible values: diff, simple, template, dyff. When set to "template", use the env var HELM_DIFF_TPL to specify the template. (default "diff")
       --show-secrets           do not redact secret values in the output
       --strip-trailing-cr      strip trailing carriage return on input
       --suppress stringArray   allows suppression of the values listed in the diff output
@@ -312,7 +312,7 @@ Flags:
   -h, --help                   help for rollback
       --include-tests          enable the diffing of the helm test hooks
       --normalize-manifests    normalize manifests before running diff to exclude style differences from the output
-      --output string          Possible values: diff, simple, template. When set to "template", use the env var HELM_DIFF_TPL to specify the template. (default "diff")
+      --output string          Possible values: diff, simple, template, dyff. When set to "template", use the env var HELM_DIFF_TPL to specify the template. (default "diff")
       --show-secrets           do not redact secret values in the output
       --strip-trailing-cr      strip trailing carriage return on input
       --suppress stringArray   allows suppression of the values listed in the diff output
