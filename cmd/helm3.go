@@ -308,8 +308,12 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 	return filter(out), err
 }
 
-func (d *diffCmd) writeExistingValues(f *os.File) error {
-	cmd := exec.Command(os.Getenv("HELM_BIN"), "get", "values", d.release, "--all", "--output", "yaml")
+func (d *diffCmd) writeExistingValues(f *os.File, all bool) error {
+	args := []string{"get", "values", d.release, "--output", "yaml"}
+	if all {
+		args = append(args, "--all")
+	}
+	cmd := exec.Command(os.Getenv("HELM_BIN"), args...)
 	debugPrint("Executing %s", strings.Join(cmd.Args, " "))
 	defer func() {
 		_ = f.Close()
