@@ -17,7 +17,8 @@ var (
 	helmVersionRE  = regexp.MustCompile(`Version:\s*"([^"]+)"`)
 	minHelmVersion = semver.MustParse("v3.1.0-rc.1")
 	// See https://github.com/helm/helm/pull/9426
-	minHelmVersionWithDryRunLookupSupport = semver.MustParse("v3.13.0")
+	minHelmVersionWithDryRunLookupSupport  = semver.MustParse("v3.13.0")
+	minHelmVersionWithResetThenReuseValues = semver.MustParse("v3.14.0")
 )
 
 func getHelmVersion() (*semver.Version, error) {
@@ -132,15 +133,28 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 	// Let's simulate that in helm-diff.
 	// See https://medium.com/@kcatstack/understand-helm-upgrade-flags-reset-values-reuse-values-6e58ac8f127e
 	shouldDefaultReusingValues := isUpgrade && len(d.values) == 0 && len(d.stringValues) == 0 && len(d.stringLiteralValues) == 0 && len(d.jsonValues) == 0 && len(d.valueFiles) == 0 && len(d.fileValues) == 0
-	if (d.reuseValues || shouldDefaultReusingValues) && !d.resetValues && d.clusterAccessAllowed() {
+	if (d.reuseValues || d.resetThenReuseValues || shouldDefaultReusingValues) && !d.resetValues && d.clusterAccessAllowed() {
 		tmpfile, err := os.CreateTemp("", "existing-values")
+		if err != nil {
+			return nil, err
+		}
+		resetThenReuseValuesIsSupported, err := isHelmVersionAtLeast(minHelmVersionWithResetThenReuseValues)
 		if err != nil {
 			return nil, err
 		}
 		defer func() {
 			_ = os.Remove(tmpfile.Name())
 		}()
-		if err := d.writeExistingValues(tmpfile); err != nil {
+		// In the presence of --reuse-values (or --reset-values), --reset-then-reuse-values is ignored.
+		if d.resetThenReuseValues && !d.reuseValues {
+			if !resetThenReuseValuesIsSupported {
+				return nil, fmt.Errorf("Using --reset-then-reuse-values requires at least helm version %s", minHelmVersionWithResetThenReuseValues.String())
+			}
+			err = d.writeExistingValues(tmpfile, false)
+		} else {
+			err = d.writeExistingValues(tmpfile, true)
+		}
+		if err != nil {
 			return nil, err
 		}
 		flags = append(flags, "--values", tmpfile.Name())
