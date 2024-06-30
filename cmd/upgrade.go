@@ -56,6 +56,7 @@ type diffCmd struct {
 	fileValues               []string
 	reuseValues              bool
 	resetValues              bool
+	resetThenReuseValues     bool
 	allowUnreleased          bool
 	noHooks                  bool
 	includeTests             bool
@@ -242,6 +243,7 @@ func newChartCommand() *cobra.Command {
 	f.StringArrayVar(&diff.fileValues, "set-file", []string{}, "set values from respective files specified via the command line (can specify multiple or separate values with commas: key1=path1,key2=path2)")
 	f.BoolVar(&diff.reuseValues, "reuse-values", false, "reuse the last release's values and merge in any new values. If '--reset-values' is specified, this is ignored")
 	f.BoolVar(&diff.resetValues, "reset-values", false, "reset the values to the ones built into the chart and merge in any new values")
+	f.BoolVar(&diff.resetThenReuseValues, "reset-then-reuse-values", false, "reset the values to the ones built into the chart, apply the last release's values and merge in any new values. If '--reset-values' or '--reuse-values' is specified, this is ignored")
 	f.BoolVar(&diff.allowUnreleased, "allow-unreleased", false, "enables diffing of releases that are not yet deployed via Helm")
 	f.BoolVar(&diff.install, "install", false, "enables diffing of releases that are not yet deployed via Helm (equivalent to --allow-unreleased, added to match \"helm upgrade --install\" command")
 	f.BoolVar(&diff.noHooks, "no-hooks", false, "disable diffing of hooks")
