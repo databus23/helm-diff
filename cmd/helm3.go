@@ -16,8 +16,10 @@ import (
 var (
 	helmVersionRE  = regexp.MustCompile(`Version:\s*"([^"]+)"`)
 	minHelmVersion = semver.MustParse("v3.1.0-rc.1")
-	// See https://github.com/helm/helm/pull/9426
+	// See https://github.com/helm/helm/pull/9426.
 	minHelmVersionWithDryRunLookupSupport  = semver.MustParse("v3.13.0")
+	// The --reset-then-reuse-values flag for `helm upgrade` was added in
+	// https://github.com/helm/helm/pull/9653 and released as part of Helm v3.14.0.
 	minHelmVersionWithResetThenReuseValues = semver.MustParse("v3.14.0")
 )
 
