@@ -145,11 +145,12 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 		}()
 		// In the presence of --reuse-values (or --reset-values), --reset-then-reuse-values is ignored.
 		if d.resetThenReuseValues && !d.reuseValues {
-			resetThenReuseValuesIsSupported, err := isHelmVersionAtLeast(minHelmVersionWithResetThenReuseValues)
+			var supported bool
+			supported, err = isHelmVersionAtLeast(minHelmVersionWithResetThenReuseValues)
 			if err != nil {
 				return nil, err
 			}
-			if !resetThenReuseValuesIsSupported {
+			if !supported {
 				return nil, fmt.Errorf("Using --reset-then-reuse-values requires at least helm version %s", minHelmVersionWithResetThenReuseValues.String())
 			}
 			err = d.writeExistingValues(tmpfile, false)
