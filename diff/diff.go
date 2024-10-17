@@ -332,7 +332,7 @@ func printDiffRecords(suppressedKinds []string, kind string, context int, diffs 
 	for _, ckind := range suppressedKinds {
 		if ckind == kind {
 			str := fmt.Sprintf("+ Changes suppressed on sensitive content of type %s\n", kind)
-			fmt.Fprint(to, ansi.Color(str, "yellow"))
+			_, _ = fmt.Fprint(to, ansi.Color(str, "yellow"))
 			return
 		}
 	}
@@ -343,7 +343,7 @@ func printDiffRecords(suppressedKinds []string, kind string, context int, diffs 
 		for i, diff := range diffs {
 			if distances[i] > context {
 				if !omitting {
-					fmt.Fprintln(to, "...")
+					_, _ = fmt.Fprintln(to, "...")
 					omitting = true
 				}
 			} else {
@@ -368,7 +368,7 @@ func printDiffRecord(diff difflib.DiffRecord, to io.Writer) {
 		_, _ = fmt.Fprintf(to, "%s\n", ansi.Color("- "+text, "red"))
 	case difflib.Common:
 		if text == "" {
-			fmt.Fprintln(to)
+			_, _ = fmt.Fprintln(to)
 		} else {
 			_, _ = fmt.Fprintf(to, "%s\n", "  "+text)
 		}

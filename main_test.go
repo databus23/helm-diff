@@ -76,7 +76,7 @@ func runFakeHelm() int {
 	var stub *fakeHelmSubcmd
 
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "fake helm does not support invocations without subcommands")
+		_, _ = fmt.Fprintln(os.Stderr, "fake helm does not support invocations without subcommands")
 		return 1
 	}
 
