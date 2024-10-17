@@ -291,7 +291,7 @@ linters:
     - depguard
     - errcheck
     - errorlint
-    - exportloopref
+    - copyloopvar
     - funlen
     - gci
     - gocognit
