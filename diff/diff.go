@@ -363,14 +363,14 @@ func printDiffRecord(diff difflib.DiffRecord, to io.Writer) {
 
 	switch diff.Delta {
 	case difflib.RightOnly:
-		fmt.Fprintf(to, "%s\n", ansi.Color("+ "+text, "green"))
+		_, _ = fmt.Fprintf(to, "%s\n", ansi.Color("+ "+text, "green"))
 	case difflib.LeftOnly:
-		fmt.Fprintf(to, "%s\n", ansi.Color("- "+text, "red"))
+		_, _ = fmt.Fprintf(to, "%s\n", ansi.Color("- "+text, "red"))
 	case difflib.Common:
 		if text == "" {
 			fmt.Fprintln(to)
 		} else {
-			fmt.Fprintf(to, "%s\n", "  "+text)
+			_, _ = fmt.Fprintf(to, "%s\n", "  "+text)
 		}
 	}
 }

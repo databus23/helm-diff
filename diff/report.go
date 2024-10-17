@@ -148,7 +148,7 @@ func setupDiffReport(r *Report) {
 // print report for default output: diff
 func printDiffReport(r *Report, to io.Writer) {
 	for _, entry := range r.entries {
-		fmt.Fprintf(to, ansi.Color("%s %s", "yellow")+"\n", entry.key, r.format.changestyles[entry.changeType].message)
+		_, _ = fmt.Fprintf(to, ansi.Color("%s %s", "yellow")+"\n", entry.key, r.format.changestyles[entry.changeType].message)
 		printDiffRecords(entry.suppressedKinds, entry.kind, entry.context, entry.diffs, to)
 	}
 }
@@ -170,13 +170,13 @@ func printSimpleReport(r *Report, to io.Writer) {
 		"MODIFY": 0,
 	}
 	for _, entry := range r.entries {
-		fmt.Fprintf(to, ansi.Color("%s %s", r.format.changestyles[entry.changeType].color)+"\n",
+		_, _ = fmt.Fprintf(to, ansi.Color("%s %s", r.format.changestyles[entry.changeType].color)+"\n",
 			entry.key,
 			r.format.changestyles[entry.changeType].message,
 		)
 		summary[entry.changeType]++
 	}
-	fmt.Fprintf(to, "Plan: %d to add, %d to change, %d to destroy.\n", summary["ADD"], summary["MODIFY"], summary["REMOVE"])
+	_, _ = fmt.Fprintf(to, "Plan: %d to add, %d to change, %d to destroy.\n", summary["ADD"], summary["MODIFY"], summary["REMOVE"])
 }
 
 func newTemplate(name string) *template.Template {
