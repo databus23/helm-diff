@@ -76,7 +76,7 @@ func runFakeHelm() int {
 	var stub *fakeHelmSubcmd
 
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "fake helm does not support invocations without subcommands")
+		_, _ = fmt.Fprintln(os.Stderr, "fake helm does not support invocations without subcommands")
 		return 1
 	}
 
@@ -90,7 +90,7 @@ func runFakeHelm() int {
 	}
 
 	if stub == nil {
-		fmt.Fprintf(os.Stderr, "no stub for %s\n", cmdAndArgs)
+		_, _ = fmt.Fprintf(os.Stderr, "no stub for %s\n", cmdAndArgs)
 		return 1
 	}
 
@@ -100,13 +100,13 @@ func runFakeHelm() int {
 	}
 	got := cmdAndArgs[len(stub.cmd):]
 	if !reflect.DeepEqual(want, got) {
-		fmt.Fprintf(os.Stderr, "want: %v\n", want)
-		fmt.Fprintf(os.Stderr, "got : %v\n", got)
-		fmt.Fprintf(os.Stderr, "args : %v\n", os.Args)
-		fmt.Fprintf(os.Stderr, "env : %v\n", os.Environ())
+		_, _ = fmt.Fprintf(os.Stderr, "want: %v\n", want)
+		_, _ = fmt.Fprintf(os.Stderr, "got : %v\n", got)
+		_, _ = fmt.Fprintf(os.Stderr, "args : %v\n", os.Args)
+		_, _ = fmt.Fprintf(os.Stderr, "env : %v\n", os.Environ())
 		return 1
 	}
-	fmt.Fprintf(os.Stdout, "%s", stub.stdout)
-	fmt.Fprintf(os.Stderr, "%s", stub.stderr)
+	_, _ = fmt.Fprintf(os.Stdout, "%s", stub.stdout)
+	_, _ = fmt.Fprintf(os.Stderr, "%s", stub.stderr)
 	return stub.exitCode
 }
