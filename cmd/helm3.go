@@ -198,6 +198,10 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 		flags = append(flags, "--enable-dns")
 	}
 
+	if d.SkipSchemaValidation {
+		flags = append(flags, "--skip-schema-validation")
+	}
+
 	var (
 		subcmd string
 		filter func([]byte) []byte
