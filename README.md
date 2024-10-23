@@ -103,6 +103,7 @@ Flags:
       --repo string                      specify the chart repository url to locate the requested chart
       --reset-values                     reset the values to the ones built into the chart and merge in any new values
       --reuse-values                     reuse the last release's values and merge in any new values. If '--reset-values' is specified, this is ignored
+      --reset-then-reuse-values          reset the values to the ones built into the chart, apply the last release's values and merge in any new values. If '--reset-values' or '--reuse-values' is specified, this is ignored
       --set stringArray                  set values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)
       --set-file stringArray             set values from respective files specified via the command line (can specify multiple or separate values with commas: key1=path1,key2=path2)
       --set-string stringArray           set STRING values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)
@@ -198,6 +199,7 @@ Flags:
       --repo string                      specify the chart repository url to locate the requested chart
       --reset-values                     reset the values to the ones built into the chart and merge in any new values
       --reuse-values                     reuse the last release's values and merge in any new values. If '--reset-values' is specified, this is ignored
+      --reset-then-reuse-values          reset the values to the ones built into the chart, apply the last release's values and merge in any new values. If '--reset-values' or '--reuse-values' is specified, this is ignored
       --set stringArray                  set values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)
       --set-file stringArray             set values from respective files specified via the command line (can specify multiple or separate values with commas: key1=path1,key2=path2)
       --set-string stringArray           set STRING values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)
