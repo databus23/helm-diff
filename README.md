@@ -88,6 +88,7 @@ Flags:
       --disable-validation               disables rendered templates validation against the Kubernetes cluster you are currently pointing to. This is the same validation performed on an install
       --dry-run                          disables cluster access and show diff as if it was install. Implies --install, --reset-values, and --disable-validation
       --enable-dns                       enable DNS lookups when rendering templates 
+      --skip-schema-validation           disables rendered templates validation against the Kubernetes OpenAPI Schema
   -D, --find-renames float32             Enable rename detection if set to any value greater than 0. If specified, the value denotes the maximum fraction of changed content as lines added + removed compared to total lines in a diff for considering it a rename. Only objects of the same Kind are attempted to be matched
   -h, --help                             help for diff
       --include-tests                    enable the diffing of the helm test hooks
@@ -185,6 +186,7 @@ Flags:
       --disable-validation               disables rendered templates validation against the Kubernetes cluster you are currently pointing to. This is the same validation performed on an install
       --dry-run                          disables cluster access and show diff as if it was install. Implies --install, --reset-values, and --disable-validation
       --enable-dns                       enable DNS lookups when rendering templates 
+      --skip-schema-validation           skip validation of rendered templates against the Kubernetes OpenAPI Schema
   -D, --find-renames float32             Enable rename detection if set to any value greater than 0. If specified, the value denotes the maximum fraction of changed content as lines added + removed compared to total lines in a diff for considering it a rename. Only objects of the same Kind are attempted to be matched
   -h, --help                             help for upgrade
       --include-tests                    enable the diffing of the helm test hooks

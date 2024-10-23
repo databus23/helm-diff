@@ -47,6 +47,7 @@ type diffCmd struct {
 	disableValidation        bool
 	disableOpenAPIValidation bool
 	enableDNS                bool
+	SkipSchemaValidation     bool
 	namespace                string // namespace to assume the release to be installed into. Defaults to the current kube config namespace.
 	valueFiles               valueFiles
 	values                   []string
@@ -255,6 +256,7 @@ func newChartCommand() *cobra.Command {
 		" --dry-run=server enables the cluster access with helm-get and the lookup template function.")
 	f.Lookup("dry-run").NoOptDefVal = dryRunNoOptDefVal
 	f.BoolVar(&diff.enableDNS, "enable-dns", false, "enable DNS lookups when rendering templates")
+	f.BoolVar(&diff.SkipSchemaValidation, "skip-schema-validation", false, "skip validation of the rendered manifests against the Kubernetes OpenAPI schema")
 	f.StringVar(&diff.postRenderer, "post-renderer", "", "the path to an executable to be used for post rendering. If it exists in $PATH, the binary will be used, otherwise it will try to look for the executable at the given path")
 	f.StringArrayVar(&diff.postRendererArgs, "post-renderer-args", []string{}, "an argument to the post-renderer (can specify multiple)")
 	f.BoolVar(&diff.insecureSkipTLSVerify, "insecure-skip-tls-verify", false, "skip tls certificate checks for the chart download")
