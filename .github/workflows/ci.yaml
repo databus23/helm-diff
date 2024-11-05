@@ -115,7 +115,8 @@ jobs:
     steps:
       - uses: engineerd/setup-kind@v0.6.2
         with:
-          version: "v0.11.1"
+          skipClusterLogsExport: true 
+
 
       - uses: actions/checkout@v4
 
