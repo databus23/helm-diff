@@ -114,6 +114,9 @@ jobs:
           - helm-version: v3.16.2
     steps:
       - uses: engineerd/setup-kind@v0.6.2
+        with:
+          skipClusterLogsExport: true 
+
 
       - uses: actions/checkout@v4
 
