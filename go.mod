@@ -9,7 +9,7 @@ require (
 	github.com/gonvenience/bunt v1.3.5
 	github.com/gonvenience/ytbx v1.4.4
 	github.com/google/go-cmp v0.6.0
-	github.com/homeport/dyff v1.9.2
+	github.com/homeport/dyff v1.9.3
 	github.com/json-iterator/go v1.1.12
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
 	github.com/spf13/cobra v1.8.1
