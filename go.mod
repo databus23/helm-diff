@@ -3,7 +3,7 @@ module github.com/databus23/helm-diff/v3
 go 1.23.2
 
 require (
-	github.com/Masterminds/semver/v3 v3.3.0
+	github.com/Masterminds/semver/v3 v3.3.1
 	github.com/aryann/difflib v0.0.0-20170710044230-e206f873d14a
 	github.com/evanphx/json-patch/v5 v5.9.0
 	github.com/gonvenience/bunt v1.3.5
