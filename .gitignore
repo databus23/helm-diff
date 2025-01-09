@@ -6,3 +6,4 @@ release/
 .idea
 docker-run-release-cache/
 .vscode/
+/cover.out

@@ -71,7 +71,7 @@ func releaseCmd() *cobra.Command {
 }
 
 func (d *release) differentiateHelm3() error {
-	excludes := []string{helm3TestHook, helm2TestSuccessHook}
+	excludes := []string{manifest.Helm3TestHook, manifest.Helm2TestSuccessHook}
 	if d.includeTests {
 		excludes = []string{}
 	}
