@@ -23,8 +23,6 @@ const (
 	Helm3TestHook        = "test"
 )
 
-var yamlSeperator = []byte("\n---\n")
-
 func Generate(actionConfig *action.Configuration, originalManifest, targetManifest []byte) ([]byte, []byte, error) {
 	var err error
 	original, err := actionConfig.KubeClient.Build(bytes.NewBuffer(originalManifest), false)
@@ -44,7 +42,7 @@ func Generate(actionConfig *action.Configuration, originalManifest, targetManife
 	for _, r := range original {
 		if !targetResources[objectKey(r)] {
 			out, _ := yaml.Marshal(r.Object)
-			releaseManifest = append(releaseManifest, yamlSeperator...)
+			releaseManifest = append(releaseManifest, yamlSeparator...)
 			releaseManifest = append(releaseManifest, out...)
 		}
 	}
@@ -80,7 +78,7 @@ func Generate(actionConfig *action.Configuration, originalManifest, targetManife
 		}
 		kind := info.Mapping.GroupVersionKind.Kind
 
-		// Fetch the current object for the three way merge
+		// Fetch the current object for the three-way merge
 		helper := resource.NewHelper(info.Client, info.Mapping)
 		currentObj, err := helper.Get(info.Namespace, info.Name)
 		if err != nil {
@@ -89,7 +87,7 @@ func Generate(actionConfig *action.Configuration, originalManifest, targetManife
 			}
 			// to be created
 			out, _ := yaml.Marshal(info.Object)
-			installManifest = append(installManifest, yamlSeperator...)
+			installManifest = append(installManifest, yamlSeparator...)
 			installManifest = append(installManifest, out...)
 			return nil
 		}
@@ -103,7 +101,7 @@ func Generate(actionConfig *action.Configuration, originalManifest, targetManife
 		if err != nil {
 			return fmt.Errorf("prune current out %q with kind %s: %w", info.Name, kind, err)
 		}
-		releaseManifest = append(releaseManifest, yamlSeperator...)
+		releaseManifest = append(releaseManifest, yamlSeparator...)
 		releaseManifest = append(releaseManifest, pruneOut...)
 
 		originalInfo := original.Get(info)
@@ -130,7 +128,7 @@ func Generate(actionConfig *action.Configuration, originalManifest, targetManife
 		if err != nil {
 			return fmt.Errorf("prune current out %q with kind %s: %w", info.Name, kind, err)
 		}
-		installManifest = append(installManifest, yamlSeperator...)
+		installManifest = append(installManifest, yamlSeparator...)
 		installManifest = append(installManifest, pruneOut...)
 		return nil
 	})
