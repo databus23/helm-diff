@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"log"
@@ -296,15 +295,7 @@ func (d *diffCmd) runHelm3() error {
 		if err := actionConfig.KubeClient.IsReachable(); err != nil {
 			return err
 		}
-		original, err := actionConfig.KubeClient.Build(bytes.NewBuffer(releaseManifest), false)
-		if err != nil {
-			return fmt.Errorf("unable to build kubernetes objects from original release manifest: %w", err)
-		}
-		target, err := actionConfig.KubeClient.Build(bytes.NewBuffer(installManifest), false)
-		if err != nil {
-			return fmt.Errorf("unable to build kubernetes objects from new release manifest: %w", err)
-		}
-		releaseManifest, installManifest, err = manifest.Generate(original, target)
+		releaseManifest, installManifest, err = manifest.Generate(actionConfig, releaseManifest, installManifest)
 		if err != nil {
 			return fmt.Errorf("unable to generate manifests: %w", err)
 		}

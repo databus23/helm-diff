@@ -1,11 +1,13 @@
 package manifest
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 
 	"github.com/evanphx/json-patch/v5"
 	"github.com/json-iterator/go"
+	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/kube"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -23,10 +25,17 @@ const (
 
 var yamlSeperator = []byte("\n---\n")
 
-func Generate(original, target kube.ResourceList) ([]byte, []byte, error) {
+func Generate(actionConfig *action.Configuration, originalManifest, targetManifest []byte) ([]byte, []byte, error) {
 	var err error
+	original, err := actionConfig.KubeClient.Build(bytes.NewBuffer(originalManifest), false)
+	if err != nil {
+		return nil, nil, fmt.Errorf("unable to build kubernetes objects from original release manifest: %w", err)
+	}
+	target, err := actionConfig.KubeClient.Build(bytes.NewBuffer(targetManifest), false)
+	if err != nil {
+		return nil, nil, fmt.Errorf("unable to build kubernetes objects from new release manifest: %w", err)
+	}
 	releaseManifest, installManifest := make([]byte, 0), make([]byte, 0)
-
 	// to be deleted
 	targetResources := make(map[string]bool)
 	for _, r := range target {
