@@ -9,8 +9,8 @@ import (
 	jsoniter "github.com/json-iterator/go"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/kube"
-	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
@@ -82,7 +82,7 @@ func Generate(actionConfig *action.Configuration, originalManifest, targetManife
 		helper := resource.NewHelper(info.Client, info.Mapping)
 		currentObj, err := helper.Get(info.Namespace, info.Name)
 		if err != nil {
-			if !errors.IsNotFound(err) {
+			if !apierrors.IsNotFound(err) {
 				return fmt.Errorf("could not get information about the resource: %w", err)
 			}
 			// to be created
@@ -167,7 +167,7 @@ func createPatch(originalObj, currentObj runtime.Object, target *resource.Info) 
 	_, isUnstructured := versionedObject.(runtime.Unstructured)
 
 	// On newer K8s versions, CRDs aren't unstructured but has this dedicated type
-	_, isCRD := versionedObject.(*v1.CustomResourceDefinition)
+	_, isCRD := versionedObject.(*apiextv1.CustomResourceDefinition)
 
 	if isUnstructured || isCRD {
 		// fall back to generic JSON merge patch
@@ -200,7 +200,7 @@ func existingResourceConflict(resources kube.ResourceList) (kube.ResourceList, e
 		helper := resource.NewHelper(info.Client, info.Mapping)
 		_, err = helper.Get(info.Namespace, info.Name)
 		if err != nil {
-			if errors.IsNotFound(err) {
+			if apierrors.IsNotFound(err) {
 				return nil
 			}
 			return fmt.Errorf("could not get information about the resource: %w", err)
