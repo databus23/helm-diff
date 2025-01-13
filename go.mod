@@ -7,7 +7,7 @@ require (
 	github.com/aryann/difflib v0.0.0-20170710044230-e206f873d14a
 	github.com/evanphx/json-patch/v5 v5.9.0
 	github.com/gonvenience/bunt v1.4.0
-	github.com/gonvenience/ytbx v1.4.4
+	github.com/gonvenience/ytbx v1.4.5
 	github.com/google/go-cmp v0.6.0
 	github.com/homeport/dyff v1.9.4
 	github.com/json-iterator/go v1.1.12
@@ -78,7 +78,7 @@ require (
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/gorilla/mux v1.8.0 // indirect
+	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/gosuri/uitable v0.0.4 // indirect
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79 // indirect
