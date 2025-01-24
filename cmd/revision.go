@@ -79,7 +79,7 @@ func revisionCmd() *cobra.Command {
 
 func (d *revision) differentiateHelm3() error {
 	namespace := os.Getenv("HELM_NAMESPACE")
-	excludes := []string{helm3TestHook, helm2TestSuccessHook}
+	excludes := []string{manifest.Helm3TestHook, manifest.Helm2TestSuccessHook}
 	if d.includeTests {
 		excludes = []string{}
 	}

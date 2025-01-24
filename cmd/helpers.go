@@ -11,11 +11,6 @@ import (
 	"k8s.io/client-go/util/homedir"
 )
 
-const (
-	helm2TestSuccessHook = "test-success"
-	helm3TestHook        = "test"
-)
-
 var (
 	// DefaultHelmHome to hold default home path of .helm dir
 	DefaultHelmHome = filepath.Join(homedir.HomeDir(), ".helm")
