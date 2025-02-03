@@ -5,7 +5,7 @@ go 1.23.2
 require (
 	github.com/Masterminds/semver/v3 v3.3.1
 	github.com/aryann/difflib v0.0.0-20170710044230-e206f873d14a
-	github.com/evanphx/json-patch/v5 v5.9.0
+	github.com/evanphx/json-patch/v5 v5.9.11
 	github.com/gonvenience/bunt v1.4.0
 	github.com/gonvenience/ytbx v1.4.6
 	github.com/google/go-cmp v0.6.0
