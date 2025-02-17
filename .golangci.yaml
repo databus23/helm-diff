@@ -71,9 +71,6 @@ linters-settings:
       - "G104"
 
   govet:
-    enable:
-      - fieldalignment
-    # report about shadowed variables
     disable:
       - shadow
 
