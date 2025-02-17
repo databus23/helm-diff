@@ -514,7 +514,7 @@ Plan: 0 to add, 1 to change, 0 to destroy.
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
 		}
 
-		require.Equal(t, `[{
+		require.JSONEq(t, `[{
   "api": "apps",
   "kind": "Deployment",
   "namespace": "default",
@@ -532,7 +532,7 @@ Plan: 0 to add, 1 to change, 0 to destroy.
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
 		}
 
-		require.Equal(t, `[{
+		require.JSONEq(t, `[{
   "api": "apps",
   "kind": "Deployment",
   "namespace": "default",
