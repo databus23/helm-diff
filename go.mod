@@ -12,7 +12,7 @@ require (
 	github.com/homeport/dyff v1.9.4
 	github.com/json-iterator/go v1.1.12
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
-	github.com/spf13/cobra v1.8.1
+	github.com/spf13/cobra v1.9.1
 	github.com/spf13/pflag v1.0.6
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/term v0.29.0
