@@ -30,11 +30,25 @@ type Options struct {
 	SuppressedOutputLineRegex []string
 }
 
+type OwnershipDiff struct {
+	OldRelease string
+	NewRelease string
+}
+
 // Manifests diff on manifests
 func Manifests(oldIndex, newIndex map[string]*manifest.MappingResult, options *Options, to io.Writer) bool {
+	return ManifestsOwnership(oldIndex, newIndex, nil, options, to)
+}
+
+func ManifestsOwnership(oldIndex, newIndex map[string]*manifest.MappingResult, newOwnedReleases map[string]OwnershipDiff, options *Options, to io.Writer) bool {
 	report := Report{}
 	report.setupReportFormat(options.OutputFormat)
 	var possiblyRemoved []string
+
+	for name, diff := range newOwnedReleases {
+		diff := diffStrings(diff.OldRelease, diff.NewRelease, true)
+		report.addEntry(name, options.SuppressedKinds, "", 0, diff, "OWNERSHIP")
+	}
 
 	for _, key := range sortedKeys(oldIndex) {
 		oldContent := oldIndex[key]

@@ -219,6 +219,10 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 		flags = append(flags, "--skip-schema-validation")
 	}
 
+	if d.takeOwnership {
+		flags = append(flags, "--take-ownership")
+	}
+
 	var (
 		subcmd string
 		filter func([]byte) []byte
