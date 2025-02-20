@@ -492,7 +492,7 @@ annotations:
 		}
 
 		require.Equal(t, `default, nginx, Deployment (apps) to be changed.
-Plan: 0 to add, 1 to change, 0 to destroy.
+Plan: 0 to add, 1 to change, 0 to destroy, 0 to change ownership.
 `, buf1.String())
 	})
 
@@ -503,7 +503,7 @@ Plan: 0 to add, 1 to change, 0 to destroy.
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `false` to indicate that it has NOT seen any change(s), but was `true`")
 		}
 
-		require.Equal(t, "Plan: 0 to add, 0 to change, 0 to destroy.\n", buf2.String())
+		require.Equal(t, "Plan: 0 to add, 0 to change, 0 to destroy, 0 to change ownership.\n", buf2.String())
 	})
 
 	t.Run("OnChangeTemplate", func(t *testing.T) {
