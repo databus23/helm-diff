@@ -117,7 +117,12 @@ func ParseObject(object runtime.Object, defaultNamespace string, excludedHooks .
 	var oldRelease string
 	if a := metadata["annotations"]; a != nil {
 		annotations := a.(map[string]interface{})
-		oldRelease = annotations["meta.helm.sh/release-namespace"].(string) + "/" + annotations["meta.helm.sh/release-name"].(string)
+		if releaseNs, ok := annotations["meta.helm.sh/release-namespace"].(string); ok {
+			oldRelease += releaseNs + "/"
+		}
+		if releaseName, ok := annotations["meta.helm.sh/release-name"].(string); ok {
+			oldRelease += releaseName
+		}
 	}
 
 	// Clean namespace metadata as it exists in Kubernetes but not in Helm manifest
@@ -134,7 +139,7 @@ func ParseObject(object runtime.Object, defaultNamespace string, excludedHooks .
 	}
 
 	if len(result) != 1 {
-		return nil, "", fmt.Errorf("Failed to parse content of Kubernetes resource %s", metadata["name"])
+		return nil, "", fmt.Errorf("failed to parse content of Kubernetes resource %s", metadata["name"])
 	}
 
 	result[0].Content = strings.TrimSuffix(result[0].Content, "\n")

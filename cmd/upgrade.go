@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"helm.sh/helm/v3/pkg/kube"
 	"log"
 	"os"
 	"slices"
@@ -298,14 +299,18 @@ func (d *diffCmd) runHelm3() error {
 		return fmt.Errorf("Failed to render chart: %w", err)
 	}
 
-	if d.threeWayMerge {
-		actionConfig := new(action.Configuration)
+	var actionConfig *action.Configuration
+	if d.threeWayMerge || d.takeOwnership {
+		actionConfig = new(action.Configuration)
 		if err := actionConfig.Init(envSettings.RESTClientGetter(), envSettings.Namespace(), os.Getenv("HELM_DRIVER"), log.Printf); err != nil {
 			log.Fatalf("%+v", err)
 		}
 		if err := actionConfig.KubeClient.IsReachable(); err != nil {
 			return err
 		}
+	}
+
+	if d.threeWayMerge {
 		releaseManifest, installManifest, err = manifest.Generate(actionConfig, releaseManifest, installManifest)
 		if err != nil {
 			return fmt.Errorf("unable to generate manifests: %w", err)
@@ -330,7 +335,11 @@ func (d *diffCmd) runHelm3() error {
 
 	var newOwnedReleases map[string]diff.OwnershipDiff
 	if d.takeOwnership {
-		newOwnedReleases, err = checkOwnership(d, installManifest, currentSpecs)
+		resources, err := actionConfig.KubeClient.Build(bytes.NewBuffer(installManifest), false)
+		if err != nil {
+			return err
+		}
+		newOwnedReleases, err = checkOwnership(d, resources, currentSpecs)
 		if err != nil {
 			return err
 		}
@@ -355,21 +364,9 @@ func (d *diffCmd) runHelm3() error {
 	return nil
 }
 
-func checkOwnership(d *diffCmd, installManifest []byte, currentSpecs map[string]*manifest.MappingResult) (map[string]diff.OwnershipDiff, error) {
-	actionConfig := new(action.Configuration)
-	if err := actionConfig.Init(envSettings.RESTClientGetter(), envSettings.Namespace(), os.Getenv("HELM_DRIVER"), log.Printf); err != nil {
-		log.Fatalf("%+v", err)
-	}
-	if err := actionConfig.KubeClient.IsReachable(); err != nil {
-		return nil, err
-	}
-	resources, err := actionConfig.KubeClient.Build(bytes.NewBuffer(installManifest), false)
-	if err != nil {
-		return nil, err
-	}
-
+func checkOwnership(d *diffCmd, resources kube.ResourceList, currentSpecs map[string]*manifest.MappingResult) (map[string]diff.OwnershipDiff, error) {
 	newOwnedReleases := make(map[string]diff.OwnershipDiff)
-	err = resources.Visit(func(info *resource.Info, err error) error {
+	err := resources.Visit(func(info *resource.Info, err error) error {
 		if err != nil {
 			return err
 		}
@@ -386,7 +383,7 @@ func checkOwnership(d *diffCmd, installManifest []byte, currentSpecs map[string]
 		var result *manifest.MappingResult
 		var oldRelease string
 		if d.includeTests {
-			result, oldRelease, err = manifest.ParseObject(currentObj, d.namespace, manifest.Helm3TestHook, manifest.Helm2TestSuccessHook)
+			result, oldRelease, err = manifest.ParseObject(currentObj, d.namespace)
 		} else {
 			result, oldRelease, err = manifest.ParseObject(currentObj, d.namespace, manifest.Helm3TestHook, manifest.Helm2TestSuccessHook)
 		}

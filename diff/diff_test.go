@@ -768,3 +768,85 @@ func TestDoSuppress(t *testing.T) {
 		})
 	}
 }
+
+func TestChangeOwnership(t *testing.T) {
+	ansi.DisableColors(true)
+
+	specOriginal := map[string]*manifest.MappingResult{
+		"default, foobar, ConfigMap (v1)": {
+			Name: "default, foobar, ConfigMap (v1)",
+			Kind: "Secret",
+			Content: `
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: foobar
+data:
+  key1: value1
+`,
+		}}
+
+	t.Run("OnChangeOwnershipWithoutSpecChange", func(t *testing.T) {
+		var buf1 bytes.Buffer
+		diffOptions := Options{"diff", 10, false, true, []string{}, 0.5, []string{}} //NOTE: ShowSecrets = false
+
+		newOwnedReleases := map[string]OwnershipDiff{
+			"default, foobar, ConfigMap (v1)": {
+				OldRelease: "default/oldfoobar",
+				NewRelease: "default/foobar",
+			},
+		}
+		if changesSeen := ManifestsOwnership(specOriginal, specOriginal, newOwnedReleases, &diffOptions, &buf1); !changesSeen {
+			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
+		}
+
+		require.Equal(t, `default, foobar, ConfigMap (v1) changed ownership:
+- default/oldfoobar
++ default/foobar
+`, buf1.String())
+	})
+
+	t.Run("OnChangeOwnershipWithSpecChange", func(t *testing.T) {
+		var buf1 bytes.Buffer
+		diffOptions := Options{"diff", 10, false, true, []string{}, 0.5, []string{}} //NOTE: ShowSecrets = false
+
+		specNew := map[string]*manifest.MappingResult{
+			"default, foobar, ConfigMap (v1)": {
+				Name: "default, foobar, ConfigMap (v1)",
+				Kind: "Secret",
+				Content: `
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: foobar
+data:
+  key1: newValue1
+`,
+			}}
+
+		newOwnedReleases := map[string]OwnershipDiff{
+			"default, foobar, ConfigMap (v1)": {
+				OldRelease: "default/oldfoobar",
+				NewRelease: "default/foobar",
+			},
+		}
+		if changesSeen := ManifestsOwnership(specOriginal, specNew, newOwnedReleases, &diffOptions, &buf1); !changesSeen {
+			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
+		}
+
+		require.Equal(t, `default, foobar, ConfigMap (v1) changed ownership:
+- default/oldfoobar
++ default/foobar
+default, foobar, ConfigMap (v1) has changed:
+
+  apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: foobar
+  data:
+-   key1: value1
++   key1: newValue1
+
+`, buf1.String())
+	})
+}
