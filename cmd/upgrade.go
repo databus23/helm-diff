@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"log"
@@ -12,6 +13,9 @@ import (
 	"github.com/spf13/cobra"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/cli"
+	"helm.sh/helm/v3/pkg/kube"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/cli-runtime/pkg/resource"
 
 	"github.com/databus23/helm-diff/v3/diff"
 	"github.com/databus23/helm-diff/v3/manifest"
@@ -54,6 +58,7 @@ type diffCmd struct {
 	insecureSkipTLSVerify    bool
 	install                  bool
 	normalizeManifests       bool
+	takeOwnership            bool
 	threeWayMerge            bool
 	extraAPIs                []string
 	kubeVersion              string
@@ -248,6 +253,7 @@ func newChartCommand() *cobra.Command {
 	f.StringArrayVar(&diff.postRendererArgs, "post-renderer-args", []string{}, "an argument to the post-renderer (can specify multiple)")
 	f.BoolVar(&diff.insecureSkipTLSVerify, "insecure-skip-tls-verify", false, "skip tls certificate checks for the chart download")
 	f.BoolVar(&diff.normalizeManifests, "normalize-manifests", false, "normalize manifests before running diff to exclude style differences from the output")
+	f.BoolVar(&diff.takeOwnership, "take-ownership", false, "if set, upgrade will ignore the check for helm annotations and take ownership of the existing resources")
 
 	AddDiffOptions(f, &diff.Options)
 
@@ -262,6 +268,12 @@ func (d *diffCmd) runHelm3() error {
 	var releaseManifest []byte
 
 	var err error
+
+	if d.takeOwnership {
+		// We need to do a three way merge between the manifests of the new
+		// release, the manifests of the old release and what is currently deployed
+		d.threeWayMerge = true
+	}
 
 	if d.clusterAccessAllowed() {
 		releaseManifest, err = getRelease(d.release, d.namespace)
@@ -287,14 +299,18 @@ func (d *diffCmd) runHelm3() error {
 		return fmt.Errorf("Failed to render chart: %w", err)
 	}
 
-	if d.threeWayMerge {
-		actionConfig := new(action.Configuration)
+	var actionConfig *action.Configuration
+	if d.threeWayMerge || d.takeOwnership {
+		actionConfig = new(action.Configuration)
 		if err := actionConfig.Init(envSettings.RESTClientGetter(), envSettings.Namespace(), os.Getenv("HELM_DRIVER"), log.Printf); err != nil {
 			log.Fatalf("%+v", err)
 		}
 		if err := actionConfig.KubeClient.IsReachable(); err != nil {
 			return err
 		}
+	}
+
+	if d.threeWayMerge {
 		releaseManifest, installManifest, err = manifest.Generate(actionConfig, releaseManifest, installManifest)
 		if err != nil {
 			return fmt.Errorf("unable to generate manifests: %w", err)
@@ -316,13 +332,27 @@ func (d *diffCmd) runHelm3() error {
 			currentSpecs = manifest.Parse(string(releaseManifest), d.namespace, d.normalizeManifests, manifest.Helm3TestHook, manifest.Helm2TestSuccessHook)
 		}
 	}
+
+	var newOwnedReleases map[string]diff.OwnershipDiff
+	if d.takeOwnership {
+		resources, err := actionConfig.KubeClient.Build(bytes.NewBuffer(installManifest), false)
+		if err != nil {
+			return err
+		}
+		newOwnedReleases, err = checkOwnership(d, resources, currentSpecs)
+		if err != nil {
+			return err
+		}
+	}
+
 	var newSpecs map[string]*manifest.MappingResult
 	if d.includeTests {
 		newSpecs = manifest.Parse(string(installManifest), d.namespace, d.normalizeManifests)
 	} else {
 		newSpecs = manifest.Parse(string(installManifest), d.namespace, d.normalizeManifests, manifest.Helm3TestHook, manifest.Helm2TestSuccessHook)
 	}
-	seenAnyChanges := diff.Manifests(currentSpecs, newSpecs, &d.Options, os.Stdout)
+
+	seenAnyChanges := diff.ManifestsOwnership(currentSpecs, newSpecs, newOwnedReleases, &d.Options, os.Stdout)
 
 	if d.detailedExitCode && seenAnyChanges {
 		return Error{
@@ -332,4 +362,48 @@ func (d *diffCmd) runHelm3() error {
 	}
 
 	return nil
+}
+
+func checkOwnership(d *diffCmd, resources kube.ResourceList, currentSpecs map[string]*manifest.MappingResult) (map[string]diff.OwnershipDiff, error) {
+	newOwnedReleases := make(map[string]diff.OwnershipDiff)
+	err := resources.Visit(func(info *resource.Info, err error) error {
+		if err != nil {
+			return err
+		}
+
+		helper := resource.NewHelper(info.Client, info.Mapping)
+		currentObj, err := helper.Get(info.Namespace, info.Name)
+		if err != nil {
+			if !apierrors.IsNotFound(err) {
+				return err
+			}
+			return nil
+		}
+
+		var result *manifest.MappingResult
+		var oldRelease string
+		if d.includeTests {
+			result, oldRelease, err = manifest.ParseObject(currentObj, d.namespace)
+		} else {
+			result, oldRelease, err = manifest.ParseObject(currentObj, d.namespace, manifest.Helm3TestHook, manifest.Helm2TestSuccessHook)
+		}
+
+		if err != nil {
+			return err
+		}
+
+		newRelease := d.namespace + "/" + d.release
+		if oldRelease == newRelease {
+			return nil
+		}
+
+		newOwnedReleases[result.Name] = diff.OwnershipDiff{
+			OldRelease: oldRelease,
+			NewRelease: newRelease,
+		}
+		currentSpecs[result.Name] = result
+
+		return nil
+	})
+	return newOwnedReleases, err
 }
