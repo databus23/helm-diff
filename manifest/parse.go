@@ -7,7 +7,9 @@ import (
 	"log"
 	"strings"
 
+	jsoniter "github.com/json-iterator/go"
 	"gopkg.in/yaml.v2"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 const (
@@ -101,6 +103,48 @@ func Parse(manifest string, defaultNamespace string, normalizeManifests bool, ex
 		log.Fatalf("Error reading input: %s", err)
 	}
 	return result
+}
+
+func ParseObject(object runtime.Object, defaultNamespace string, excludedHooks ...string) (*MappingResult, string, error) {
+	json, _ := jsoniter.ConfigCompatibleWithStandardLibrary.Marshal(object)
+	var objectMap map[string]interface{}
+	err := jsoniter.Unmarshal(json, &objectMap)
+	if err != nil {
+		return nil, "", fmt.Errorf("could not unmarshal byte sequence: %w", err)
+	}
+
+	metadata := objectMap["metadata"].(map[string]interface{})
+	var oldRelease string
+	if a := metadata["annotations"]; a != nil {
+		annotations := a.(map[string]interface{})
+		if releaseNs, ok := annotations["meta.helm.sh/release-namespace"].(string); ok {
+			oldRelease += releaseNs + "/"
+		}
+		if releaseName, ok := annotations["meta.helm.sh/release-name"].(string); ok {
+			oldRelease += releaseName
+		}
+	}
+
+	// Clean namespace metadata as it exists in Kubernetes but not in Helm manifest
+	purgedObj, _ := deleteStatusAndTidyMetadata(json)
+
+	content, err := yaml.Marshal(purgedObj)
+	if err != nil {
+		return nil, "", err
+	}
+
+	result, err := parseContent(string(content), defaultNamespace, true, excludedHooks...)
+	if err != nil {
+		return nil, "", err
+	}
+
+	if len(result) != 1 {
+		return nil, "", fmt.Errorf("failed to parse content of Kubernetes resource %s", metadata["name"])
+	}
+
+	result[0].Content = strings.TrimSuffix(result[0].Content, "\n")
+
+	return result[0], oldRelease, nil
 }
 
 func parseContent(content string, defaultNamespace string, normalizeManifests bool, excludedHooks ...string) ([]*MappingResult, error) {
