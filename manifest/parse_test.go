@@ -137,3 +137,47 @@ func TestBaseNameAnnotation(t *testing.T) {
 		foundObjects(Parse(string(spec), "default", false)),
 	)
 }
+func TestContentNormalizeManifests(t *testing.T) {
+	tests := []struct {
+		name           string
+		content        string
+		expectedOutput string
+		expectedError  error
+	}{
+		{
+			name: "Valid content",
+			content: `apiVersion: v1
+kind: Pod
+metadata:
+  name: my-pod
+spec:
+  containers:
+  - name: my-container
+    image: nginx`,
+			expectedOutput: `apiVersion: v1
+kind: Pod
+metadata:
+  name: my-pod
+spec:
+  containers:
+  - image: nginx
+    name: my-container
+`,
+			expectedError: nil,
+		},
+		{
+			name:           "Empty content",
+			content:        "",
+			expectedOutput: "{}\n",
+			expectedError:  nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			output, err := ContentNormalizeManifests(tt.content)
+			require.Equal(t, tt.expectedError, err)
+			require.Equal(t, tt.expectedOutput, output)
+		})
+	}
+}
