@@ -451,7 +451,7 @@ annotations:
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `false` to indicate that it has NOT seen any change(s), but was `true`")
 		}
 
-		require.Equal(t, ``, buf2.String())
+		require.Empty(t, buf2.String())
 	})
 
 	t.Run("OnChangeRemoved", func(t *testing.T) {
@@ -480,7 +480,7 @@ annotations:
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `false` to indicate that it has NOT seen any change(s), but was `true`")
 		}
 
-		require.Equal(t, ``, buf2.String())
+		require.Empty(t, buf2.String())
 	})
 
 	t.Run("OnChangeSimple", func(t *testing.T) {
