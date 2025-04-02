@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 
 	. "github.com/databus23/helm-diff/v3/manifest"
 )
@@ -136,4 +138,44 @@ func TestBaseNameAnnotation(t *testing.T) {
 		[]string{"default, bat-secret, Secret (v1)"},
 		foundObjects(Parse(string(spec), "default", false)),
 	)
+}
+
+func TestParseObject(t *testing.T) {
+	for _, tt := range []struct {
+		name        string
+		filename    string
+		releaseName string
+		kind        string
+		oldRelease  string
+	}{
+		{
+			name:        "no release info",
+			filename:    "testdata/pod_no_release_annotations.yaml",
+			releaseName: "testNS, nginx, Pod (v1)",
+			kind:        "Pod",
+			oldRelease:  "",
+		},
+		{
+			name:        "get old release info",
+			filename:    "testdata/pod_release_annotations.yaml",
+			releaseName: "testNS, nginx, Pod (v1)",
+			kind:        "Pod",
+			oldRelease:  "oldNS/oldReleaseName",
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			spec, err := os.ReadFile(tt.filename)
+			require.NoError(t, err)
+
+			obj, _, err := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme).Decode(spec, nil, nil)
+			require.NoError(t, err)
+
+			release, oldRelease, err := ParseObject(obj, "testNS")
+			require.NoError(t, err)
+
+			require.Equal(t, tt.releaseName, release.Name)
+			require.Equal(t, tt.kind, release.Kind)
+			require.Equal(t, tt.oldRelease, oldRelease)
+		})
+	}
 }
