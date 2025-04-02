@@ -91,7 +91,7 @@ func Test_deleteStatusAndTidyMetadata(t *testing.T) {
 				t.Errorf("deleteStatusAndTidyMetadata() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			require.EqualValuesf(t, tt.want, got, "deleteStatusAndTidyMetadata() = %v, want %v", got, tt.want)
+			require.Equalf(t, tt.want, got, "deleteStatusAndTidyMetadata() = %v, want %v", got, tt.want)
 		})
 	}
 }
