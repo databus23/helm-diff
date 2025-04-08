@@ -91,6 +91,7 @@ Flags:
       --skip-schema-validation           disables rendered templates validation against the Kubernetes OpenAPI Schema
   -D, --find-renames float32             Enable rename detection if set to any value greater than 0. If specified, the value denotes the maximum fraction of changed content as lines added + removed compared to total lines in a diff for considering it a rename. Only objects of the same Kind are attempted to be matched
   -h, --help                             help for diff
+      --include-crds                     include CRDs in the diffing
       --include-tests                    enable the diffing of the helm test hooks
       --install                          enables diffing of releases that are not yet deployed via Helm (equivalent to --allow-unreleased, added to match "helm upgrade --install" command
       --kube-version string              Kubernetes version used for Capabilities.KubeVersion
@@ -189,6 +190,7 @@ Flags:
       --skip-schema-validation           skip validation of rendered templates against the Kubernetes OpenAPI Schema
   -D, --find-renames float32             Enable rename detection if set to any value greater than 0. If specified, the value denotes the maximum fraction of changed content as lines added + removed compared to total lines in a diff for considering it a rename. Only objects of the same Kind are attempted to be matched
   -h, --help                             help for upgrade
+      --include-crds                     include CRDs in the diffing
       --include-tests                    enable the diffing of the helm test hooks
       --install                          enables diffing of releases that are not yet deployed via Helm (equivalent to --allow-unreleased, added to match "helm upgrade --install" command
       --kube-version string              Kubernetes version used for Capabilities.KubeVersion

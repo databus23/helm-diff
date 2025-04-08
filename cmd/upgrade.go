@@ -53,6 +53,7 @@ type diffCmd struct {
 	allowUnreleased          bool
 	noHooks                  bool
 	includeTests             bool
+	includeCRDs              bool
 	postRenderer             string
 	postRendererArgs         []string
 	insecureSkipTLSVerify    bool
@@ -241,6 +242,7 @@ func newChartCommand() *cobra.Command {
 	f.BoolVar(&diff.install, "install", false, "enables diffing of releases that are not yet deployed via Helm (equivalent to --allow-unreleased, added to match \"helm upgrade --install\" command")
 	f.BoolVar(&diff.noHooks, "no-hooks", false, "disable diffing of hooks")
 	f.BoolVar(&diff.includeTests, "include-tests", false, "enable the diffing of the helm test hooks")
+	f.BoolVar(&diff.includeCRDs, "include-crds", false, "include CRDs in the diffing")
 	f.BoolVar(&diff.devel, "devel", false, "use development versions, too. Equivalent to version '>0.0.0-0'. If --version is set, this is ignored.")
 	f.BoolVar(&diff.disableValidation, "disable-validation", false, "disables rendered templates validation against the Kubernetes cluster you are currently pointing to. This is the same validation performed on an install")
 	f.BoolVar(&diff.disableOpenAPIValidation, "disable-openapi-validation", false, "disables rendered templates validation against the Kubernetes OpenAPI Schema")

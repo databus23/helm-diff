@@ -113,6 +113,9 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 	if d.noHooks && !d.useUpgradeDryRun {
 		flags = append(flags, "--no-hooks")
 	}
+	if d.includeCRDs {
+		flags = append(flags, "--include-crds")
+	}
 	if d.chartVersion != "" {
 		flags = append(flags, "--version", d.chartVersion)
 	}
