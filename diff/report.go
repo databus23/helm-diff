@@ -144,6 +144,7 @@ func setupDiffReport(r *Report) {
 	r.format.changestyles["REMOVE"] = ChangeStyle{color: "red", message: "has been removed:"}
 	r.format.changestyles["MODIFY"] = ChangeStyle{color: "yellow", message: "has changed:"}
 	r.format.changestyles["OWNERSHIP"] = ChangeStyle{color: "magenta", message: "changed ownership:"}
+	r.format.changestyles["MODIFY_SUPPRESSED"] = ChangeStyle{color: "gray", message: "has changed, but diff is empty after suppression."}
 }
 
 // print report for default output: diff
@@ -162,15 +163,17 @@ func setupSimpleReport(r *Report) {
 	r.format.changestyles["REMOVE"] = ChangeStyle{color: "red", message: "to be removed."}
 	r.format.changestyles["MODIFY"] = ChangeStyle{color: "yellow", message: "to be changed."}
 	r.format.changestyles["OWNERSHIP"] = ChangeStyle{color: "magenta", message: "to change ownership."}
+	r.format.changestyles["MODIFY_SUPPRESSED"] = ChangeStyle{color: "gray", message: "has changed, but diff is empty after suppression."}
 }
 
 // print report for simple output
 func printSimpleReport(r *Report, to io.Writer) {
 	var summary = map[string]int{
-		"ADD":       0,
-		"REMOVE":    0,
-		"MODIFY":    0,
-		"OWNERSHIP": 0,
+		"ADD":               0,
+		"REMOVE":            0,
+		"MODIFY":            0,
+		"OWNERSHIP":         0,
+		"MODIFY_SUPPRESSED": 0,
 	}
 	for _, entry := range r.entries {
 		_, _ = fmt.Fprintf(to, ansi.Color("%s %s", r.format.changestyles[entry.changeType].color)+"\n",
@@ -206,6 +209,7 @@ func setupJSONReport(r *Report) {
 	r.format.changestyles["REMOVE"] = ChangeStyle{color: "red", message: ""}
 	r.format.changestyles["MODIFY"] = ChangeStyle{color: "yellow", message: ""}
 	r.format.changestyles["OWNERSHIP"] = ChangeStyle{color: "magenta", message: ""}
+	r.format.changestyles["MODIFY_SUPPRESSED"] = ChangeStyle{color: "gray", message: ""}
 }
 
 // setup report for template output
@@ -237,6 +241,7 @@ func setupTemplateReport(r *Report) {
 	r.format.changestyles["REMOVE"] = ChangeStyle{color: "red", message: ""}
 	r.format.changestyles["MODIFY"] = ChangeStyle{color: "yellow", message: ""}
 	r.format.changestyles["OWNERSHIP"] = ChangeStyle{color: "magenta", message: ""}
+	r.format.changestyles["MODIFY_SUPPRESSED"] = ChangeStyle{color: "gray", message: ""}
 }
 
 // report with template output will only have access to ReportTemplateSpec.

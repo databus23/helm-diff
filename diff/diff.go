@@ -141,7 +141,11 @@ func doSuppress(report Report, suppressedOutputLineRegex []string) (Report, erro
 		if containsDiff {
 			filteredReport.addEntry(entry.key, entry.suppressedKinds, entry.kind, entry.context, diffs, entry.changeType)
 		} else {
-			filteredReport.addEntry(entry.key, entry.suppressedKinds, entry.kind, entry.context, []difflib.DiffRecord{}, entry.changeType)
+			if entry.changeType == "MODIFY" {
+				filteredReport.addEntry(entry.key, entry.suppressedKinds, entry.kind, entry.context, []difflib.DiffRecord{}, "MODIFY_SUPPRESSED")
+			} else {
+				filteredReport.addEntry(entry.key, entry.suppressedKinds, entry.kind, entry.context, []difflib.DiffRecord{}, entry.changeType)
+			}
 		}
 	}
 
