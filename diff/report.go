@@ -144,12 +144,18 @@ func setupDiffReport(r *Report) {
 	r.format.changestyles["REMOVE"] = ChangeStyle{color: "red", message: "has been removed:"}
 	r.format.changestyles["MODIFY"] = ChangeStyle{color: "yellow", message: "has changed:"}
 	r.format.changestyles["OWNERSHIP"] = ChangeStyle{color: "magenta", message: "changed ownership:"}
+	r.format.changestyles["MODIFY_SUPPRESSED"] = ChangeStyle{color: "blue+h", message: "has changed, but diff is empty after suppression."}
 }
 
 // print report for default output: diff
 func printDiffReport(r *Report, to io.Writer) {
 	for _, entry := range r.entries {
-		_, _ = fmt.Fprintf(to, ansi.Color("%s %s", "yellow")+"\n", entry.key, r.format.changestyles[entry.changeType].message)
+		_, _ = fmt.Fprintf(
+			to,
+			ansi.Color("%s %s", r.format.changestyles[entry.changeType].color)+"\n",
+			entry.key,
+			r.format.changestyles[entry.changeType].message,
+		)
 		printDiffRecords(entry.suppressedKinds, entry.kind, entry.context, entry.diffs, to)
 	}
 }
@@ -162,15 +168,17 @@ func setupSimpleReport(r *Report) {
 	r.format.changestyles["REMOVE"] = ChangeStyle{color: "red", message: "to be removed."}
 	r.format.changestyles["MODIFY"] = ChangeStyle{color: "yellow", message: "to be changed."}
 	r.format.changestyles["OWNERSHIP"] = ChangeStyle{color: "magenta", message: "to change ownership."}
+	r.format.changestyles["MODIFY_SUPPRESSED"] = ChangeStyle{color: "blue+h", message: "has changed, but diff is empty after suppression."}
 }
 
 // print report for simple output
 func printSimpleReport(r *Report, to io.Writer) {
 	var summary = map[string]int{
-		"ADD":       0,
-		"REMOVE":    0,
-		"MODIFY":    0,
-		"OWNERSHIP": 0,
+		"ADD":               0,
+		"REMOVE":            0,
+		"MODIFY":            0,
+		"OWNERSHIP":         0,
+		"MODIFY_SUPPRESSED": 0,
 	}
 	for _, entry := range r.entries {
 		_, _ = fmt.Fprintf(to, ansi.Color("%s %s", r.format.changestyles[entry.changeType].color)+"\n",
@@ -206,6 +214,7 @@ func setupJSONReport(r *Report) {
 	r.format.changestyles["REMOVE"] = ChangeStyle{color: "red", message: ""}
 	r.format.changestyles["MODIFY"] = ChangeStyle{color: "yellow", message: ""}
 	r.format.changestyles["OWNERSHIP"] = ChangeStyle{color: "magenta", message: ""}
+	r.format.changestyles["MODIFY_SUPPRESSED"] = ChangeStyle{color: "blue+h", message: ""}
 }
 
 // setup report for template output
@@ -237,6 +246,7 @@ func setupTemplateReport(r *Report) {
 	r.format.changestyles["REMOVE"] = ChangeStyle{color: "red", message: ""}
 	r.format.changestyles["MODIFY"] = ChangeStyle{color: "yellow", message: ""}
 	r.format.changestyles["OWNERSHIP"] = ChangeStyle{color: "magenta", message: ""}
+	r.format.changestyles["MODIFY_SUPPRESSED"] = ChangeStyle{color: "blue+h", message: ""}
 }
 
 // report with template output will only have access to ReportTemplateSpec.
