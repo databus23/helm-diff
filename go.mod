@@ -1,7 +1,6 @@
 module github.com/databus23/helm-diff/v3
 
-go 1.24
-toolchain go1.24.1
+go 1.24.2
 
 require (
 	github.com/Masterminds/semver/v3 v3.3.1
