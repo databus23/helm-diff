@@ -298,11 +298,30 @@ annotations:
 		var buf1 bytes.Buffer
 		diffOptions := Options{"diff", 10, false, true, []string{}, 0.0, []string{"apiVersion"}}
 
-		if changesSeen := Manifests(specBeta, specRelease, &diffOptions, &buf1); !changesSeen {
+		if changesSeen := Manifests(specBeta, specReleaseSpec, &diffOptions, &buf1); !changesSeen {
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
 		}
 
 		require.Equal(t, `default, nginx, Deployment (apps) has changed:
+
+  kind: Deployment
+  metadata:
+    name: nginx
++ spec:
++   replicas: 3
+
+`, buf1.String())
+	})
+
+	t.Run("OnChangeWithSuppressAll", func(t *testing.T) {
+		var buf1 bytes.Buffer
+		diffOptions := Options{"diff", 10, false, true, []string{}, 0.0, []string{"apiVersion"}}
+
+		if changesSeen := Manifests(specBeta, specRelease, &diffOptions, &buf1); !changesSeen {
+			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
+		}
+
+		require.Equal(t, `default, nginx, Deployment (apps) has changed, but diff is empty after suppression.
 `, buf1.String())
 	})
 
