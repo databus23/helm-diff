@@ -43,34 +43,34 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
         shell: [ default ]
         experimental: [ false ]
-        helm-version: [ v3.17.2, v3.16.4 ]
+        helm-version: [ v3.18.0, v3.17.3 ]
         include:
           - os: windows-latest
             shell: wsl
             experimental: false
-            helm-version: v3.17.2
+            helm-version: v3.18.0
           - os: windows-latest
             shell: cygwin
             experimental: false
-            helm-version: v3.17.2
+            helm-version: v3.18.0
           - os: ubuntu-latest
             container: alpine
             shell: sh
             experimental: false
-            helm-version: v3.17.2
+            helm-version: v3.18.0
           - os: windows-latest
             shell: wsl
             experimental: false
-            helm-version: v3.16.4
+            helm-version: v3.17.3
           - os: windows-latest
             shell: cygwin
             experimental: false
-            helm-version: v3.16.4
+            helm-version: v3.17.3
           - os: ubuntu-latest
             container: alpine
             shell: sh
             experimental: false
-            helm-version: v3.16.4
+            helm-version: v3.17.3
 
     steps:
       - name: Disable autocrlf
@@ -110,8 +110,8 @@ jobs:
           # Helm maintains the latest minor version only and therefore each Helmfile version supports 2 Helm minor versions.
           # That's why we cover only 2 Helm minor versions in this matrix.
           # See https://github.com/helmfile/helmfile/pull/286#issuecomment-1250161182 for more context.
-          - helm-version: v3.17.2
-          - helm-version: v3.16.4
+          - helm-version: v3.18.0
+          - helm-version: v3.17.3
     steps:
       - uses: engineerd/setup-kind@v0.6.2
         with:
