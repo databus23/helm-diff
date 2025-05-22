@@ -6,32 +6,25 @@ usage: "Preview helm upgrade changes as a diff"
 description: "Preview helm upgrade changes as a diff"
 useTunnel: true
 platformCommand:
-  - os: linux 
-    command: "${HELM_PLUGIN_DIR}/install-binary.sh"
-  - os: darwin
-    command: "${HELM_PLUGIN_DIR}/install-binary.sh"
+  - command: ${HELM_PLUGIN_DIR}/bin/diff
   - os: windows
-    command: pwsh
-    args:
-      - -c
-      - ${HELM_PLUGIN_DIR}/install-binary.ps1
+    command: ${HELM_PLUGIN_DIR}\bin\diff.exe
 
-# v3.18.0+ only
-# platformHooks:
-#   install:
-#     - command: ${HELM_PLUGIN_DIR}/install-binary.sh
-#     - os: windows
-#       command: pwsh
-#       args:
-#           - -c
-#           - ${HELM_PLUGIN_DIR}/install-binary.ps1
-#   update:
-#     - command: ${HELM_PLUGIN_DIR}/install-binary.sh
-#       args:
-#         - -u
-#     - os: windows
-#       command: pwsh
-#       args:
-#         - -c
-#         - ${HELM_PLUGIN_DIR}/install-binary.ps1
-#         - -Update
+platformHooks:
+  install:
+    - command: ${HELM_PLUGIN_DIR}/install-binary.sh
+    - os: windows
+      command: pwsh
+      args:
+          - -c
+          - ${HELM_PLUGIN_DIR}/install-binary.ps1
+  update:
+    - command: ${HELM_PLUGIN_DIR}/install-binary.sh
+      args:
+        - -u
+    - os: windows
+      command: pwsh
+      args:
+        - -c
+        - ${HELM_PLUGIN_DIR}/install-binary.ps1
+        - -Update
