@@ -181,10 +181,10 @@ func contentSearch(report *Report, possiblyRemoved []string, oldIndex map[string
 			}
 
 			switch {
-			case !options.ShowSecrets:
-				redactSecrets(oldContent, newContent)
 			case options.ShowSecretsDecoded:
 				decodeSecrets(oldContent, newContent)
+			case !options.ShowSecrets:
+				redactSecrets(oldContent, newContent)
 			}
 
 			diff := diffMappingResults(oldContent, newContent, options.StripTrailingCR)
@@ -217,10 +217,10 @@ func doDiff(report *Report, key string, oldContent *manifest.MappingResult, newC
 		return
 	}
 	switch {
-	case !options.ShowSecrets:
-		redactSecrets(oldContent, newContent)
 	case options.ShowSecretsDecoded:
 		decodeSecrets(oldContent, newContent)
+	case !options.ShowSecrets:
+		redactSecrets(oldContent, newContent)
 	}
 
 	if oldContent == nil {
