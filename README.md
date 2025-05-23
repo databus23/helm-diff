@@ -82,7 +82,6 @@ Flags:
   -a, --api-versions stringArray                 Kubernetes api versions used for Capabilities.APIVersions
       --color                                    color output. You can control the value for this flag via HELM_DIFF_COLOR=[true|false]. If both --no-color and --color are unspecified, coloring enabled only when the stdout is a term and TERM is not "dumb"
   -C, --context int                              output NUM lines of context around changes (default -1)
-      --decode-secrets                           decode secret values in the output
       --detailed-exitcode                        return a non-zero exit code when there are changes
       --devel                                    use development versions, too. Equivalent to version '>0.0.0-0'. If --version is set, this is ignored.
       --disable-openapi-validation               disables rendered templates validation against the Kubernetes OpenAPI Schema
@@ -113,6 +112,7 @@ Flags:
       --set-literal stringArray                  set STRING literal values on the command line
       --set-string stringArray                   set STRING values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)
       --show-secrets                             do not redact secret values in the output
+      --show-secrets-decoded                     decode secret values in the output
       --skip-schema-validation                   skip validation of the rendered manifests against the Kubernetes OpenAPI schema
       --strip-trailing-cr                        strip trailing carriage return on input
       --suppress stringArray                     allows suppression of the kinds listed in the diff output (can specify multiple, like '--suppress Deployment --suppress Service')
@@ -187,7 +187,6 @@ Flags:
       --allow-unreleased                         enables diffing of releases that are not yet deployed via Helm
   -a, --api-versions stringArray                 Kubernetes api versions used for Capabilities.APIVersions
   -C, --context int                              output NUM lines of context around changes (default -1)
-      --decode-secrets                           decode secret values in the output
       --detailed-exitcode                        return a non-zero exit code when there are changes
       --devel                                    use development versions, too. Equivalent to version '>0.0.0-0'. If --version is set, this is ignored.
       --disable-openapi-validation               disables rendered templates validation against the Kubernetes OpenAPI Schema
@@ -217,6 +216,7 @@ Flags:
       --set-literal stringArray                  set STRING literal values on the command line
       --set-string stringArray                   set STRING values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)
       --show-secrets                             do not redact secret values in the output
+      --show-secrets-decoded                     decode secret values in the output
       --skip-schema-validation                   skip validation of the rendered manifests against the Kubernetes OpenAPI schema
       --strip-trailing-cr                        strip trailing carriage return on input
       --suppress stringArray                     allows suppression of the kinds listed in the diff output (can specify multiple, like '--suppress Deployment --suppress Service')
@@ -253,7 +253,6 @@ Usage:
 
 Flags:
   -C, --context int                              output NUM lines of context around changes (default -1)
-      --decode-secrets                           decode secret values in the output
       --detailed-exitcode                        return a non-zero exit code when there are changes
   -D, --find-renames float32                     Enable rename detection if set to any value greater than 0. If specified, the value denotes the maximum fraction of changed content as lines added + removed compared to total lines in a diff for considering it a rename. Only objects of the same Kind are attempted to be matched
   -h, --help                                     help for release
@@ -295,7 +294,7 @@ Usage:
 
 Flags:
   -C, --context int                              output NUM lines of context around changes (default -1)
-      --decode-secrets                           decode secret values in the output
+      --show-secrets-decoded                     decode secret values in the output
       --detailed-exitcode                        return a non-zero exit code when there are changes
   -D, --find-renames float32                     Enable rename detection if set to any value greater than 0. If specified, the value denotes the maximum fraction of changed content as lines added + removed compared to total lines in a diff for considering it a rename. Only objects of the same Kind are attempted to be matched
   -h, --help                                     help for revision
@@ -303,6 +302,7 @@ Flags:
       --normalize-manifests                      normalize manifests before running diff to exclude style differences from the output
       --output string                            Possible values: diff, simple, template, dyff. When set to "template", use the env var HELM_DIFF_TPL to specify the template. (default "diff")
       --show-secrets                             do not redact secret values in the output
+      --show-secrets-decoded                     decode secret values in the output
       --strip-trailing-cr                        strip trailing carriage return on input
       --suppress stringArray                     allows suppression of the kinds listed in the diff output (can specify multiple, like '--suppress Deployment --suppress Service')
       --suppress-output-line-regex stringArray   a regex to suppress diff output lines that match
@@ -331,7 +331,6 @@ Examples:
 
 Flags:
   -C, --context int                              output NUM lines of context around changes (default -1)
-      --decode-secrets                           decode secret values in the output
       --detailed-exitcode                        return a non-zero exit code when there are changes
   -D, --find-renames float32                     Enable rename detection if set to any value greater than 0. If specified, the value denotes the maximum fraction of changed content as lines added + removed compared to total lines in a diff for considering it a rename. Only objects of the same Kind are attempted to be matched
   -h, --help                                     help for rollback
@@ -339,6 +338,7 @@ Flags:
       --normalize-manifests                      normalize manifests before running diff to exclude style differences from the output
       --output string                            Possible values: diff, simple, template, dyff. When set to "template", use the env var HELM_DIFF_TPL to specify the template. (default "diff")
       --show-secrets                             do not redact secret values in the output
+      --show-secrets-decoded                     decode secret values in the output
       --strip-trailing-cr                        strip trailing carriage return on input
       --suppress stringArray                     allows suppression of the kinds listed in the diff output (can specify multiple, like '--suppress Deployment --suppress Service')
       --suppress-output-line-regex stringArray   a regex to suppress diff output lines that match

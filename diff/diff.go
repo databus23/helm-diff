@@ -25,7 +25,7 @@ type Options struct {
 	OutputContext             int
 	StripTrailingCR           bool
 	ShowSecrets               bool
-	DecodeSecrets             bool
+	ShowSecretsDecoded        bool
 	SuppressedKinds           []string
 	FindRenames               float32
 	SuppressedOutputLineRegex []string
@@ -183,7 +183,7 @@ func contentSearch(report *Report, possiblyRemoved []string, oldIndex map[string
 			switch {
 			case !options.ShowSecrets:
 				redactSecrets(oldContent, newContent)
-			case options.DecodeSecrets && options.ShowSecrets:
+			case options.ShowSecretsDecoded:
 				decodeSecrets(oldContent, newContent)
 			}
 
@@ -219,7 +219,7 @@ func doDiff(report *Report, key string, oldContent *manifest.MappingResult, newC
 	switch {
 	case !options.ShowSecrets:
 		redactSecrets(oldContent, newContent)
-	case options.DecodeSecrets && options.ShowSecrets:
+	case options.ShowSecretsDecoded:
 		decodeSecrets(oldContent, newContent)
 	}
 
