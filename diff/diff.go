@@ -25,6 +25,7 @@ type Options struct {
 	OutputContext             int
 	StripTrailingCR           bool
 	ShowSecrets               bool
+	ShowSecretsDecoded        bool
 	SuppressedKinds           []string
 	FindRenames               float32
 	SuppressedOutputLineRegex []string
@@ -179,7 +180,10 @@ func contentSearch(report *Report, possiblyRemoved []string, oldIndex map[string
 				continue
 			}
 
-			if !options.ShowSecrets {
+			switch {
+			case options.ShowSecretsDecoded:
+				decodeSecrets(oldContent, newContent)
+			case !options.ShowSecrets:
 				redactSecrets(oldContent, newContent)
 			}
 
@@ -212,8 +216,10 @@ func doDiff(report *Report, key string, oldContent *manifest.MappingResult, newC
 	if oldContent != nil && newContent != nil && oldContent.Content == newContent.Content {
 		return
 	}
-
-	if !options.ShowSecrets {
+	switch {
+	case options.ShowSecretsDecoded:
+		decodeSecrets(oldContent, newContent)
+	case !options.ShowSecrets:
 		redactSecrets(oldContent, newContent)
 	}
 
@@ -233,7 +239,9 @@ func doDiff(report *Report, key string, oldContent *manifest.MappingResult, newC
 	}
 }
 
+// redactSecrets redacts secrets from the diff output.
 func redactSecrets(old, new *manifest.MappingResult) {
+	var oldSecretDecodeErr, newSecretDecodeErr error
 	if (old != nil && old.Kind != "Secret") || (new != nil && new.Kind != "Secret") {
 		return
 	}
@@ -242,33 +250,37 @@ func redactSecrets(old, new *manifest.MappingResult) {
 	var oldSecret, newSecret v1.Secret
 
 	if old != nil {
-		if err := yaml.NewYAMLToJSONDecoder(bytes.NewBufferString(old.Content)).Decode(&oldSecret); err != nil {
-			old.Content = fmt.Sprintf("Error parsing old secret: %s", err)
-		}
-		//if we have a Secret containing `stringData`, apply the same
-		//transformation that the apiserver would do with it (this protects
-		//stringData keys from being overwritten down below)
-		if len(oldSecret.StringData) > 0 && oldSecret.Data == nil {
-			oldSecret.Data = make(map[string][]byte, len(oldSecret.StringData))
-		}
-		for k, v := range oldSecret.StringData {
-			oldSecret.Data[k] = []byte(v)
+		oldSecretDecodeErr = yaml.NewYAMLToJSONDecoder(bytes.NewBufferString(old.Content)).Decode(&oldSecret)
+		if oldSecretDecodeErr != nil {
+			old.Content = fmt.Sprintf("Error parsing old secret: %s", oldSecretDecodeErr)
+		} else {
+			//if we have a Secret containing `stringData`, apply the same
+			//transformation that the apiserver would do with it (this protects
+			//stringData keys from being overwritten down below)
+			if len(oldSecret.StringData) > 0 && oldSecret.Data == nil {
+				oldSecret.Data = make(map[string][]byte, len(oldSecret.StringData))
+			}
+			for k, v := range oldSecret.StringData {
+				oldSecret.Data[k] = []byte(v)
+			}
 		}
 	}
 	if new != nil {
-		if err := yaml.NewYAMLToJSONDecoder(bytes.NewBufferString(new.Content)).Decode(&newSecret); err != nil {
-			new.Content = fmt.Sprintf("Error parsing new secret: %s", err)
-		}
-		//same as above
-		if len(newSecret.StringData) > 0 && newSecret.Data == nil {
-			newSecret.Data = make(map[string][]byte, len(newSecret.StringData))
-		}
-		for k, v := range newSecret.StringData {
-			newSecret.Data[k] = []byte(v)
+		newSecretDecodeErr = yaml.NewYAMLToJSONDecoder(bytes.NewBufferString(new.Content)).Decode(&newSecret)
+		if newSecretDecodeErr != nil {
+			new.Content = fmt.Sprintf("Error parsing new secret: %s", newSecretDecodeErr)
+		} else {
+			//same as above
+			if len(newSecret.StringData) > 0 && newSecret.Data == nil {
+				newSecret.Data = make(map[string][]byte, len(newSecret.StringData))
+			}
+			for k, v := range newSecret.StringData {
+				newSecret.Data[k] = []byte(v)
+			}
 		}
 	}
 
-	if old != nil {
+	if old != nil && oldSecretDecodeErr == nil {
 		oldSecret.StringData = make(map[string]string, len(oldSecret.Data))
 		for k, v := range oldSecret.Data {
 			if new != nil && bytes.Equal(v, newSecret.Data[k]) {
@@ -278,7 +290,7 @@ func redactSecrets(old, new *manifest.MappingResult) {
 			}
 		}
 	}
-	if new != nil {
+	if new != nil && newSecretDecodeErr == nil {
 		newSecret.StringData = make(map[string]string, len(newSecret.Data))
 		for k, v := range newSecret.Data {
 			if old != nil && bytes.Equal(v, oldSecret.Data[k]) {
@@ -290,21 +302,81 @@ func redactSecrets(old, new *manifest.MappingResult) {
 	}
 
 	// remove Data field now that we are using StringData for serialization
-	var buf bytes.Buffer
-	if old != nil {
+	if old != nil && oldSecretDecodeErr == nil {
+		oldSecretBuf := bytes.NewBuffer(nil)
 		oldSecret.Data = nil
-		if err := serializer.Encode(&oldSecret, &buf); err != nil {
+		if err := serializer.Encode(&oldSecret, oldSecretBuf); err != nil {
 			new.Content = fmt.Sprintf("Error encoding new secret: %s", err)
 		}
-		old.Content = getComment(old.Content) + strings.Replace(strings.Replace(buf.String(), "stringData", "data", 1), "  creationTimestamp: null\n", "", 1)
-		buf.Reset() //reuse buffer for new secret
+		old.Content = getComment(old.Content) + strings.Replace(strings.Replace(oldSecretBuf.String(), "stringData", "data", 1), "  creationTimestamp: null\n", "", 1)
+		oldSecretBuf.Reset()
+	}
+	if new != nil && newSecretDecodeErr == nil {
+		newSecretBuf := bytes.NewBuffer(nil)
+		newSecret.Data = nil
+		if err := serializer.Encode(&newSecret, newSecretBuf); err != nil {
+			new.Content = fmt.Sprintf("Error encoding new secret: %s", err)
+		}
+		new.Content = getComment(new.Content) + strings.Replace(strings.Replace(newSecretBuf.String(), "stringData", "data", 1), "  creationTimestamp: null\n", "", 1)
+		newSecretBuf.Reset()
+	}
+}
+
+// decodeSecrets decodes secrets from the diff output.
+func decodeSecrets(old, new *manifest.MappingResult) {
+	var oldSecretDecodeErr, newSecretDecodeErr error
+	if (old != nil && old.Kind != "Secret") || (new != nil && new.Kind != "Secret") {
+		return
+	}
+	serializer := json.NewYAMLSerializer(json.DefaultMetaFactory, scheme.Scheme,
+		scheme.Scheme)
+	var oldSecret, newSecret v1.Secret
+
+	if old != nil {
+		oldSecretDecodeErr = yaml.NewYAMLToJSONDecoder(bytes.NewBufferString(old.Content)).Decode(&oldSecret)
+		if oldSecretDecodeErr != nil {
+			old.Content = fmt.Sprintf("Error parsing old secret: %s", oldSecretDecodeErr)
+		} else {
+			if len(oldSecret.Data) > 0 && oldSecret.StringData == nil {
+				oldSecret.StringData = make(map[string]string, len(oldSecret.Data))
+			}
+			for k, v := range oldSecret.Data {
+				oldSecret.StringData[k] = string(v)
+			}
+		}
 	}
 	if new != nil {
-		newSecret.Data = nil
-		if err := serializer.Encode(&newSecret, &buf); err != nil {
+		newSecretDecodeErr = yaml.NewYAMLToJSONDecoder(bytes.NewBufferString(new.Content)).Decode(&newSecret)
+		if newSecretDecodeErr != nil {
+			new.Content = fmt.Sprintf("Error parsing new secret: %s", newSecretDecodeErr)
+		} else {
+			if len(newSecret.Data) > 0 && newSecret.StringData == nil {
+				newSecret.StringData = make(map[string]string, len(newSecret.StringData))
+			}
+			for k, v := range newSecret.Data {
+				newSecret.StringData[k] = string(v)
+			}
+		}
+	}
+
+	// remove Data field now that we are using StringData for serialization
+	if old != nil && oldSecretDecodeErr == nil {
+		oldSecretBuf := bytes.NewBuffer(nil)
+		oldSecret.Data = nil
+		if err := serializer.Encode(&oldSecret, oldSecretBuf); err != nil {
 			new.Content = fmt.Sprintf("Error encoding new secret: %s", err)
 		}
-		new.Content = getComment(new.Content) + strings.Replace(strings.Replace(buf.String(), "stringData", "data", 1), "  creationTimestamp: null\n", "", 1)
+		old.Content = getComment(old.Content) + strings.Replace(oldSecretBuf.String(), "  creationTimestamp: null\n", "", 1)
+		oldSecretBuf.Reset()
+	}
+	if new != nil && newSecretDecodeErr == nil {
+		newSecretBuf := bytes.NewBuffer(nil)
+		newSecret.Data = nil
+		if err := serializer.Encode(&newSecret, newSecretBuf); err != nil {
+			new.Content = fmt.Sprintf("Error encoding new secret: %s", err)
+		}
+		new.Content = getComment(new.Content) + strings.Replace(newSecretBuf.String(), "  creationTimestamp: null\n", "", 1)
+		newSecretBuf.Reset()
 	}
 }
 
