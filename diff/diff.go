@@ -239,16 +239,9 @@ func doDiff(report *Report, key string, oldContent *manifest.MappingResult, newC
 	}
 }
 
-// redactSecrets redacts secrets from the diff output.
-func redactSecrets(old, new *manifest.MappingResult) {
+func preHandleSecrets(old, new *manifest.MappingResult) (v1.Secret, v1.Secret, error, error) {
 	var oldSecretDecodeErr, newSecretDecodeErr error
-	if (old != nil && old.Kind != "Secret") || (new != nil && new.Kind != "Secret") {
-		return
-	}
-	serializer := json.NewYAMLSerializer(json.DefaultMetaFactory, scheme.Scheme,
-		scheme.Scheme)
 	var oldSecret, newSecret v1.Secret
-
 	if old != nil {
 		oldSecretDecodeErr = yaml.NewYAMLToJSONDecoder(bytes.NewBufferString(old.Content)).Decode(&oldSecret)
 		if oldSecretDecodeErr != nil {
@@ -279,6 +272,17 @@ func redactSecrets(old, new *manifest.MappingResult) {
 			}
 		}
 	}
+	return oldSecret, newSecret, oldSecretDecodeErr, newSecretDecodeErr
+}
+
+// redactSecrets redacts secrets from the diff output.
+func redactSecrets(old, new *manifest.MappingResult) {
+	if (old != nil && old.Kind != "Secret") || (new != nil && new.Kind != "Secret") {
+		return
+	}
+	serializer := json.NewYAMLSerializer(json.DefaultMetaFactory, scheme.Scheme, scheme.Scheme)
+
+	oldSecret, newSecret, oldSecretDecodeErr, newSecretDecodeErr := preHandleSecrets(old, new)
 
 	if old != nil && oldSecretDecodeErr == nil {
 		oldSecret.StringData = make(map[string]string, len(oldSecret.Data))
@@ -324,38 +328,23 @@ func redactSecrets(old, new *manifest.MappingResult) {
 
 // decodeSecrets decodes secrets from the diff output.
 func decodeSecrets(old, new *manifest.MappingResult) {
-	var oldSecretDecodeErr, newSecretDecodeErr error
 	if (old != nil && old.Kind != "Secret") || (new != nil && new.Kind != "Secret") {
 		return
 	}
-	serializer := json.NewYAMLSerializer(json.DefaultMetaFactory, scheme.Scheme,
-		scheme.Scheme)
-	var oldSecret, newSecret v1.Secret
+	serializer := json.NewYAMLSerializer(json.DefaultMetaFactory, scheme.Scheme, scheme.Scheme)
 
-	if old != nil {
-		oldSecretDecodeErr = yaml.NewYAMLToJSONDecoder(bytes.NewBufferString(old.Content)).Decode(&oldSecret)
-		if oldSecretDecodeErr != nil {
-			old.Content = fmt.Sprintf("Error parsing old secret: %s", oldSecretDecodeErr)
-		} else {
-			if len(oldSecret.Data) > 0 && oldSecret.StringData == nil {
-				oldSecret.StringData = make(map[string]string, len(oldSecret.Data))
-			}
-			for k, v := range oldSecret.Data {
-				oldSecret.StringData[k] = string(v)
-			}
+	oldSecret, newSecret, oldSecretDecodeErr, newSecretDecodeErr := preHandleSecrets(old, new)
+
+	if old != nil && oldSecretDecodeErr == nil {
+		oldSecret.StringData = make(map[string]string, len(oldSecret.Data))
+		for k, v := range oldSecret.Data {
+			oldSecret.StringData[k] = string(v)
 		}
 	}
-	if new != nil {
-		newSecretDecodeErr = yaml.NewYAMLToJSONDecoder(bytes.NewBufferString(new.Content)).Decode(&newSecret)
-		if newSecretDecodeErr != nil {
-			new.Content = fmt.Sprintf("Error parsing new secret: %s", newSecretDecodeErr)
-		} else {
-			if len(newSecret.Data) > 0 && newSecret.StringData == nil {
-				newSecret.StringData = make(map[string]string, len(newSecret.StringData))
-			}
-			for k, v := range newSecret.Data {
-				newSecret.StringData[k] = string(v)
-			}
+	if new != nil && newSecretDecodeErr == nil {
+		newSecret.StringData = make(map[string]string, len(newSecret.Data))
+		for k, v := range newSecret.Data {
+			newSecret.StringData[k] = string(v)
 		}
 	}
 

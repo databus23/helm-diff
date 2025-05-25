@@ -943,6 +943,48 @@ stringData:
 		require.Contains(t, new.Content, "key1: value1changed")
 		require.Contains(t, new.Content, "key2: value2")
 	})
+	t.Run("decodeSecrets with stringData and data ensuring that stringData always precedes/overrides data on Secrets", func(t *testing.T) {
+		old := &manifest.MappingResult{
+			Name: "default, foo, Secret (v1)",
+			Kind: "Secret",
+			Content: `
+apiVersion: v1
+kind: Secret
+metadata:
+  name: foo
+type: Opaque
+stringData:
+  key1: value1.stringdata
+  key2: value2.stringdata
+data:
+  key2: dmFsdWUyLmRhdGE=
+  key3: dmFsdWUzLmRhdGE=
+`,
+		}
+		new := &manifest.MappingResult{
+			Name: "default, foo, Secret (v1)",
+			Kind: "Secret",
+			Content: `
+apiVersion: v1
+kind: Secret
+metadata:
+  name: foo
+type: Opaque
+stringData:
+  key1: value1changed.stringdata
+  key2: value2.stringdata
+data:
+  key3: dmFsdWUzLmRhdGE=
+`,
+		}
+		decodeSecrets(old, new)
+		require.Contains(t, old.Content, "key1: value1.stringdata")
+		require.Contains(t, old.Content, "key2: value2.stringdata")
+		require.Contains(t, old.Content, "key3: value3.data")
+		require.Contains(t, new.Content, "key1: value1changed.stringdata")
+		require.Contains(t, new.Content, "key2: value2.stringdata")
+		require.Contains(t, new.Content, "key3: value3.data")
+	})
 
 	t.Run("decodeSecrets with invalid base64", func(t *testing.T) {
 		old := &manifest.MappingResult{
