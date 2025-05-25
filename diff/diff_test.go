@@ -943,7 +943,7 @@ stringData:
 		require.Contains(t, new.Content, "key1: value1changed")
 		require.Contains(t, new.Content, "key2: value2")
 	})
-	t.Run("decodeSecrets with stringData and Data that stringData precedes data on Secrets", func(t *testing.T) {
+	t.Run("decodeSecrets with stringData and data ensuring that stringData always precedes/overrides data on Secrets", func(t *testing.T) {
 		old := &manifest.MappingResult{
 			Name: "default, foo, Secret (v1)",
 			Kind: "Secret",
