@@ -1,4 +1,4 @@
-HELM_DATA_HOME ?= $(shell helm env HELM_DATA_HOME)
+HELM_HOME ?= $(shell helm env HELM_DATA_HOME)
 VERSION := $(shell sed -n -e 's/version:[ "]*\([^"]*\).*/\1/p' plugin.yaml)
 
 HELM_3_PLUGINS := $(shell helm env HELM_PLUGINS)
@@ -15,9 +15,9 @@ format:
 
 .PHONY: install
 install: build
-	mkdir -p $(HELM_DATA_HOME)/plugins/helm-diff/bin
-	cp bin/diff $(HELM_DATA_HOME)/plugins/helm-diff/bin
-	cp plugin.yaml $(HELM_DATA_HOME)/plugins/helm-diff/
+	mkdir -p $(HELM_HOME)/plugins/helm-diff/bin
+	cp bin/diff $(HELM_HOME)/plugins/helm-diff/bin
+	cp plugin.yaml $(HELM_HOME)/plugins/helm-diff/
 
 .PHONY: install/helm3
 install/helm3: build
