@@ -173,7 +173,7 @@ func newChartCommand() *cobra.Command {
 				diff.threeWayMerge = enabled
 
 				if enabled {
-					fmt.Println("Enabled three way merge via the envvar")
+					fmt.Fprintf(os.Stderr, "Enabled three way merge via the envvar\n")
 				}
 			}
 
@@ -182,7 +182,7 @@ func newChartCommand() *cobra.Command {
 				diff.normalizeManifests = enabled
 
 				if enabled {
-					fmt.Println("Enabled normalize manifests via the envvar")
+					fmt.Fprintf(os.Stderr, "Enabled normalize manifests via the envvar\n")
 				}
 			}
 
@@ -276,11 +276,11 @@ func (d *diffCmd) runHelm3() error {
 	var newInstall bool
 	if err != nil && strings.Contains(err.Error(), "release: not found") {
 		if d.isAllowUnreleased() {
-			fmt.Printf("********************\n\n\tRelease was not present in Helm.  Diff will show entire contents as new.\n\n********************\n")
+			fmt.Fprintf(os.Stderr, "********************\n\n\tRelease was not present in Helm.  Diff will show entire contents as new.\n\n********************\n")
 			newInstall = true
 			err = nil
 		} else {
-			fmt.Printf("********************\n\n\tRelease was not present in Helm.  Include the `--allow-unreleased` to perform diff without exiting in error.\n\n********************\n")
+			fmt.Fprintf(os.Stderr, "********************\n\n\tRelease was not present in Helm.  Include the `--allow-unreleased` to perform diff without exiting in error.\n\n********************\n")
 			return err
 		}
 	}

@@ -1,6 +1,6 @@
-Before submitting a pul request, I'd encourage you to test it yourself.
+Before submitting a pull request, I'd encourage you to test it yourself.
 
-To do so, you need to run the plugin indirectly or directly-
+To do so, you need to run the plugin indirectly or directly.
 
 **Indirect** Install the plugin locally and run it via helm:
 
