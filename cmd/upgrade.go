@@ -276,7 +276,6 @@ func (d *diffCmd) runHelm3() error {
 	var newInstall bool
 	if err != nil && strings.Contains(err.Error(), "release: not found") {
 		if d.isAllowUnreleased() {
-			fmt.Fprintf(os.Stderr, "********************\n\n\tRelease was not present in Helm.  Diff will show entire contents as new.\n\n********************\n")
 			newInstall = true
 			err = nil
 		} else {
