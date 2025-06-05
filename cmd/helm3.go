@@ -355,13 +355,21 @@ func extractManifestFromHelmUpgradeDryRunOutput(s []byte, noHooks bool) []byte {
 		return s
 	}
 
+	var (
+		hooks    []byte
+		manifest []byte
+	)
+
 	i := bytes.Index(s, []byte("HOOKS:"))
-	hooks := s[i:]
+	if i > -1 {
+		hooks = s[i:]
+	}
 
 	j := bytes.Index(hooks, []byte("MANIFEST:"))
-
-	manifest := hooks[j:]
-	hooks = hooks[:j]
+	if j > -1 {
+		manifest = hooks[j:]
+		hooks = hooks[:j]
+	}
 
 	k := bytes.Index(manifest, []byte("\nNOTES:"))
 
