@@ -76,6 +76,14 @@ dist:
 	tar -C build/ -zcvf $(CURDIR)/release/helm-diff-linux-amd64.tgz diff/
 	GOOS=linux GOARCH=arm64 $(GO) build -o build/diff/bin/diff -trimpath -ldflags="$(LDFLAGS)"
 	tar -C build/ -zcvf $(CURDIR)/release/helm-diff-linux-arm64.tgz diff/
+	GOOS=linux GOARCH=arm GOARM=6 $(GO) build -o build/diff/bin/diff -trimpath -ldflags="$(LDFLAGS)"
+	tar -C build/ -zcvf $(CURDIR)/release/helm-diff-linux-armv6.tgz diff/
+	GOOS=linux GOARCH=arm GOARM=7 $(GO) build -o build/diff/bin/diff -trimpath -ldflags="$(LDFLAGS)"
+	tar -C build/ -zcvf $(CURDIR)/release/helm-diff-linux-armv7.tgz diff/
+	GOOS=linux GOARCH=ppc64le $(GO) build -o build/diff/bin/diff -trimpath -ldflags="$(LDFLAGS)"
+	tar -C build/ -zcvf $(CURDIR)/release/helm-diff-linux-ppc64le.tgz diff/
+	GOOS=linux GOARCH=s390x $(GO) build -o build/diff/bin/diff -trimpath -ldflags="$(LDFLAGS)"
+	tar -C build/ -zcvf $(CURDIR)/release/helm-diff-linux-s390x.tgz diff/
 	GOOS=freebsd GOARCH=amd64 $(GO) build -o build/diff/bin/diff -trimpath -ldflags="$(LDFLAGS)"
 	tar -C build/ -zcvf $(CURDIR)/release/helm-diff-freebsd-amd64.tgz diff/
 	GOOS=darwin GOARCH=amd64 $(GO) build -o build/diff/bin/diff -trimpath -ldflags="$(LDFLAGS)"

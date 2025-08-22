@@ -47,6 +47,8 @@ initArch() {
   x86_64) ARCH="amd64" ;;
   i686) ARCH="386" ;;
   i386) ARCH="386" ;;
+  ppc64le) ARCH="ppc64le" ;;
+  s390x) ARCH="s390x" ;;
   esac
 }
 
@@ -69,7 +71,7 @@ initOS() {
 # verifySupported checks that the os/arch combination is supported for
 # binary builds.
 verifySupported() {
-  supported="linux-amd64\nlinux-arm64\nfreebsd-amd64\nmacos-amd64\nmacos-arm64\nwindows-amd64"
+  supported="linux-amd64\nlinux-arm64\nlinux-armv6\nlinux-armv7\nlinux-ppc64le\nlinux-s390x\nfreebsd-amd64\nmacos-amd64\nmacos-arm64\nwindows-amd64"
   if ! echo "${supported}" | grep -q "${OS}-${ARCH}"; then
     echo "No prebuild binary for ${OS}-${ARCH}."
     exit 1

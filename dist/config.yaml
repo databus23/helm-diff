@@ -1,0 +1,156 @@
+project_name: helm-diff
+release:
+  github:
+    owner: databus23
+    name: helm-diff
+  prerelease: auto
+  name_template: '{{.Tag}}'
+builds:
+  - id: default
+    goos:
+      - freebsd
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    goarm:
+      - "6"
+    gomips:
+      - hardfloat
+    goamd64:
+      - v1
+    targets:
+      - freebsd_amd64_v1
+      - darwin_amd64_v1
+      - darwin_arm64
+      - linux_amd64_v1
+      - linux_arm64
+      - windows_amd64_v1
+    ignore:
+      - goos: freebsd
+        goarch: arm64
+      - goos: windows
+        goarch: arm64
+    dir: .
+    main: .
+    binary: bin/diff
+    builder: go
+    gobinary: go
+    command: build
+    ldflags:
+      - -X github.com/databus23/helm-diff/v3/cmd.Version={{ .Version }}
+    flags:
+      - -trimpath
+    env:
+      - CGO_ENABLED=0
+  - id: linux-additional
+    goos:
+      - linux
+    goarch:
+      - arm
+      - ppc64le
+      - s390x
+    goarm:
+      - "6"
+      - "7"
+    gomips:
+      - hardfloat
+    goamd64:
+      - v1
+    targets:
+      - linux_arm_6
+      - linux_arm_7
+      - linux_ppc64le
+      - linux_s390x
+    dir: .
+    main: .
+    binary: bin/diff
+    builder: go
+    gobinary: go
+    command: build
+    ldflags:
+      - -X github.com/databus23/helm-diff/v3/cmd.Version={{ .Version }}
+    flags:
+      - -trimpath
+    env:
+      - CGO_ENABLED=0
+archives:
+  - id: default
+    builds:
+      - default
+      - linux-additional
+    name_template: '{{ .ProjectName }}-{{ if eq .Os "darwin" }}macos{{ else }}{{ .Os }}{{ end }}-{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}'
+    format: tgz
+    wrap_in_directory: diff
+    files:
+      - src: README.md
+      - src: plugin.yaml
+      - src: LICENSE
+snapshot:
+  name_template: '{{ .Version }}-SNAPSHOT-{{ .ShortCommit }}'
+checksum:
+  name_template: '{{ .ProjectName }}_{{ .Version }}_checksums.txt'
+  algorithm: sha256
+changelog:
+  use: github-native
+  format: '{{ .SHA }}: {{ .Message }} ({{ with .AuthorUsername }}@{{ . }}{{ else }}{{ .AuthorName }} <{{ .AuthorEmail }}>{{ end }})'
+dist: dist
+env_files:
+  github_token: ~/.config/goreleaser/github_token
+  gitlab_token: ~/.config/goreleaser/gitlab_token
+  gitea_token: ~/.config/goreleaser/gitea_token
+source:
+  name_template: '{{ .ProjectName }}-{{ .Version }}'
+  format: tar.gz
+gomod:
+  gobinary: go
+announce:
+  twitter:
+    message_template: '{{ .ProjectName }} {{ .Tag }} is out! Check it out at {{ .ReleaseURL }}'
+  mastodon:
+    message_template: '{{ .ProjectName }} {{ .Tag }} is out! Check it out at {{ .ReleaseURL }}'
+    server: ""
+  reddit:
+    title_template: '{{ .ProjectName }} {{ .Tag }} is out!'
+    url_template: '{{ .ReleaseURL }}'
+  slack:
+    message_template: '{{ .ProjectName }} {{ .Tag }} is out! Check it out at {{ .ReleaseURL }}'
+    username: GoReleaser
+  discord:
+    message_template: '{{ .ProjectName }} {{ .Tag }} is out! Check it out at {{ .ReleaseURL }}'
+    author: GoReleaser
+    color: "3888754"
+    icon_url: https://goreleaser.com/static/avatar.png
+  teams:
+    title_template: '{{ .ProjectName }} {{ .Tag }} is out!'
+    message_template: '{{ .ProjectName }} {{ .Tag }} is out! Check it out at {{ .ReleaseURL }}'
+    color: '#2D313E'
+    icon_url: https://goreleaser.com/static/avatar.png
+  smtp:
+    subject_template: '{{ .ProjectName }} {{ .Tag }} is out!'
+    body_template: 'You can view details from: {{ .ReleaseURL }}'
+  mattermost:
+    message_template: '{{ .ProjectName }} {{ .Tag }} is out! Check it out at {{ .ReleaseURL }}'
+    title_template: '{{ .ProjectName }} {{ .Tag }} is out!'
+    username: GoReleaser
+  linkedin:
+    message_template: '{{ .ProjectName }} {{ .Tag }} is out! Check it out at {{ .ReleaseURL }}'
+  telegram:
+    message_template: '{{ mdv2escape .ProjectName }} {{ mdv2escape .Tag }} is out{{ mdv2escape "!" }} Check it out at {{ mdv2escape .ReleaseURL }}'
+    parse_mode: MarkdownV2
+  webhook:
+    message_template: '{ "message": "{{ .ProjectName }} {{ .Tag }} is out! Check it out at {{ .ReleaseURL }}"}'
+    content_type: application/json; charset=utf-8
+  opencollective:
+    title_template: '{{ .Tag }}'
+    message_template: '{{ .ProjectName }} {{ .Tag }} is out!<br/>Check it out at <a href="{{ .ReleaseURL }}">{{ .ReleaseURL }}</a>'
+  bluesky:
+    message_template: '{{ .ProjectName }} {{ .Tag }} is out! Check it out at {{ .ReleaseURL }}'
+git:
+  tag_sort: -version:refname
+github_urls:
+  download: https://github.com
+gitlab_urls:
+  download: https://gitlab.com
