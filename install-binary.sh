@@ -71,7 +71,7 @@ initOS() {
 # verifySupported checks that the os/arch combination is supported for
 # binary builds.
 verifySupported() {
-  supported="linux-amd64\nlinux-arm64\nlinux-armv6\nlinux-armv7\nlinux-ppc64le\nlinux-s390x\nfreebsd-amd64\nmacos-amd64\nmacos-arm64\nwindows-amd64"
+  supported="linux-amd64\nlinux-arm64\nlinux-armv6\nlinux-armv7\nlinux-ppc64le\nlinux-s390x\nfreebsd-amd64\nfreebsd-arm64\nmacos-amd64\nmacos-arm64\nwindows-amd64\nwindows-arm64"
   if ! echo "${supported}" | grep -q "${OS}-${ARCH}"; then
     echo "No prebuild binary for ${OS}-${ARCH}."
     exit 1

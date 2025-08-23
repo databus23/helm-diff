@@ -21,11 +21,6 @@ builds:
     goarch:
       - amd64
       - arm64
-    ignore:
-      - goos: freebsd
-        goarch: arm64
-      - goos: windows
-        goarch: arm64
   - id: linux-additional
     main: .
     binary: bin/diff
