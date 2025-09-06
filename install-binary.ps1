@@ -53,7 +53,7 @@ function Download-Plugin {
 function Install-Plugin {
   param ([Parameter(Mandatory=$true)][string] $ArchiveDirectory, [Parameter(Mandatory=$true)][string] $ArchiveName, [Parameter(Mandatory=$true)][string] $Destination)
 
-  tar -xzf --force-local (Join-Path $ArchiveDirectory $ArchiveName) -C $ArchiveDirectory
+  tar --force-local -xzf (Join-Path $ArchiveDirectory $ArchiveName) -C $ArchiveDirectory
 
   New-Item -ItemType Directory -Path $Destination -Force
   Copy-Item -Path (Join-Path $ArchiveDirectory "diff" "bin" "diff.exe") -Destination $Destination -Force
