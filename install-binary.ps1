@@ -54,8 +54,7 @@ function Install-Plugin {
   param ([Parameter(Mandatory=$true)][string] $ArchiveDirectory, [Parameter(Mandatory=$true)][string] $ArchiveName, [Parameter(Mandatory=$true)][string] $Destination)
 
   Push-Location $ArchiveDirectory
-  tar -xvzf $ArchiveName -C . 
-  Get-ChildItem -Path $ArchiveDirectory -Recurse
+  tar -xzf $ArchiveName -C . 
   Pop-Location
 
   New-Item -ItemType Directory -Path $Destination -Force
