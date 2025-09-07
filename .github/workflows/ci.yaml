@@ -93,8 +93,6 @@ jobs:
       - name: Setup Cygwin
         if: "contains(matrix.shell, 'cygwin')"
         uses: egor-tensin/setup-cygwin@v4
-        with:
-          platform: x64
 
       - name: helm plugin install
         run: helm plugin install .

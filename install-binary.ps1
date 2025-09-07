@@ -55,6 +55,7 @@ function Install-Plugin {
 
   Push-Location $ArchiveDirectory
   tar -xzf $ArchiveName -C $ArchiveDirectory
+  Get-ChildItem -Path $ArchiveDirectory -Recurse
   Pop-Location
 
   New-Item -ItemType Directory -Path $Destination -Force
