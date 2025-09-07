@@ -53,9 +53,9 @@ function Download-Plugin {
 function Install-Plugin {
   param ([Parameter(Mandatory=$true)][string] $ArchiveDirectory, [Parameter(Mandatory=$true)][string] $ArchiveName, [Parameter(Mandatory=$true)][string] $Destination)
 
-  echo "archive directory: $ArchiveDirectory"
-  echo "archive name: $ArchiveName"
-  echo "destination: $Destination
+  Write-Host "Archive directory: $ArchiveDirectory"
+  Write-Host "Archive name: $ArchiveName"
+  Write-Host "Destination: $Destination"
   Push-Location $ArchiveDirectory
   tar -xvzf $ArchiveName -C $ArchiveDirectory
   Get-ChildItem -Path $ArchiveDirectory -Recurse
