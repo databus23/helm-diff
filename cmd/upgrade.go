@@ -51,6 +51,7 @@ type diffCmd struct {
 	resetValues              bool
 	resetThenReuseValues     bool
 	allowUnreleased          bool
+	dependencyUpdate         bool
 	noHooks                  bool
 	includeTests             bool
 	includeCRDs              bool
@@ -232,6 +233,7 @@ func newChartCommand() *cobra.Command {
 	f.BoolVar(&diff.resetThenReuseValues, "reset-then-reuse-values", false, "reset the values to the ones built into the chart, apply the last release's values and merge in any new values. If '--reset-values' or '--reuse-values' is specified, this is ignored")
 	f.BoolVar(&diff.allowUnreleased, "allow-unreleased", false, "enables diffing of releases that are not yet deployed via Helm")
 	f.BoolVar(&diff.install, "install", false, "enables diffing of releases that are not yet deployed via Helm (equivalent to --allow-unreleased, added to match \"helm upgrade --install\" command")
+	f.BoolVar(&diff.dependencyUpdate, "dependency-update", false, "update dependencies if they are missing before diffing")
 	f.BoolVar(&diff.noHooks, "no-hooks", false, "disable diffing of hooks")
 	f.BoolVar(&diff.includeTests, "include-tests", false, "enable the diffing of the helm test hooks")
 	f.BoolVar(&diff.includeCRDs, "include-crds", false, "include CRDs in the diffing")
@@ -262,6 +264,16 @@ func (d *diffCmd) runHelm3() error {
 	var releaseManifest []byte
 
 	var err error
+
+	if d.dependencyUpdate {
+		var output []byte
+		output, err = updateDependencies(d.chart)
+		if err != nil {
+			return err
+		} else {
+			fmt.Println(string(output))
+		}
+	}
 
 	if d.takeOwnership {
 		// We need to do a three way merge between the manifests of the new
