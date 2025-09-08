@@ -42,6 +42,23 @@ func Manifests(oldIndex, newIndex map[string]*manifest.MappingResult, options *O
 }
 
 func ManifestsOwnership(oldIndex, newIndex map[string]*manifest.MappingResult, newOwnedReleases map[string]OwnershipDiff, options *Options, to io.Writer) bool {
+	seenAnyChanges, report, err := generateReport(oldIndex, newIndex, nil, options, to)
+	if err != nil {
+		panic(err)
+	}
+
+	report.print(to)
+	report.clean()
+	return seenAnyChanges
+}
+
+func ManifestReport(oldIndex, newIndex map[string]*manifest.MappingResult, options *Options, to io.Writer) (*Report, error) {
+	_, report, err := generateReport(oldIndex, newIndex, nil, options, to)
+
+	return report, err
+}
+
+func generateReport(oldIndex, newIndex map[string]*manifest.MappingResult, newOwnedReleases map[string]OwnershipDiff, options *Options, to io.Writer) (bool, *Report, error) {
 	report := Report{}
 	report.setupReportFormat(options.OutputFormat)
 	var possiblyRemoved []string
@@ -86,13 +103,8 @@ func ManifestsOwnership(oldIndex, newIndex map[string]*manifest.MappingResult, n
 	seenAnyChanges := len(report.entries) > 0
 
 	report, err := doSuppress(report, options.SuppressedOutputLineRegex)
-	if err != nil {
-		panic(err)
-	}
 
-	report.print(to)
-	report.clean()
-	return seenAnyChanges
+	return seenAnyChanges, &report, err
 }
 
 func doSuppress(report Report, suppressedOutputLineRegex []string) (Report, error) {
@@ -247,9 +259,9 @@ func preHandleSecrets(old, new *manifest.MappingResult) (v1.Secret, v1.Secret, e
 		if oldSecretDecodeErr != nil {
 			old.Content = fmt.Sprintf("Error parsing old secret: %s", oldSecretDecodeErr)
 		} else {
-			//if we have a Secret containing `stringData`, apply the same
-			//transformation that the apiserver would do with it (this protects
-			//stringData keys from being overwritten down below)
+			// if we have a Secret containing `stringData`, apply the same
+			// transformation that the apiserver would do with it (this protects
+			// stringData keys from being overwritten down below)
 			if len(oldSecret.StringData) > 0 && oldSecret.Data == nil {
 				oldSecret.Data = make(map[string][]byte, len(oldSecret.StringData))
 			}
@@ -263,7 +275,7 @@ func preHandleSecrets(old, new *manifest.MappingResult) (v1.Secret, v1.Secret, e
 		if newSecretDecodeErr != nil {
 			new.Content = fmt.Sprintf("Error parsing new secret: %s", newSecretDecodeErr)
 		} else {
-			//same as above
+			// same as above
 			if len(newSecret.StringData) > 0 && newSecret.Data == nil {
 				newSecret.Data = make(map[string][]byte, len(newSecret.StringData))
 			}
