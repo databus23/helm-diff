@@ -42,7 +42,7 @@ func Manifests(oldIndex, newIndex map[string]*manifest.MappingResult, options *O
 }
 
 func ManifestsOwnership(oldIndex, newIndex map[string]*manifest.MappingResult, newOwnedReleases map[string]OwnershipDiff, options *Options, to io.Writer) bool {
-	seenAnyChanges, report, err := generateReport(oldIndex, newIndex, nil, options)
+	seenAnyChanges, report, err := generateReport(oldIndex, newIndex, newOwnedReleases, options)
 	if err != nil {
 		panic(err)
 	}
