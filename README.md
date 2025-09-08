@@ -14,6 +14,8 @@ revisions/versions of your helm release.
 
 ### Using Helm plugin manager (> 2.3.x)
 
+*requires helm 3.18+*
+
 ```shell
 helm plugin install https://github.com/databus23/helm-diff
 ```
@@ -124,7 +126,7 @@ Flags:
       --version string                           specify the exact chart version to use. If this is not specified, the latest version is used
 
 Additional help topcis:
-  diff            
+  diff
 
 Use "diff [command] --help" for more information about a command.
 ```
