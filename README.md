@@ -148,6 +148,9 @@ Usage:
 Examples:
   helm diff upgrade my-release stable/postgresql --values values.yaml
 
+  # Use a specific kubeconfig context
+  helm diff upgrade my-release stable/postgresql --kube-context production
+
   # Set HELM_DIFF_IGNORE_UNKNOWN_FLAGS=true to ignore unknown flags
   # It's useful when you're using `helm-diff` in a `helm upgrade` wrapper.
   # See https://github.com/databus23/helm-diff/issues/278 for more information.
@@ -191,6 +194,7 @@ Flags:
       --include-tests                            enable the diffing of the helm test hooks
       --insecure-skip-tls-verify                 skip tls certificate checks for the chart download
       --install                                  enables diffing of releases that are not yet deployed via Helm (equivalent to --allow-unreleased, added to match "helm upgrade --install" command
+      --kube-context string                      name of the kubeconfig context to use
       --kube-version string                      Kubernetes version used for Capabilities.KubeVersion
       --kubeconfig string                        This flag is ignored, to allow passing of this top level flag to helm
       --no-hooks                                 disable diffing of hooks
