@@ -18,6 +18,7 @@ type revision struct {
 	revisions          []string
 	includeTests       bool
 	normalizeManifests bool
+	kubeContext        string
 	diff.Options
 }
 
@@ -70,6 +71,7 @@ func revisionCmd() *cobra.Command {
 	revisionCmd.Flags().BoolVar(&diff.detailedExitCode, "detailed-exitcode", false, "return a non-zero exit code when there are changes")
 	revisionCmd.Flags().BoolVar(&diff.includeTests, "include-tests", false, "enable the diffing of the helm test hooks")
 	revisionCmd.Flags().BoolVar(&diff.normalizeManifests, "normalize-manifests", false, "normalize manifests before running diff to exclude style differences from the output")
+	revisionCmd.Flags().StringVar(&diff.kubeContext, "kube-context", "", "name of the kubeconfig context to use")
 	AddDiffOptions(revisionCmd.Flags(), &diff.Options)
 
 	revisionCmd.SuggestionsMinimumDistance = 1
@@ -85,14 +87,14 @@ func (d *revision) differentiateHelm3() error {
 	}
 	switch len(d.revisions) {
 	case 1:
-		releaseResponse, err := getRelease(d.release, namespace)
+		releaseResponse, err := getRelease(d.release, namespace, d.kubeContext)
 
 		if err != nil {
 			return err
 		}
 
 		revision, _ := strconv.Atoi(d.revisions[0])
-		revisionResponse, err := getRevision(d.release, revision, namespace)
+		revisionResponse, err := getRevision(d.release, revision, namespace, d.kubeContext)
 		if err != nil {
 			return err
 		}
@@ -110,12 +112,12 @@ func (d *revision) differentiateHelm3() error {
 			revision1, revision2 = revision2, revision1
 		}
 
-		revisionResponse1, err := getRevision(d.release, revision1, namespace)
+		revisionResponse1, err := getRevision(d.release, revision1, namespace, d.kubeContext)
 		if err != nil {
 			return err
 		}
 
-		revisionResponse2, err := getRevision(d.release, revision2, namespace)
+		revisionResponse2, err := getRevision(d.release, revision2, namespace, d.kubeContext)
 		if err != nil {
 			return err
 		}
