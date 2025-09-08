@@ -42,7 +42,7 @@ func Manifests(oldIndex, newIndex map[string]*manifest.MappingResult, options *O
 }
 
 func ManifestsOwnership(oldIndex, newIndex map[string]*manifest.MappingResult, newOwnedReleases map[string]OwnershipDiff, options *Options, to io.Writer) bool {
-	seenAnyChanges, report, err := generateReport(oldIndex, newIndex, nil, options, to)
+	seenAnyChanges, report, err := generateReport(oldIndex, newIndex, nil, options)
 	if err != nil {
 		panic(err)
 	}
@@ -53,12 +53,12 @@ func ManifestsOwnership(oldIndex, newIndex map[string]*manifest.MappingResult, n
 }
 
 func ManifestReport(oldIndex, newIndex map[string]*manifest.MappingResult, options *Options, to io.Writer) (*Report, error) {
-	_, report, err := generateReport(oldIndex, newIndex, nil, options, to)
+	_, report, err := generateReport(oldIndex, newIndex, nil, options)
 
 	return report, err
 }
 
-func generateReport(oldIndex, newIndex map[string]*manifest.MappingResult, newOwnedReleases map[string]OwnershipDiff, options *Options, to io.Writer) (bool, *Report, error) {
+func generateReport(oldIndex, newIndex map[string]*manifest.MappingResult, newOwnedReleases map[string]OwnershipDiff, options *Options) (bool, *Report, error) {
 	report := Report{}
 	report.setupReportFormat(options.OutputFormat)
 	var possiblyRemoved []string
