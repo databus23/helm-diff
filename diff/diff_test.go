@@ -172,7 +172,6 @@ func TestManifests(t *testing.T) {
 
 	specBeta := map[string]*manifest.MappingResult{
 		"default, nginx, Deployment (apps)": {
-
 			Name: "default, nginx, Deployment (apps)",
 			Kind: "Deployment",
 			Content: `
@@ -181,11 +180,11 @@ kind: Deployment
 metadata:
   name: nginx
 `,
-		}}
+		},
+	}
 
 	specRelease := map[string]*manifest.MappingResult{
 		"default, nginx, Deployment (apps)": {
-
 			Name: "default, nginx, Deployment (apps)",
 			Kind: "Deployment",
 			Content: `
@@ -194,11 +193,11 @@ kind: Deployment
 metadata:
   name: nginx
 `,
-		}}
+		},
+	}
 
 	specReleaseSpec := map[string]*manifest.MappingResult{
 		"default, nginx, Deployment (apps)": {
-
 			Name: "default, nginx, Deployment (apps)",
 			Kind: "Deployment",
 			Content: `
@@ -209,11 +208,11 @@ metadata:
 spec:
   replicas: 3
 `,
-		}}
+		},
+	}
 
 	specReleaseRenamed := map[string]*manifest.MappingResult{
 		"default, nginx-renamed, Deployment (apps)": {
-
 			Name: "default, nginx-renamed, Deployment (apps)",
 			Kind: "Deployment",
 			Content: `
@@ -224,11 +223,11 @@ metadata:
 spec:
   replicas: 3
 `,
-		}}
+		},
+	}
 
 	specReleaseRenamedAndUpdated := map[string]*manifest.MappingResult{
 		"default, nginx-renamed, Deployment (apps)": {
-
 			Name: "default, nginx-renamed, Deployment (apps)",
 			Kind: "Deployment",
 			Content: `
@@ -239,11 +238,11 @@ metadata:
 spec:
   replicas: 1
 `,
-		}}
+		},
+	}
 
 	specReleaseRenamedAndAdded := map[string]*manifest.MappingResult{
 		"default, nginx-renamed, Deployment (apps)": {
-
 			Name: "default, nginx-renamed, Deployment (apps)",
 			Kind: "Deployment",
 			Content: `
@@ -257,11 +256,11 @@ spec:
     matchLabels:
       app: nginx-renamed
 `,
-		}}
+		},
+	}
 
 	specReleaseKeep := map[string]*manifest.MappingResult{
 		"default, nginx, Deployment (apps)": {
-
 			Name: "default, nginx, Deployment (apps)",
 			Kind: "Deployment",
 			Content: `
@@ -273,7 +272,8 @@ annotations:
   helm.sh/resource-policy: keep
 `,
 			ResourcePolicy: "keep",
-		}}
+		},
+	}
 
 	t.Run("OnChange", func(t *testing.T) {
 		var buf1 bytes.Buffer
@@ -603,7 +603,8 @@ data:
   key2: dmFsdWUy
   key3: dmFsdWUz
 `,
-		}}
+		},
+	}
 
 	specSecretWithByteDataChanged := map[string]*manifest.MappingResult{
 		"default, foobar, Secret (v1)": {
@@ -620,7 +621,8 @@ data:
   key2: dmFsdWUy
   key4: dmFsdWU0
 `,
-		}}
+		},
+	}
 
 	specSecretWithStringData := map[string]*manifest.MappingResult{
 		"default, foobar, Secret (v1)": {
@@ -637,7 +639,8 @@ stringData:
   key2: value2
   key3: value3
 `,
-		}}
+		},
+	}
 
 	specSecretWithStringDataChanged := map[string]*manifest.MappingResult{
 		"default, foobar, Secret (v1)": {
@@ -654,17 +657,18 @@ stringData:
   key2: value2
   key4: value4
 `,
-		}}
+		},
+	}
 
 	t.Run("OnChangeSecretWithByteData", func(t *testing.T) {
 		var buf1 bytes.Buffer
-		diffOptions := Options{"diff", 10, false, false, false, []string{}, 0.5, []string{}} //NOTE: ShowSecrets = false
+		diffOptions := Options{"diff", 10, false, false, false, []string{}, 0.5, []string{}} // NOTE: ShowSecrets = false
 
 		if changesSeen := Manifests(specSecretWithByteData, specSecretWithByteDataChanged, &diffOptions, &buf1); !changesSeen {
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
 		}
 
-		//TODO: Why is there no empty line between the header and the start of the diff, like in the other diffs?
+		// TODO: Why is there no empty line between the header and the start of the diff, like in the other diffs?
 		require.Equal(t, `default, foobar, Secret (v1) has changed:
   apiVersion: v1
   kind: Secret
@@ -683,7 +687,7 @@ stringData:
 
 	t.Run("OnChangeSecretWithStringData", func(t *testing.T) {
 		var buf1 bytes.Buffer
-		diffOptions := Options{"diff", 10, false, false, false, []string{}, 0.5, []string{}} //NOTE: ShowSecrets = false
+		diffOptions := Options{"diff", 10, false, false, false, []string{}, 0.5, []string{}} // NOTE: ShowSecrets = false
 
 		if changesSeen := Manifests(specSecretWithStringData, specSecretWithStringDataChanged, &diffOptions, &buf1); !changesSeen {
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
@@ -722,17 +726,17 @@ func TestDoSuppress(t *testing.T) {
 		{
 			name: "simple",
 			input: Report{
-				entries: []ReportEntry{
+				Entries: []ReportEntry{
 					{
-						diffs: diffStrings("hello: world", "hello: world2", false),
+						Diffs: diffStrings("hello: world", "hello: world2", false),
 					},
 				},
 			},
 			supressRegex: []string{},
 			expected: Report{
-				entries: []ReportEntry{
+				Entries: []ReportEntry{
 					{
-						diffs: diffStrings("hello: world", "hello: world2", false),
+						Diffs: diffStrings("hello: world", "hello: world2", false),
 					},
 				},
 			},
@@ -740,17 +744,17 @@ func TestDoSuppress(t *testing.T) {
 		{
 			name: "ignore all",
 			input: Report{
-				entries: []ReportEntry{
+				Entries: []ReportEntry{
 					{
-						diffs: diffStrings("hello: world", "hello: world2", false),
+						Diffs: diffStrings("hello: world", "hello: world2", false),
 					},
 				},
 			},
 			supressRegex: []string{".*world2?"},
 			expected: Report{
-				entries: []ReportEntry{
+				Entries: []ReportEntry{
 					{
-						diffs: []difflib.DiffRecord{},
+						Diffs: []difflib.DiffRecord{},
 					},
 				},
 			},
@@ -758,17 +762,17 @@ func TestDoSuppress(t *testing.T) {
 		{
 			name: "ignore partial",
 			input: Report{
-				entries: []ReportEntry{
+				Entries: []ReportEntry{
 					{
-						diffs: diffStrings("hello: world", "hello: world2", false),
+						Diffs: diffStrings("hello: world", "hello: world2", false),
 					},
 				},
 			},
 			supressRegex: []string{".*world2"},
 			expected: Report{
-				entries: []ReportEntry{
+				Entries: []ReportEntry{
 					{
-						diffs: []difflib.DiffRecord{
+						Diffs: []difflib.DiffRecord{
 							{
 								Payload: "hello: world",
 								Delta:   difflib.LeftOnly,
@@ -803,11 +807,12 @@ metadata:
 data:
   key1: value1
 `,
-		}}
+		},
+	}
 
 	t.Run("OnChangeOwnershipWithoutSpecChange", func(t *testing.T) {
 		var buf1 bytes.Buffer
-		diffOptions := Options{"diff", 10, false, true, false, []string{}, 0.5, []string{}} //NOTE: ShowSecrets = false
+		diffOptions := Options{"diff", 10, false, true, false, []string{}, 0.5, []string{}} // NOTE: ShowSecrets = false
 
 		newOwnedReleases := map[string]OwnershipDiff{
 			"default, foobar, ConfigMap (v1)": {
@@ -827,7 +832,7 @@ data:
 
 	t.Run("OnChangeOwnershipWithSpecChange", func(t *testing.T) {
 		var buf1 bytes.Buffer
-		diffOptions := Options{"diff", 10, false, true, false, []string{}, 0.5, []string{}} //NOTE: ShowSecrets = false
+		diffOptions := Options{"diff", 10, false, true, false, []string{}, 0.5, []string{}} // NOTE: ShowSecrets = false
 
 		specNew := map[string]*manifest.MappingResult{
 			"default, foobar, ConfigMap (v1)": {
@@ -841,7 +846,8 @@ metadata:
 data:
   key1: newValue1
 `,
-			}}
+			},
+		}
 
 		newOwnedReleases := map[string]OwnershipDiff{
 			"default, foobar, ConfigMap (v1)": {
@@ -869,6 +875,7 @@ default, foobar, ConfigMap (v1) has changed:
 `, buf1.String())
 	})
 }
+
 func TestDecodeSecrets(t *testing.T) {
 	ansi.DisableColors(true)
 

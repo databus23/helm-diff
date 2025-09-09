@@ -100,7 +100,7 @@ func generateReport(oldIndex, newIndex map[string]*manifest.MappingResult, newOw
 		doDiff(&report, key, nil, newContent, options)
 	}
 
-	seenAnyChanges := len(report.entries) > 0
+	seenAnyChanges := len(report.Entries) > 0
 
 	report, err := doSuppress(report, options.SuppressedOutputLineRegex)
 
@@ -108,13 +108,13 @@ func generateReport(oldIndex, newIndex map[string]*manifest.MappingResult, newOw
 }
 
 func doSuppress(report Report, suppressedOutputLineRegex []string) (Report, error) {
-	if len(report.entries) == 0 || len(suppressedOutputLineRegex) == 0 {
+	if len(report.Entries) == 0 || len(suppressedOutputLineRegex) == 0 {
 		return report, nil
 	}
 
 	filteredReport := Report{}
 	filteredReport.format = report.format
-	filteredReport.entries = []ReportEntry{}
+	filteredReport.Entries = []ReportEntry{}
 
 	var suppressOutputRegexes []*regexp.Regexp
 
@@ -127,11 +127,11 @@ func doSuppress(report Report, suppressedOutputLineRegex []string) (Report, erro
 		suppressOutputRegexes = append(suppressOutputRegexes, regex)
 	}
 
-	for _, entry := range report.entries {
+	for _, entry := range report.Entries {
 		var diffs []difflib.DiffRecord
 
 	DIFFS:
-		for _, diff := range entry.diffs {
+		for _, diff := range entry.Diffs {
 			for _, suppressOutputRegex := range suppressOutputRegexes {
 				if suppressOutputRegex.MatchString(diff.Payload) {
 					continue DIFFS
@@ -155,11 +155,11 @@ func doSuppress(report Report, suppressedOutputLineRegex []string) (Report, erro
 		switch {
 		case containsDiff:
 			diffRecords = diffs
-		case entry.changeType == "MODIFY":
-			entry.changeType = "MODIFY_SUPPRESSED"
+		case entry.ChangeType == "MODIFY":
+			entry.ChangeType = "MODIFY_SUPPRESSED"
 		}
 
-		filteredReport.addEntry(entry.key, entry.suppressedKinds, entry.kind, entry.context, diffRecords, entry.changeType)
+		filteredReport.addEntry(entry.Key, entry.SuppressedKinds, entry.Kind, entry.Context, diffRecords, entry.ChangeType)
 	}
 
 	return filteredReport, nil
