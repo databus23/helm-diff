@@ -52,7 +52,7 @@ func ManifestsOwnership(oldIndex, newIndex map[string]*manifest.MappingResult, n
 	return seenAnyChanges
 }
 
-func ManifestReport(oldIndex, newIndex map[string]*manifest.MappingResult, options *Options, to io.Writer) (*Report, error) {
+func ManifestReport(oldIndex, newIndex map[string]*manifest.MappingResult, options *Options) (*Report, error) {
 	_, report, err := generateReport(oldIndex, newIndex, nil, options)
 
 	return report, err
