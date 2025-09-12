@@ -20,17 +20,17 @@ import (
 // Report to store report data and format
 type Report struct {
 	format  ReportFormat
-	entries []ReportEntry
+	Entries []ReportEntry
 }
 
 // ReportEntry to store changes between releases
 type ReportEntry struct {
-	key             string
-	suppressedKinds []string
-	kind            string
-	context         int
-	diffs           []difflib.DiffRecord
-	changeType      string
+	Key             string
+	SuppressedKinds []string
+	Kind            string
+	Context         int
+	Diffs           []difflib.DiffRecord
+	ChangeType      string
 }
 
 // ReportFormat to the context to make a changes report
@@ -84,10 +84,10 @@ func printDyffReport(r *Report, to io.Writer) {
 		_ = os.Remove(newFile.Name())
 	}()
 
-	for _, entry := range r.entries {
+	for _, entry := range r.Entries {
 		_, _ = currentFile.WriteString("---\n")
 		_, _ = newFile.WriteString("---\n")
-		for _, record := range entry.diffs {
+		for _, record := range entry.Diffs {
 			switch record.Delta {
 			case difflib.Common:
 				_, _ = currentFile.WriteString(record.Payload + "\n")
@@ -123,7 +123,7 @@ func (r *Report) addEntry(key string, suppressedKinds []string, kind string, con
 		diffs,
 		changeType,
 	}
-	r.entries = append(r.entries, entry)
+	r.Entries = append(r.Entries, entry)
 }
 
 // print: prints entries added to the report.
@@ -133,7 +133,7 @@ func (r *Report) print(to io.Writer) {
 
 // clean: needed for testing
 func (r *Report) clean() {
-	r.entries = nil
+	r.Entries = nil
 }
 
 // setup report for default output: diff
@@ -149,14 +149,14 @@ func setupDiffReport(r *Report) {
 
 // print report for default output: diff
 func printDiffReport(r *Report, to io.Writer) {
-	for _, entry := range r.entries {
+	for _, entry := range r.Entries {
 		_, _ = fmt.Fprintf(
 			to,
-			ansi.Color("%s %s", r.format.changestyles[entry.changeType].color)+"\n",
-			entry.key,
-			r.format.changestyles[entry.changeType].message,
+			ansi.Color("%s %s", r.format.changestyles[entry.ChangeType].color)+"\n",
+			entry.Key,
+			r.format.changestyles[entry.ChangeType].message,
 		)
-		printDiffRecords(entry.suppressedKinds, entry.kind, entry.context, entry.diffs, to)
+		printDiffRecords(entry.SuppressedKinds, entry.Kind, entry.Context, entry.Diffs, to)
 	}
 }
 
@@ -173,26 +173,26 @@ func setupSimpleReport(r *Report) {
 
 // print report for simple output
 func printSimpleReport(r *Report, to io.Writer) {
-	var summary = map[string]int{
+	summary := map[string]int{
 		"ADD":               0,
 		"REMOVE":            0,
 		"MODIFY":            0,
 		"OWNERSHIP":         0,
 		"MODIFY_SUPPRESSED": 0,
 	}
-	for _, entry := range r.entries {
-		_, _ = fmt.Fprintf(to, ansi.Color("%s %s", r.format.changestyles[entry.changeType].color)+"\n",
-			entry.key,
-			r.format.changestyles[entry.changeType].message,
+	for _, entry := range r.Entries {
+		_, _ = fmt.Fprintf(to, ansi.Color("%s %s", r.format.changestyles[entry.ChangeType].color)+"\n",
+			entry.Key,
+			r.format.changestyles[entry.ChangeType].message,
 		)
-		summary[entry.changeType]++
+		summary[entry.ChangeType]++
 	}
 	_, _ = fmt.Fprintf(to, "Plan: %d to add, %d to change, %d to destroy, %d to change ownership.\n", summary["ADD"], summary["MODIFY"], summary["REMOVE"], summary["OWNERSHIP"])
 }
 
 func newTemplate(name string) *template.Template {
 	// Prepare template functions
-	var funcsMap = template.FuncMap{
+	funcsMap := template.FuncMap{
 		"last": func(x int, a interface{}) bool {
 			return x == reflect.ValueOf(a).Len()-1
 		},
@@ -269,13 +269,13 @@ func templateReportPrinter(t *template.Template) func(r *Report, to io.Writer) {
 	return func(r *Report, to io.Writer) {
 		var templateDataArray []ReportTemplateSpec
 
-		for _, entry := range r.entries {
+		for _, entry := range r.Entries {
 			templateData := ReportTemplateSpec{}
-			err := templateData.loadFromKey(entry.key)
+			err := templateData.loadFromKey(entry.Key)
 			if err != nil {
 				log.Println("error processing report entry")
 			} else {
-				templateData.Change = entry.changeType
+				templateData.Change = entry.ChangeType
 				templateDataArray = append(templateDataArray, templateData)
 			}
 		}
