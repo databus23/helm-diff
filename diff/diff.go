@@ -42,6 +42,23 @@ func Manifests(oldIndex, newIndex map[string]*manifest.MappingResult, options *O
 }
 
 func ManifestsOwnership(oldIndex, newIndex map[string]*manifest.MappingResult, newOwnedReleases map[string]OwnershipDiff, options *Options, to io.Writer) bool {
+	seenAnyChanges, report, err := generateReport(oldIndex, newIndex, newOwnedReleases, options)
+	if err != nil {
+		panic(err)
+	}
+
+	report.print(to)
+	report.clean()
+	return seenAnyChanges
+}
+
+func ManifestReport(oldIndex, newIndex map[string]*manifest.MappingResult, options *Options) (*Report, error) {
+	_, report, err := generateReport(oldIndex, newIndex, nil, options)
+
+	return report, err
+}
+
+func generateReport(oldIndex, newIndex map[string]*manifest.MappingResult, newOwnedReleases map[string]OwnershipDiff, options *Options) (bool, *Report, error) {
 	report := Report{}
 	report.setupReportFormat(options.OutputFormat)
 	var possiblyRemoved []string
@@ -83,26 +100,21 @@ func ManifestsOwnership(oldIndex, newIndex map[string]*manifest.MappingResult, n
 		doDiff(&report, key, nil, newContent, options)
 	}
 
-	seenAnyChanges := len(report.entries) > 0
+	seenAnyChanges := len(report.Entries) > 0
 
 	report, err := doSuppress(report, options.SuppressedOutputLineRegex)
-	if err != nil {
-		panic(err)
-	}
 
-	report.print(to)
-	report.clean()
-	return seenAnyChanges
+	return seenAnyChanges, &report, err
 }
 
 func doSuppress(report Report, suppressedOutputLineRegex []string) (Report, error) {
-	if len(report.entries) == 0 || len(suppressedOutputLineRegex) == 0 {
+	if len(report.Entries) == 0 || len(suppressedOutputLineRegex) == 0 {
 		return report, nil
 	}
 
 	filteredReport := Report{}
 	filteredReport.format = report.format
-	filteredReport.entries = []ReportEntry{}
+	filteredReport.Entries = []ReportEntry{}
 
 	var suppressOutputRegexes []*regexp.Regexp
 
@@ -115,11 +127,11 @@ func doSuppress(report Report, suppressedOutputLineRegex []string) (Report, erro
 		suppressOutputRegexes = append(suppressOutputRegexes, regex)
 	}
 
-	for _, entry := range report.entries {
+	for _, entry := range report.Entries {
 		var diffs []difflib.DiffRecord
 
 	DIFFS:
-		for _, diff := range entry.diffs {
+		for _, diff := range entry.Diffs {
 			for _, suppressOutputRegex := range suppressOutputRegexes {
 				if suppressOutputRegex.MatchString(diff.Payload) {
 					continue DIFFS
@@ -143,11 +155,11 @@ func doSuppress(report Report, suppressedOutputLineRegex []string) (Report, erro
 		switch {
 		case containsDiff:
 			diffRecords = diffs
-		case entry.changeType == "MODIFY":
-			entry.changeType = "MODIFY_SUPPRESSED"
+		case entry.ChangeType == "MODIFY":
+			entry.ChangeType = "MODIFY_SUPPRESSED"
 		}
 
-		filteredReport.addEntry(entry.key, entry.suppressedKinds, entry.kind, entry.context, diffRecords, entry.changeType)
+		filteredReport.addEntry(entry.Key, entry.SuppressedKinds, entry.Kind, entry.Context, diffRecords, entry.ChangeType)
 	}
 
 	return filteredReport, nil
@@ -247,9 +259,9 @@ func preHandleSecrets(old, new *manifest.MappingResult) (v1.Secret, v1.Secret, e
 		if oldSecretDecodeErr != nil {
 			old.Content = fmt.Sprintf("Error parsing old secret: %s", oldSecretDecodeErr)
 		} else {
-			//if we have a Secret containing `stringData`, apply the same
-			//transformation that the apiserver would do with it (this protects
-			//stringData keys from being overwritten down below)
+			// if we have a Secret containing `stringData`, apply the same
+			// transformation that the apiserver would do with it (this protects
+			// stringData keys from being overwritten down below)
 			if len(oldSecret.StringData) > 0 && oldSecret.Data == nil {
 				oldSecret.Data = make(map[string][]byte, len(oldSecret.StringData))
 			}
@@ -263,7 +275,7 @@ func preHandleSecrets(old, new *manifest.MappingResult) (v1.Secret, v1.Secret, e
 		if newSecretDecodeErr != nil {
 			new.Content = fmt.Sprintf("Error parsing new secret: %s", newSecretDecodeErr)
 		} else {
-			//same as above
+			// same as above
 			if len(newSecret.StringData) > 0 && newSecret.Data == nil {
 				newSecret.Data = make(map[string][]byte, len(newSecret.StringData))
 			}
