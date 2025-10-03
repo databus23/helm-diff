@@ -74,6 +74,7 @@ Usage:
 
 Available Commands:
   completion  Generate the autocompletion script for the specified shell
+  local       Shows diff between two local chart directories
   release     Shows diff between release's manifests
   revision    Shows diff between revision's manifests
   rollback    Show a diff explaining what a helm rollback could perform
@@ -133,6 +134,63 @@ Use "diff [command] --help" for more information about a command.
 ```
 
 ## Commands:
+
+### local:
+
+```
+$ helm diff local -h
+
+This command compares the manifests of two local chart directories.
+
+It renders both charts using 'helm template' and shows the differences
+between the resulting manifests.
+
+This is useful for:
+ - Comparing different versions of a chart
+ - Previewing changes before committing
+ - Validating chart modifications
+
+Usage:
+  diff local [flags] CHART1 CHART2
+
+Examples:
+  helm diff local ./chart-v1 ./chart-v2
+  helm diff local ./chart-v1 ./chart-v2 -f values.yaml
+  helm diff local /path/to/chart-a /path/to/chart-b --set replicas=3
+
+Flags:
+  -a, --api-versions stringArray                 Kubernetes api versions used for Capabilities.APIVersions
+  -C, --context int                              output NUM lines of context around changes (default -1)
+      --detailed-exitcode                        return a non-zero exit code when there are changes
+      --enable-dns                               enable DNS lookups when rendering templates
+  -D, --find-renames float32                     Enable rename detection if set to any value greater than 0. If specified, the value denotes the maximum fraction of changed content as lines added + removed compared to total lines in a diff for considering it a rename. Only objects of the same Kind are attempted to be matched
+  -h, --help                                     help for local
+      --include-crds                             include CRDs in the diffing
+      --include-tests                            enable the diffing of the helm test hooks
+      --kube-version string                      Kubernetes version used for Capabilities.KubeVersion
+      --namespace string                         namespace to use for template rendering
+      --normalize-manifests                      normalize manifests before running diff to exclude style differences from the output
+      --output string                            Possible values: diff, simple, template, dyff. When set to "template", use the env var HELM_DIFF_TPL to specify the template. (default "diff")
+      --post-renderer string                     the path to an executable to be used for post rendering. If it exists in $PATH, the binary will be used, otherwise it will try to look for the executable at the given path
+      --post-renderer-args stringArray           an argument to the post-renderer (can specify multiple)
+      --release string                           release name to use for template rendering (default "release")
+      --set stringArray                          set values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)
+      --set-file stringArray                     set values from respective files specified via the command line (can specify multiple or separate values with commas: key1=path1,key2=path2)
+      --set-json stringArray                     set JSON values on the command line (can specify multiple or separate values with commas: key1=jsonval1,key2=jsonval2)
+      --set-literal stringArray                  set STRING literal values on the command line
+      --set-string stringArray                   set STRING values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)
+      --show-secrets                             do not redact secret values in the output
+      --show-secrets-decoded                     decode secret values in the output
+      --strip-trailing-cr                        strip trailing carriage return on input
+      --suppress stringArray                     allows suppression of the kinds listed in the diff output (can specify multiple, like '--suppress Deployment --suppress Service')
+      --suppress-output-line-regex stringArray   a regex to suppress diff output lines that match
+  -q, --suppress-secrets                         suppress secrets in the output
+  -f, --values valueFiles                        specify values in a YAML file (can specify multiple) (default [])
+
+Global Flags:
+      --color      color output. You can control the value for this flag via HELM_DIFF_COLOR=[true|false]. If both --no-color and --color are unspecified, coloring enabled only when the stdout is a term and TERM is not "dumb"
+      --no-color   remove colors from the output. If both --no-color and --color are unspecified, coloring enabled only when the stdout is a term and TERM is not "dumb"
+```
 
 ### upgrade:
 
