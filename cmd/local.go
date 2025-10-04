@@ -15,25 +15,25 @@ import (
 )
 
 type local struct {
-	chart1             string
-	chart2             string
-	release            string
-	namespace          string
-	detailedExitCode   bool
-	includeTests       bool
-	includeCRDs        bool
-	normalizeManifests bool
-	enableDNS          bool
-	valueFiles         valueFiles
-	values             []string
-	stringValues       []string
+	chart1              string
+	chart2              string
+	release             string
+	namespace           string
+	detailedExitCode    bool
+	includeTests        bool
+	includeCRDs         bool
+	normalizeManifests  bool
+	enableDNS           bool
+	valueFiles          valueFiles
+	values              []string
+	stringValues        []string
 	stringLiteralValues []string
-	jsonValues         []string
-	fileValues         []string
-	postRenderer       string
-	postRendererArgs   []string
-	extraAPIs          []string
-	kubeVersion        string
+	jsonValues          []string
+	fileValues          []string
+	postRenderer        string
+	postRendererArgs    []string
+	extraAPIs           []string
+	kubeVersion         string
 	diff.Options
 }
 
