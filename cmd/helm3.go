@@ -74,6 +74,12 @@ func getRelease(release, namespace string) ([]byte, error) {
 	return outputWithRichError(cmd)
 }
 
+func updateDependencies(chart string) ([]byte, error) {
+	args := []string{"dependency", "update", chart}
+	cmd := exec.Command(os.Getenv("HELM_BIN"), args...)
+	return outputWithRichError(cmd)
+}
+
 func getHooks(release, namespace string) ([]byte, error) {
 	args := []string{"get", "hooks", release}
 	if namespace != "" {
