@@ -295,7 +295,7 @@ func (d *diffCmd) runHelm3() error {
 	var actionConfig *action.Configuration
 	if d.threeWayMerge || d.takeOwnership {
 		actionConfig = new(action.Configuration)
-		if err := actionConfig.Init(envSettings.RESTClientGetter(), envSettings.Namespace(), os.Getenv("HELM_DRIVER"), log.Printf); err != nil {
+		if err := actionConfig.Init(envSettings.RESTClientGetter(), envSettings.Namespace(), os.Getenv("HELM_DRIVER")); err != nil {
 			log.Fatalf("%+v", err)
 		}
 		if err := actionConfig.KubeClient.IsReachable(); err != nil {
