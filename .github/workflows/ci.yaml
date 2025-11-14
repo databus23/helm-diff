@@ -43,7 +43,7 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
         shell: [default]
         experimental: [false]
-        helm-version: [v3.19.0, v4.0.0-rc.1]
+        helm-version: [v3.19.0, v4.0.0]
         include:
           - os: windows-latest
             shell: wsl
@@ -61,16 +61,16 @@ jobs:
           - os: windows-latest
             shell: wsl
             experimental: false
-            helm-version: v4.0.0-rc.1
+            helm-version: v4.0.0
           - os: windows-latest
             shell: cygwin
             experimental: false
-            helm-version: v4.0.0-rc.1
+            helm-version: v4.0.0
           - os: ubuntu-latest
             container: alpine
             shell: sh
             experimental: false
-            helm-version: v4.0.0-rc.1
+            helm-version: v4.0.0
 
     steps:
       - name: Disable autocrlf
