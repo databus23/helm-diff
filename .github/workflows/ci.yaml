@@ -95,7 +95,7 @@ jobs:
         uses: egor-tensin/setup-cygwin@v4
 
       - name: helm plugin install
-        run: helm plugin install .
+        run: helm plugin install --debug .
 
   integration-tests:
     name: Integration Tests
