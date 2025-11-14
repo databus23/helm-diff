@@ -18,6 +18,7 @@ type rollback struct {
 	revisions          []string
 	includeTests       bool
 	normalizeManifests bool
+	kubeContext        string
 	diff.Options
 }
 
@@ -60,6 +61,7 @@ func rollbackCmd() *cobra.Command {
 	rollbackCmd.Flags().BoolVar(&diff.detailedExitCode, "detailed-exitcode", false, "return a non-zero exit code when there are changes")
 	rollbackCmd.Flags().BoolVar(&diff.includeTests, "include-tests", false, "enable the diffing of the helm test hooks")
 	rollbackCmd.Flags().BoolVar(&diff.normalizeManifests, "normalize-manifests", false, "normalize manifests before running diff to exclude style differences from the output")
+	rollbackCmd.Flags().StringVar(&diff.kubeContext, "kube-context", "", "name of the kubeconfig context to use")
 	AddDiffOptions(rollbackCmd.Flags(), &diff.Options)
 
 	rollbackCmd.SuggestionsMinimumDistance = 1
@@ -74,7 +76,7 @@ func (d *rollback) backcastHelm3() error {
 		excludes = []string{}
 	}
 	// get manifest of the latest release
-	releaseResponse, err := getRelease(d.release, namespace)
+	releaseResponse, err := getRelease(d.release, namespace, d.kubeContext)
 
 	if err != nil {
 		return err
@@ -82,7 +84,7 @@ func (d *rollback) backcastHelm3() error {
 
 	// get manifest of the release to rollback
 	revision, _ := strconv.Atoi(d.revisions[0])
-	revisionResponse, err := getRevision(d.release, revision, namespace)
+	revisionResponse, err := getRevision(d.release, revision, namespace, d.kubeContext)
 	if err != nil {
 		return err
 	}
