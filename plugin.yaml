@@ -16,8 +16,8 @@ platformHooks:
     - os: windows
       command: pwsh
       args:
-          - -c
-          - ${HELM_PLUGIN_DIR}/install-binary.ps1
+        - -c
+        - ${HELM_PLUGIN_DIR}\install-binary.ps1
   update:
     - command: ${HELM_PLUGIN_DIR}/install-binary.sh
       args:
@@ -26,5 +26,5 @@ platformHooks:
       command: pwsh
       args:
         - -c
-        - ${HELM_PLUGIN_DIR}/install-binary.ps1
+        - ${HELM_PLUGIN_DIR}\install-binary.ps1
         - -Update
