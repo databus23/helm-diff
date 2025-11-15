@@ -329,7 +329,8 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 		}
 	} else {
 		if !d.disableValidation && d.clusterAccessAllowed() {
-			if ishelmV4, err := isHelmVersionGreaterThanEqual(helmV4Version); err == nil && ishelmV4 {
+			if isHelmV4, err := isHelmVersionGreaterThanEqual(helmV4Version); err == nil && isHelmV4 {
+				fmt.Printf("WARNING: Helm v4+ does not support the --validate flag. Please use --dry-run=server instead.\n")
 				// Flag --validate has been deprecated, use '--dry-run=server' instead in Helm v4+
 				flags = append(flags, "--dry-run=server")
 			} else {
