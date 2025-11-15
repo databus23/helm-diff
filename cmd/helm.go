@@ -335,7 +335,7 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 				// Flag --validate has been deprecated, use '--dry-run=server' instead in Helm v4+
 				flags = append(flags, "--dry-run=server")
 			} else {
-				flags = append(flags, "--validatefsdfa")
+				flags = append(flags, "--validate")
 			}
 		}
 
