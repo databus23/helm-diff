@@ -127,7 +127,7 @@ jobs:
         run: helm version
 
       - name: helm plugin install
-        run: helm plugin install .
+        run: make install/helm
 
       - name: helm create helm-diff
         run: helm create helm-diff

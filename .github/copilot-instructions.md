@@ -28,7 +28,7 @@ Always reference these instructions first and fallback to search or bash command
 - ALWAYS run `make format` and `make lint` before committing changes.
 
 **Plugin Installation:**
-- Install as Helm plugin: `make install` or `make install/helm3` - builds and installs to Helm plugins directory. Takes ~3 seconds.
+- Install as Helm plugin: `make install` or `make install/helm` - builds and installs to Helm plugins directory. Takes ~3 seconds.
 - The plugin installs via `install-binary.sh` script which handles cross-platform binary installation.
 
 ## Validation Scenarios
