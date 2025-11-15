@@ -166,7 +166,7 @@ func newChartCommand() *cobra.Command {
 			cmd.SilenceUsage = true
 
 			// See https://github.com/databus23/helm-diff/issues/253
-			diff.useUpgradeDryRun = os.Getenv("HELM_DIFF_USE_UPGRADE_DRY_RUN") != "false"
+			diff.useUpgradeDryRun = os.Getenv("HELM_DIFF_USE_UPGRADE_DRY_RUN") == "true"
 
 			if !diff.threeWayMerge && !cmd.Flags().Changed("three-way-merge") {
 				enabled := os.Getenv("HELM_DIFF_THREE_WAY_MERGE") == "true"
