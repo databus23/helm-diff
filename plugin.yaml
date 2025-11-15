@@ -14,7 +14,11 @@ platformHooks:
   install:
     - command: ${HELM_PLUGIN_DIR}/install-binary.sh
     - os: windows
-      command: 'pwsh -c ${HELM_PLUGIN_DIR}\install-binary.ps1'
+      command: pwsh
+      args:
+        - -c
+        # - ${HELM_PLUGIN_DIR}\install-binary.ps1
+        - C:\Users\runneradmin\AppData\Roaming\helm\plugins\helm-diff\install-binary.ps1
   update:
     - command: ${HELM_PLUGIN_DIR}/install-binary.sh
       args:
