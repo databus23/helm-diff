@@ -1,7 +1,6 @@
 name: diff
 # Version is the version of Helm plus the number of official builds for this
 # plugin
-apiVersion: legacy
 version: "3.13.2"
 usage: "Preview helm upgrade changes as a diff"
 description: "Preview helm upgrade changes as a diff"
@@ -15,10 +14,7 @@ platformHooks:
   install:
     - command: ${HELM_PLUGIN_DIR}/install-binary.sh
     - os: windows
-      command: pwsh
-      args:
-        - -c
-        - ${HELM_PLUGIN_DIR}\install-binary.ps1
+      command: 'pwsh -c ${HELM_PLUGIN_DIR}\install-binary.ps1'
   update:
     - command: ${HELM_PLUGIN_DIR}/install-binary.sh
       args:
