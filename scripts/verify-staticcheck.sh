@@ -12,6 +12,7 @@ find_packages() {
     \) -name '*.go' -exec dirname '{}' ';' | sort -u
 }
 
+command -v staticcheck || go install honnef.co/go/tools/cmd/staticcheck@latest
 errors="$(find_packages | xargs -I@ bash -c "staticcheck @")"
 if [[ -n "${errors}" ]]; then
   echo "${errors}"
