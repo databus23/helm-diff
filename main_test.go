@@ -64,7 +64,7 @@ var helmSubcmdStubs = []fakeHelmSubcmd{
 	},
 	{
 		cmd:  []string{"template"},
-		args: []string{"test-release", "test/testdata/test-chart", "--values", "test/testdata/test-values.yaml", "--dry-run=server", "--is-upgrade"},
+		args: []string{"test-release", "test/testdata/test-chart", "--values", "test/testdata/test-values.yaml", "--validate", "--is-upgrade"},
 	},
 	{
 		cmd:  []string{"get", "hooks"},
