@@ -1,6 +1,7 @@
 name: diff
 # Version is the version of Helm plus the number of official builds for this
 # plugin
+apiVersion: legacy
 version: "3.13.2"
 usage: "Preview helm upgrade changes as a diff"
 description: "Preview helm upgrade changes as a diff"
