@@ -123,6 +123,9 @@ jobs:
         with:
           version: ${{ matrix.helm-version }}
 
+      - name: Helm Version
+        run: helm version
+
       - name: helm plugin install
         run: helm plugin install .
 
