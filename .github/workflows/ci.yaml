@@ -18,9 +18,6 @@ jobs:
         with:
           go-version-file: "go.mod"
 
-      - name: Install dependencies
-        run: make bootstrap
-
       - name: Run unit tests
         run: make test
 
