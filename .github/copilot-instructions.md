@@ -9,12 +9,10 @@ Always reference these instructions first and fallback to search or bash command
 **Prerequisites:**
 - Go >= 1.21 (currently uses Go 1.24.5)
 - Helm v3 (tested with v3.17.4 and v3.18.6)
-- Make sure `/home/runner/go/bin` is in your PATH for staticcheck: `export PATH=$PATH:/home/runner/go/bin`
 
-**Bootstrap and Build Process:**
-- ALWAYS run: `make bootstrap` first - downloads dependencies and installs staticcheck. Takes <1 second (if already done) or ~50 seconds (first time).
-- Build the plugin: `make build` - includes linting and compiles the binary. Takes ~9 seconds after bootstrap.
-- NEVER CANCEL builds. Set timeout to 3+ minutes for bootstrap, 2+ minutes for build operations.
+**Build Process:**
+- Build the plugin: `make build` - includes linting and compiles the binary.
+- NEVER CANCEL builds. Set timeout to 2+ minutes for build operations.
 
 **Testing:**
 - Run unit tests: `make test` - includes coverage analysis. Takes ~12 seconds. NEVER CANCEL - set timeout to 3+ minutes.
@@ -22,7 +20,7 @@ Always reference these instructions first and fallback to search or bash command
 - Test coverage is generated in `cover.out` with detailed function-level coverage reports.
 
 **Linting and Code Quality:**
-- Local linting: `make lint` - runs gofmt, go vet, and staticcheck verification. Takes ~2 seconds.
+- Local linting: `make lint` - runs gofmt, go vet. Takes ~2 seconds.
 - Code formatting: `make format` - applies gofmt formatting automatically. Takes <1 second.
 - Full golangci-lint runs only in CI via GitHub Actions, not available locally.
 - ALWAYS run `make format` and `make lint` before committing changes.
@@ -63,8 +61,7 @@ Always reference these instructions first and fallback to search or bash command
 
 **CRITICAL: NEVER CANCEL long-running commands. Use these timeout values:**
 
-- `make bootstrap`: <1 second (if already done) or ~50 seconds (first time) (set timeout: 5+ minutes)
-- `make build`: ~9 seconds after bootstrap (set timeout: 3+ minutes)
+- `make build`: ~9 seconds (set timeout: 3+ minutes)
 - `make test`: ~12 seconds (set timeout: 3+ minutes)
 - `make lint`: ~2 seconds (set timeout: 1 minute)
 - `make format`: <1 second (set timeout: 1 minute)
@@ -77,7 +74,7 @@ Always reference these instructions first and fallback to search or bash command
 - `cmd/` - Command-line interface implementation (upgrade, release, revision, rollback, version)
 - `diff/` - Core diffing logic and output formatting
 - `manifest/` - Kubernetes manifest parsing and handling
-- `scripts/` - Build and verification scripts (gofmt, govet, staticcheck)
+- `scripts/` - Build and verification scripts (gofmt, govet)
 - `testdata/`, `*/testdata/` - Test fixtures and mock data
 - `plugin.yaml` - Helm plugin configuration
 - `install-binary.sh` - Cross-platform installation script
@@ -114,7 +111,6 @@ HELM_NAMESPACE=default HELM_BIN=helm ./bin/diff upgrade --install --dry-run my-r
 **Common Commands Reference:**
 ```bash
 # Full development cycle
-make bootstrap      # Install dependencies (once)
 make build         # Build with linting  
 make test          # Run all tests
 make format        # Format code

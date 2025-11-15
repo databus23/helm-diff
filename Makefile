@@ -30,7 +30,6 @@ lint:
 	scripts/update-gofmt.sh
 	scripts/verify-gofmt.sh
 	scripts/verify-govet.sh
-	scripts/verify-staticcheck.sh
 
 .PHONY: build
 build: lint
@@ -41,11 +40,6 @@ build: lint
 test:
 	go test -v ./... -coverprofile cover.out -race
 	go tool cover -func cover.out
-
-.PHONY: bootstrap
-bootstrap:
-	go mod download
-	command -v staticcheck || go install honnef.co/go/tools/cmd/staticcheck@latest
 
 .PHONY: docker-run-release
 docker-run-release: export pkg=/go/src/github.com/databus23/helm-diff
@@ -63,7 +57,7 @@ docker-run-release:
 	-v ${SSH_AUTH_SOCK}:/tmp/ssh-agent.sock -e SSH_AUTH_SOCK=/tmp/ssh-agent.sock \
 	-v $(shell pwd):$(pkg) \
 	-v $(shell pwd)/docker-run-release-cache:/.cache \
-	-w $(pkg) helm-diff-release make bootstrap release
+	-w $(pkg) helm-diff-release make release
 
 .PHONY: dist
 dist: export COPYFILE_DISABLE=1 #teach OSX tar to not put ._* files in tar archive
