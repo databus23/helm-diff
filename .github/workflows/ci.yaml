@@ -40,8 +40,21 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
         shell: [default]
         experimental: [false]
-        helm-version: [v3.19.2, v4.0.0]
+        helm-version: [v3.18.6, v3.19.2, v4.0.0]
         include:
+          - os: windows-latest
+            shell: wsl
+            experimental: false
+            helm-version: v3.18.6
+          - os: windows-latest
+            shell: cygwin
+            experimental: false
+            helm-version: v3.18.6
+          - os: ubuntu-latest
+            container: alpine
+            shell: sh
+            experimental: false
+            helm-version: v3.18.6
           - os: windows-latest
             shell: wsl
             experimental: false
