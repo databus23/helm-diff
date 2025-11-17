@@ -16,10 +16,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-go@v6
         with:
-          go-version-file: 'go.mod'
-
-      - name: Install dependencies
-        run: make bootstrap
+          go-version-file: "go.mod"
 
       - name: Run unit tests
         run: make test
@@ -41,9 +38,9 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        shell: [ default ]
-        experimental: [ false ]
-        helm-version: [ v3.18.6, v3.19.0 ]
+        shell: [default]
+        experimental: [false]
+        helm-version: [v3.18.6, v3.19.2, v4.0.0]
         include:
           - os: windows-latest
             shell: wsl
@@ -61,16 +58,29 @@ jobs:
           - os: windows-latest
             shell: wsl
             experimental: false
-            helm-version: v3.19.0
+            helm-version: v3.19.2
           - os: windows-latest
             shell: cygwin
             experimental: false
-            helm-version: v3.19.0
+            helm-version: v3.19.2
           - os: ubuntu-latest
             container: alpine
             shell: sh
             experimental: false
-            helm-version: v3.19.0
+            helm-version: v3.19.2
+          - os: windows-latest
+            shell: wsl
+            experimental: false
+            helm-version: v4.0.0
+          - os: windows-latest
+            shell: cygwin
+            experimental: false
+            helm-version: v4.0.0
+          - os: ubuntu-latest
+            container: alpine
+            shell: sh
+            experimental: false
+            helm-version: v4.0.0
 
     steps:
       - name: Disable autocrlf
@@ -84,7 +94,7 @@ jobs:
       - name: Setup Helm
         uses: azure/setup-helm@v4
         with:
-          version: ${{ matrix.helm-version }}
+          version: "${{ matrix.helm-version }}"
 
       - name: Setup WSL
         if: "contains(matrix.shell, 'wsl')"
@@ -95,7 +105,7 @@ jobs:
         uses: egor-tensin/setup-cygwin@v4
 
       - name: helm plugin install
-        run: helm plugin install .
+        run: helm plugin install --debug .
 
   integration-tests:
     name: Integration Tests
@@ -109,12 +119,12 @@ jobs:
           # That's why we cover only 2 Helm minor versions in this matrix.
           # See https://github.com/helmfile/helmfile/pull/286#issuecomment-1250161182 for more context.
           - helm-version: v3.18.6
-          - helm-version: v3.19.0
+          - helm-version: v3.19.2
+          - helm-version: v4.0.0
     steps:
       - uses: engineerd/setup-kind@v0.6.2
         with:
-          skipClusterLogsExport: true 
-
+          skipClusterLogsExport: true
 
       - uses: actions/checkout@v5
 
@@ -123,8 +133,11 @@ jobs:
         with:
           version: ${{ matrix.helm-version }}
 
+      - name: Helm Version
+        run: helm version
+
       - name: helm plugin install
-        run: helm plugin install .
+        run: make install/helm
 
       - name: helm create helm-diff
         run: helm create helm-diff

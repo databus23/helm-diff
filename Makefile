@@ -1,7 +1,7 @@
 HELM_HOME ?= $(shell helm env HELM_DATA_HOME)
 VERSION := $(shell sed -n -e 's/version:[ "]*\([^"]*\).*/\1/p' plugin.yaml)
 
-HELM_3_PLUGINS := $(shell helm env HELM_PLUGINS)
+HELM_PLUGINS := $(shell helm env HELM_PLUGINS)
 
 PKG:= github.com/databus23/helm-diff/v3
 LDFLAGS := -X $(PKG)/cmd.Version=$(VERSION)
@@ -19,18 +19,17 @@ install: build
 	cp bin/diff $(HELM_HOME)/plugins/helm-diff/bin
 	cp plugin.yaml $(HELM_HOME)/plugins/helm-diff/
 
-.PHONY: install/helm3
-install/helm3: build
-	mkdir -p $(HELM_3_PLUGINS)/helm-diff/bin
-	cp bin/diff $(HELM_3_PLUGINS)/helm-diff/bin
-	cp plugin.yaml $(HELM_3_PLUGINS)/helm-diff/
+.PHONY: install/helm
+install/helm: build
+	mkdir -p $(HELM_PLUGINS)/helm-diff/bin
+	cp bin/diff $(HELM_PLUGINS)/helm-diff/bin
+	cp plugin.yaml $(HELM_PLUGINS)/helm-diff/
 
 .PHONY: lint
 lint:
 	scripts/update-gofmt.sh
 	scripts/verify-gofmt.sh
 	scripts/verify-govet.sh
-	scripts/verify-staticcheck.sh
 
 .PHONY: build
 build: lint
@@ -41,11 +40,6 @@ build: lint
 test:
 	go test -v ./... -coverprofile cover.out -race
 	go tool cover -func cover.out
-
-.PHONY: bootstrap
-bootstrap:
-	go mod download
-	command -v staticcheck || go install honnef.co/go/tools/cmd/staticcheck@latest
 
 .PHONY: docker-run-release
 docker-run-release: export pkg=/go/src/github.com/databus23/helm-diff
@@ -63,7 +57,7 @@ docker-run-release:
 	-v ${SSH_AUTH_SOCK}:/tmp/ssh-agent.sock -e SSH_AUTH_SOCK=/tmp/ssh-agent.sock \
 	-v $(shell pwd):$(pkg) \
 	-v $(shell pwd)/docker-run-release-cache:/.cache \
-	-w $(pkg) helm-diff-release make bootstrap release
+	-w $(pkg) helm-diff-release make release
 
 .PHONY: dist
 dist: export COPYFILE_DISABLE=1 #teach OSX tar to not put ._* files in tar archive

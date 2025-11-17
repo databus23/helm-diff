@@ -43,7 +43,7 @@ The first step is to download the repository and enter the directory. You can do
 Next, install the plugin into helm.
 
 ```bash
-make install/helm3
+make install/helm
 ```
 
 
