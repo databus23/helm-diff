@@ -8,7 +8,10 @@ useTunnel: true
 platformCommand:
   - command: ${HELM_PLUGIN_DIR}/bin/diff
   - os: windows
-    command: ${HELM_PLUGIN_DIR}\bin\diff.exe
+    command: pwsh
+    args:
+      - -Command
+      - "& (Join-Path -Path (Get-ChildItem env:HELM_PLUGIN_DIR).value -ChildPath 'bin\\diff')"
 
 platformHooks:
   install:
@@ -16,8 +19,8 @@ platformHooks:
     - os: windows
       command: pwsh
       args:
-        - -c
-        - ${HELM_PLUGIN_DIR}\install-binary.ps1
+        - -Command
+        - "& (Join-Path -Path (Get-ChildItem env:HELM_PLUGIN_DIR).value -ChildPath 'install-binary.ps1')"
   update:
     - command: ${HELM_PLUGIN_DIR}/install-binary.sh
       args:
@@ -25,6 +28,5 @@ platformHooks:
     - os: windows
       command: pwsh
       args:
-        - -c
-        - ${HELM_PLUGIN_DIR}\install-binary.ps1
-        - -Update
+        - -Command
+        - "& (Join-Path -Path (Get-ChildItem env:HELM_PLUGIN_DIR).value -ChildPath 'install-binary.ps1') -Update"
