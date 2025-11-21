@@ -21,6 +21,19 @@ revisions/versions of your helm release.
 helm plugin install https://github.com/databus23/helm-diff
 ```
 
+**For Helm 4 users:**
+
+Helm 4 requires plugin verification by default. Since this plugin does not yet provide provenance artifacts, you need to use the `--verify=false` flag:
+
+```shell
+helm plugin install https://github.com/databus23/helm-diff --verify=false
+```
+
+For more information about Helm 4's plugin verification, see:
+- [Helm 4 Overview](https://helm.sh/docs/overview)
+- [HIP-0026: Plugin Provenance](https://github.com/helm/community/blob/main/hips/hip-0026.md)
+- [Helm Provenance Documentation](https://helm.sh/docs/topics/provenance/)
+
 ### Pre Helm 2.3.0 Installation
 Pick a release tarball from the [releases](https://github.com/databus23/helm-diff/releases) page.
 
