@@ -40,7 +40,7 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
         shell: [default]
         experimental: [false]
-        helm-version: [v3.18.6, v3.19.2, v4.0.0]
+        helm-version: [v3.18.6, v3.19.2, v4.0.1]
         include:
           - os: windows-latest
             shell: wsl
@@ -71,16 +71,16 @@ jobs:
           - os: windows-latest
             shell: wsl
             experimental: false
-            helm-version: v4.0.0
+            helm-version: v4.0.1
           - os: windows-latest
             shell: cygwin
             experimental: false
-            helm-version: v4.0.0
+            helm-version: v4.0.1
           - os: ubuntu-latest
             container: alpine
             shell: sh
             experimental: false
-            helm-version: v4.0.0
+            helm-version: v4.0.1
 
     steps:
       - name: Disable autocrlf
@@ -120,7 +120,7 @@ jobs:
           # See https://github.com/helmfile/helmfile/pull/286#issuecomment-1250161182 for more context.
           - helm-version: v3.18.6
           - helm-version: v3.19.2
-          - helm-version: v4.0.0
+          - helm-version: v4.0.1
     steps:
       - uses: engineerd/setup-kind@v0.6.2
         with:
