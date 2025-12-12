@@ -2,6 +2,7 @@ package diff
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"testing"
 
@@ -583,6 +584,145 @@ Plan: 0 to add, 1 to change, 0 to destroy, 0 to change ownership.
 
 		require.Equal(t, "Resource name: nginx\n", buf1.String())
 	})
+}
+
+func TestStructuredOutputModify(t *testing.T) {
+	ansi.DisableColors(true)
+	opts := &Options{OutputFormat: "structured"}
+	oldManifest := `
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: prod
+spec:
+  replicas: 2
+  template:
+    spec:
+      containers:
+      - name: app
+        image: demo:v1
+`
+	newManifest := `
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: prod
+spec:
+  replicas: 3
+  template:
+    spec:
+      containers:
+      - name: app
+        image: demo:v2
+`
+	oldIndex := manifest.Parse(oldManifest, "prod", true)
+	newIndex := manifest.Parse(newManifest, "prod", true)
+
+	var buf bytes.Buffer
+	changed := Manifests(oldIndex, newIndex, opts, &buf)
+	require.True(t, changed)
+
+	var entries []StructuredEntry
+	require.NoError(t, json.Unmarshal(buf.Bytes(), &entries))
+	require.Len(t, entries, 1)
+	entry := entries[0]
+	require.Equal(t, "MODIFY", entry.ChangeType)
+	require.Equal(t, "apps/v1", entry.APIVersion)
+	require.Equal(t, "Deployment", entry.Kind)
+	require.Equal(t, "prod", entry.Namespace)
+	require.Equal(t, "web", entry.Name)
+	require.Len(t, entry.Changes, 2)
+	replicasChange, ok := findChange(entry.Changes, "spec", "replicas")
+	require.True(t, ok)
+	require.Equal(t, float64(2), replicasChange.OldValue)
+	require.Equal(t, float64(3), replicasChange.NewValue)
+
+	imageChange, ok := findChange(entry.Changes, "spec.template.spec.containers[0]", "image")
+	require.True(t, ok)
+	require.Equal(t, "demo:v1", imageChange.OldValue)
+	require.Equal(t, "demo:v2", imageChange.NewValue)
+}
+
+func TestStructuredOutputAddAndRemove(t *testing.T) {
+	ansi.DisableColors(true)
+	opts := &Options{OutputFormat: "structured"}
+	newManifest := `
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migrate
+  namespace: ops
+spec: {}
+`
+	newIndex := manifest.Parse(newManifest, "ops", true)
+
+	var buf bytes.Buffer
+	changed := Manifests(map[string]*manifest.MappingResult{}, newIndex, opts, &buf)
+	require.True(t, changed)
+
+	var entries []StructuredEntry
+	require.NoError(t, json.Unmarshal(buf.Bytes(), &entries))
+	require.Len(t, entries, 1)
+	require.Equal(t, "ADD", entries[0].ChangeType)
+	require.True(t, entries[0].ResourceStatus.NewExists)
+	require.False(t, entries[0].ResourceStatus.OldExists)
+
+	// Now test removal
+	buf.Reset()
+	changed = Manifests(newIndex, map[string]*manifest.MappingResult{}, opts, &buf)
+	require.True(t, changed)
+	require.NoError(t, json.Unmarshal(buf.Bytes(), &entries))
+	require.Len(t, entries, 1)
+	require.Equal(t, "REMOVE", entries[0].ChangeType)
+	require.True(t, entries[0].ResourceStatus.OldExists)
+	require.False(t, entries[0].ResourceStatus.NewExists)
+}
+
+func TestStructuredOutputSuppressedKind(t *testing.T) {
+	ansi.DisableColors(true)
+	opts := &Options{
+		OutputFormat:    "structured",
+		SuppressedKinds: []string{"Secret"},
+	}
+	oldManifest := `
+apiVersion: v1
+kind: Secret
+metadata:
+  name: creds
+data:
+  password: c29tZQ==
+`
+	newManifest := `
+apiVersion: v1
+kind: Secret
+metadata:
+  name: creds
+data:
+  password: Zm9v
+`
+	oldIndex := manifest.Parse(oldManifest, "default", true)
+	newIndex := manifest.Parse(newManifest, "default", true)
+
+	var buf bytes.Buffer
+	changed := Manifests(oldIndex, newIndex, opts, &buf)
+	require.True(t, changed)
+
+	var entries []StructuredEntry
+	require.NoError(t, json.Unmarshal(buf.Bytes(), &entries))
+	require.Len(t, entries, 1)
+	require.True(t, entries[0].ChangesSuppressed)
+	require.Len(t, entries[0].Changes, 0)
+}
+
+func findChange(changes []FieldChange, path, field string) (FieldChange, bool) {
+	for _, change := range changes {
+		if change.Path == path && change.Field == field {
+			return change, true
+		}
+	}
+	return FieldChange{}, false
 }
 
 func TestManifestsWithRedactedSecrets(t *testing.T) {

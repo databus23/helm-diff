@@ -94,7 +94,7 @@ func (d *rollback) backcastHelm3() error {
 		&d.Options,
 		os.Stdout)
 
-	if d.detailedExitCode && seenAnyChanges {
+	if d.detailedExitCode && !d.Options.StructuredOutput() && seenAnyChanges {
 		return Error{
 			error: errors.New("identified at least one change, exiting with non-zero exit code (detailed-exitcode parameter enabled)"),
 			Code:  2,
