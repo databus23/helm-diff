@@ -7,11 +7,13 @@ description: "Preview helm upgrade changes as a diff"
 useTunnel: true
 platformCommand:
   - command: ${HELM_PLUGIN_DIR}/bin/diff
+  # powershell does not return the original exit code, while cmd does
+  # see https://github.com/databus23/helm-diff/issues/910
   - os: windows
-    command: pwsh
+    command: cmd
     args:
-      - -Command
-      - "& (Join-Path -Path (Get-ChildItem env:HELM_PLUGIN_DIR).value -ChildPath 'bin\\diff')"
+      - /c
+      - "%HELM_PLUGIN_DIR%/bin/diff"
 
 platformHooks:
   install:
