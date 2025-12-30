@@ -636,8 +636,8 @@ spec:
 	require.Len(t, entry.Changes, 2)
 	replicasChange, ok := findChange(entry.Changes, "spec", "replicas")
 	require.True(t, ok)
-	require.Equal(t, float64(2), replicasChange.OldValue)
-	require.Equal(t, float64(3), replicasChange.NewValue)
+	require.InDelta(t, float64(2), replicasChange.OldValue, 0.001)
+	require.InDelta(t, float64(3), replicasChange.NewValue, 0.001)
 
 	imageChange, ok := findChange(entry.Changes, "spec.template.spec.containers[0]", "image")
 	require.True(t, ok)
@@ -713,7 +713,7 @@ data:
 	require.NoError(t, json.Unmarshal(buf.Bytes(), &entries))
 	require.Len(t, entries, 1)
 	require.True(t, entries[0].ChangesSuppressed)
-	require.Len(t, entries[0].Changes, 0)
+	require.Empty(t, entries[0].Changes)
 }
 
 func findChange(changes []FieldChange, path, field string) (FieldChange, bool) {

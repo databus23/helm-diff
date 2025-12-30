@@ -1,12 +1,15 @@
 package diff
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 
-	jsonpatch "gomodules.xyz/jsonpatch/v2"
+	jsonpatch "github.com/evanphx/json-patch/v5"
 	"sigs.k8s.io/yaml"
 
 	"github.com/databus23/helm-diff/v3/manifest"
@@ -151,79 +154,192 @@ func (e *StructuredEntry) populateMetadata(key string, objects ...map[string]int
 }
 
 func calculateFieldChanges(oldJSON, newJSON []byte) ([]FieldChange, error) {
-	patch, err := jsonpatch.CreatePatch(oldJSON, newJSON)
+	patchBytes, err := jsonpatch.CreateMergePatch(oldJSON, newJSON)
 	if err != nil {
 		return nil, err
 	}
-	if len(patch) == 0 {
+	trimmed := bytes.TrimSpace(patchBytes)
+	if len(trimmed) == 0 || bytes.Equal(trimmed, []byte("{}")) {
 		return nil, nil
 	}
 
-	var oldDoc interface{}
-	if err := json.Unmarshal(oldJSON, &oldDoc); err != nil {
+	var patch interface{}
+	if err := json.Unmarshal(patchBytes, &patch); err != nil {
 		return nil, err
 	}
 
-	changes := make([]FieldChange, 0, len(patch))
-	for _, operation := range patch {
-		tokens := pointerTokens(operation.Path)
-		path, field := splitPointer(tokens)
-
-		change := FieldChange{
-			Path:   path,
-			Field:  field,
-			Change: operation.Operation,
+	var oldDoc interface{}
+	if len(oldJSON) > 0 {
+		if err := json.Unmarshal(oldJSON, &oldDoc); err != nil {
+			return nil, err
 		}
-
-		if (operation.Operation == "remove" || operation.Operation == "replace") && operation.Path != "" {
-			if value, err := resolveJSONPointer(oldDoc, operation.Path); err == nil {
-				change.OldValue = value
-			}
-		}
-
-		if (operation.Operation == "add" || operation.Operation == "replace") && operation.Value != nil {
-			change.NewValue = operation.Value
-		}
-
-		changes = append(changes, change)
 	}
 
+	var newDoc interface{}
+	if len(newJSON) > 0 {
+		if err := json.Unmarshal(newJSON, &newDoc); err != nil {
+			return nil, err
+		}
+	}
+
+	var changes []FieldChange
+	if err := walkPatch(&changes, nil, patch, oldDoc, newDoc); err != nil {
+		return nil, err
+	}
 	return changes, nil
 }
 
-func resolveJSONPointer(doc interface{}, pointer string) (interface{}, error) {
-	if pointer == "" {
-		return doc, nil
+func walkPatch(changes *[]FieldChange, tokens []string, patchNode, oldNode, newNode interface{}) error {
+	switch typed := patchNode.(type) {
+	case map[string]interface{}:
+		if len(typed) == 0 {
+			return nil
+		}
+		oldMap, _ := oldNode.(map[string]interface{})
+		newMap, _ := newNode.(map[string]interface{})
+		keys := make([]string, 0, len(typed))
+		for key := range typed {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+
+		for _, key := range keys {
+			var oldChild interface{}
+			var newChild interface{}
+			if oldMap != nil {
+				oldChild = oldMap[key]
+			}
+			if newMap != nil {
+				newChild = newMap[key]
+			}
+			if err := walkPatch(changes, append(tokens, key), typed[key], oldChild, newChild); err != nil {
+				return err
+			}
+		}
+	case []interface{}:
+		return diffArrayNodes(changes, tokens, oldNode, newNode)
+	default:
+		path, field := splitTokens(tokens)
+		change := FieldChange{
+			Path:  path,
+			Field: field,
+		}
+
+		if patchNode == nil {
+			change.Change = "remove"
+			change.OldValue = oldNode
+		} else {
+			if oldNode == nil {
+				change.Change = "add"
+				change.NewValue = newNode
+			} else {
+				if reflect.DeepEqual(oldNode, newNode) {
+					return nil
+				}
+				change.Change = "replace"
+				change.OldValue = oldNode
+				change.NewValue = newNode
+			}
+		}
+		*changes = append(*changes, change)
+	}
+	return nil
+}
+
+func diffArrayNodes(changes *[]FieldChange, tokens []string, oldNode, newNode interface{}) error {
+	oldArr, _ := oldNode.([]interface{})
+	newArr, _ := newNode.([]interface{})
+
+	maxLen := len(oldArr)
+	if len(newArr) > maxLen {
+		maxLen = len(newArr)
 	}
 
-	rawTokens := strings.Split(pointer, "/")[1:]
-	tokens := make([]string, 0, len(rawTokens))
-	for _, rawToken := range rawTokens {
-		tokens = append(tokens, decodePointerToken(rawToken))
-	}
+	for i := 0; i < maxLen; i++ {
+		next := append(tokens, strconv.Itoa(i))
+		var oldVal interface{}
+		var newVal interface{}
+		if i < len(oldArr) {
+			oldVal = oldArr[i]
+		}
+		if i < len(newArr) {
+			newVal = newArr[i]
+		}
 
-	current := doc
-
-	for _, rawToken := range tokens {
-		token := rawToken
-		switch typed := current.(type) {
-		case map[string]interface{}:
-			current = typed[token]
-		case []interface{}:
-			if token == "-" {
-				return nil, fmt.Errorf("pointer '-' not addressable")
+		switch {
+		case oldVal != nil && newVal != nil:
+			if reflect.DeepEqual(oldVal, newVal) {
+				continue
 			}
-			index, err := strconv.Atoi(token)
-			if err != nil || index < 0 || index >= len(typed) {
-				return nil, fmt.Errorf("invalid array index %s", token)
+			subPatch, err := createNodePatch(oldVal, newVal)
+			if err != nil {
+				return err
 			}
-			current = typed[index]
-		default:
-			return nil, fmt.Errorf("unable to navigate pointer through %T", current)
+			if subPatch == nil {
+				path, field := splitTokens(next)
+				*changes = append(*changes, FieldChange{
+					Path:     path,
+					Field:    field,
+					Change:   "replace",
+					OldValue: oldVal,
+					NewValue: newVal,
+				})
+				continue
+			}
+			if err := walkPatch(changes, next, subPatch, oldVal, newVal); err != nil {
+				return err
+			}
+		case oldVal != nil:
+			path, field := splitTokens(next)
+			*changes = append(*changes, FieldChange{
+				Path:     path,
+				Field:    field,
+				Change:   "remove",
+				OldValue: oldVal,
+			})
+		case newVal != nil:
+			path, field := splitTokens(next)
+			*changes = append(*changes, FieldChange{
+				Path:     path,
+				Field:    field,
+				Change:   "add",
+				NewValue: newVal,
+			})
 		}
 	}
 
-	return current, nil
+	return nil
+}
+
+func createNodePatch(oldNode, newNode interface{}) (interface{}, error) {
+	oldJSON, err := json.Marshal(oldNode)
+	if err != nil {
+		return nil, err
+	}
+	newJSON, err := json.Marshal(newNode)
+	if err != nil {
+		return nil, err
+	}
+	patchBytes, err := jsonpatch.CreateMergePatch(oldJSON, newJSON)
+	if err != nil {
+		return nil, err
+	}
+	trimmed := bytes.TrimSpace(patchBytes)
+	if len(trimmed) == 0 || bytes.Equal(trimmed, []byte("{}")) {
+		return nil, nil
+	}
+	var patch interface{}
+	if err := json.Unmarshal(patchBytes, &patch); err != nil {
+		return nil, err
+	}
+	return patch, nil
+}
+
+func splitTokens(tokens []string) (string, string) {
+	if len(tokens) == 0 {
+		return "", ""
+	}
+	return formatPath(tokens[:len(tokens)-1]), tokens[len(tokens)-1]
 }
 
 func containsKind(list []string, target string) bool {
@@ -233,33 +349,6 @@ func containsKind(list []string, target string) bool {
 		}
 	}
 	return false
-}
-
-func pointerTokens(pointer string) []string {
-	if pointer == "" {
-		return nil
-	}
-	rawTokens := strings.Split(pointer, "/")[1:]
-	tokens := make([]string, 0, len(rawTokens))
-	for _, token := range rawTokens {
-		tokens = append(tokens, decodePointerToken(token))
-	}
-	return tokens
-}
-
-func decodePointerToken(token string) string {
-	token = strings.ReplaceAll(token, "~1", "/")
-	token = strings.ReplaceAll(token, "~0", "~")
-	return token
-}
-
-func splitPointer(tokens []string) (string, string) {
-	if len(tokens) == 0 {
-		return "", ""
-	}
-	parent := formatPath(tokens[:len(tokens)-1])
-	field := tokens[len(tokens)-1]
-	return parent, field
 }
 
 func formatPath(tokens []string) string {
