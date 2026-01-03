@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"log"
 	"math"
 	"regexp"
 	"sort"
@@ -249,7 +250,7 @@ func doDiff(report *Report, key string, oldContent *manifest.MappingResult, newC
 		if newContent != nil {
 			subjectKind = newContent.Kind
 		}
-		if report.mode != "structured" && newContent != nil {
+		if !options.StructuredOutput() && newContent != nil {
 			emptyMapping := &manifest.MappingResult{}
 			diffs = diffMappingResults(emptyMapping, newContent, options.StripTrailingCR)
 		}
@@ -258,14 +259,14 @@ func doDiff(report *Report, key string, oldContent *manifest.MappingResult, newC
 		if oldContent != nil {
 			subjectKind = oldContent.Kind
 		}
-		if report.mode != "structured" && oldContent != nil {
+		if !options.StructuredOutput() && oldContent != nil {
 			emptyMapping := &manifest.MappingResult{}
 			diffs = diffMappingResults(oldContent, emptyMapping, options.StripTrailingCR)
 		}
 	default:
 		changeType = "MODIFY"
 		subjectKind = oldContent.Kind
-		if report.mode != "structured" {
+		if !options.StructuredOutput() {
 			diffs = diffMappingResults(oldContent, newContent, options.StripTrailingCR)
 			if actualChanges(diffs) == 0 {
 				return
@@ -274,10 +275,12 @@ func doDiff(report *Report, key string, oldContent *manifest.MappingResult, newC
 	}
 
 	var structured *StructuredEntry
-	if report.mode == "structured" {
+	if options.StructuredOutput() {
 		entry, err := buildStructuredEntry(key, changeType, subjectKind, options.SuppressedKinds, oldContent, newContent)
 		if err != nil {
-			panic(err)
+			// Log error with context before panicking to aid debugging
+			log.Printf("Error building structured entry for %s (kind: %s, changeType: %s): %v", key, subjectKind, changeType, err)
+			panic(fmt.Errorf("failed to build structured entry: %w", err))
 		}
 		if changeType == "MODIFY" && !entry.ChangesSuppressed && len(entry.Changes) == 0 {
 			return

@@ -347,7 +347,7 @@ func (d *diffCmd) runHelm3() error {
 
 	seenAnyChanges := diff.ManifestsOwnership(currentSpecs, newSpecs, newOwnedReleases, &d.Options, os.Stdout)
 
-	if d.detailedExitCode && !d.Options.StructuredOutput() && seenAnyChanges {
+	if d.detailedExitCode && seenAnyChanges {
 		return Error{
 			error: errors.New("identified at least one change, exiting with non-zero exit code (detailed-exitcode parameter enabled)"),
 			Code:  2,

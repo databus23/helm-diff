@@ -278,7 +278,9 @@ func printStructuredReport(r *Report, to io.Writer) {
 	}
 	encoder := json.NewEncoder(to)
 	encoder.SetIndent("", "  ")
-	_ = encoder.Encode(entries)
+	if err := encoder.Encode(entries); err != nil {
+		log.Printf("Error encoding structured diff output: %v\n", err)
+	}
 }
 
 // report with template output will only have access to ReportTemplateSpec.
