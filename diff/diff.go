@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"log"
 	"math"
+	"os"
 	"regexp"
 	"sort"
 	"strings"
@@ -278,14 +278,16 @@ func doDiff(report *Report, key string, oldContent *manifest.MappingResult, newC
 	if options.StructuredOutput() {
 		entry, err := buildStructuredEntry(key, changeType, subjectKind, options.SuppressedKinds, oldContent, newContent)
 		if err != nil {
-			// Log error with context before panicking to aid debugging
-			log.Printf("Error building structured entry for %s (kind: %s, changeType: %s): %v", key, subjectKind, changeType, err)
-			panic(fmt.Errorf("failed to build structured entry: %w", err))
+			// Log warning and omit field-level changes for this entry
+			// printStructuredReport() will still output a basic entry with name and changeType
+			fmt.Fprintf(os.Stderr, "Warning: failed to build structured entry for %s (kind: %s, changeType: %s): %v\n",
+				key, subjectKind, changeType, err)
+		} else {
+			if changeType == "MODIFY" && !entry.ChangesSuppressed && len(entry.Changes) == 0 {
+				return
+			}
+			structured = entry
 		}
-		if changeType == "MODIFY" && !entry.ChangesSuppressed && len(entry.Changes) == 0 {
-			return
-		}
-		structured = entry
 	}
 
 	report.addEntry(key, options.SuppressedKinds, subjectKind, options.OutputContext, diffs, changeType, structured)

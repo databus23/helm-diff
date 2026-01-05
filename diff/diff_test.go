@@ -756,10 +756,14 @@ data:
 			key: makeMapping(":\n  not-valid: value"),
 		}
 
-		requireStructuredPanic(t, func() {
-			var buf bytes.Buffer
-			_ = Manifests(oldIndex, newIndex, opts, &buf)
-		}, "failed to build structured entry", "convert new manifest")
+		var buf bytes.Buffer
+		changed := Manifests(oldIndex, newIndex, opts, &buf)
+		require.True(t, changed, "Should report resource-level change even when YAML parsing fails")
+
+		var entries []StructuredEntry
+		require.NoError(t, json.Unmarshal(buf.Bytes(), &entries))
+		require.Len(t, entries, 1)
+		require.Equal(t, "MODIFY", entries[0].ChangeType)
 	})
 
 	t.Run("InvalidOldManifestYAML", func(t *testing.T) {
@@ -770,10 +774,14 @@ data:
 			key: makeMapping(validConfigMap),
 		}
 
-		requireStructuredPanic(t, func() {
-			var buf bytes.Buffer
-			_ = Manifests(oldIndex, newIndex, opts, &buf)
-		}, "failed to build structured entry", "convert old manifest")
+		var buf bytes.Buffer
+		changed := Manifests(oldIndex, newIndex, opts, &buf)
+		require.True(t, changed, "Should report resource-level change even when YAML parsing fails")
+
+		var entries []StructuredEntry
+		require.NoError(t, json.Unmarshal(buf.Bytes(), &entries))
+		require.Len(t, entries, 1)
+		require.Equal(t, "MODIFY", entries[0].ChangeType)
 	})
 
 	t.Run("ArrayDocumentProducesJSONUnmarshalError", func(t *testing.T) {
@@ -790,10 +798,14 @@ data:
 			key: makeMapping(listManifest),
 		}
 
-		requireStructuredPanic(t, func() {
-			var buf bytes.Buffer
-			_ = Manifests(map[string]*manifest.MappingResult{}, newIndex, opts, &buf)
-		}, "failed to build structured entry", "convert new manifest", "cannot unmarshal array")
+		var buf bytes.Buffer
+		changed := Manifests(map[string]*manifest.MappingResult{}, newIndex, opts, &buf)
+		require.True(t, changed, "Should report resource-level change even when JSON unmarshal fails")
+
+		var entries []StructuredEntry
+		require.NoError(t, json.Unmarshal(buf.Bytes(), &entries))
+		require.Len(t, entries, 1)
+		require.Equal(t, "ADD", entries[0].ChangeType)
 	})
 }
 
@@ -967,23 +979,6 @@ spec:
 		require.Empty(t, entries, "Should have no entries for empty manifests")
 	})
 }
-
-func requireStructuredPanic(t *testing.T, fn func(), substrings ...string) {
-	t.Helper()
-	defer func() {
-		if r := recover(); r != nil {
-			err, ok := r.(error)
-			require.True(t, ok, "panic should be an error, got %T", r)
-			for _, sub := range substrings {
-				require.Contains(t, err.Error(), sub)
-			}
-			return
-		}
-		t.Fatalf("expected panic but function completed successfully")
-	}()
-	fn()
-}
-
 func TestManifestsWithRedactedSecrets(t *testing.T) {
 	ansi.DisableColors(true)
 
