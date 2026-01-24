@@ -7,11 +7,6 @@ description: "Preview helm upgrade changes as a diff"
 useTunnel: true
 platformCommand:
   - command: ${HELM_PLUGIN_DIR}/bin/diff
-  - os: windows
-    command: pwsh
-    args:
-      - -Command
-      - "& (Join-Path -Path (Get-ChildItem env:HELM_PLUGIN_DIR).value -ChildPath 'bin\\diff')"
 
 platformHooks:
   install:
