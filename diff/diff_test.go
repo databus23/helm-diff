@@ -2,6 +2,7 @@ package diff
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"testing"
 
@@ -585,6 +586,399 @@ Plan: 0 to add, 1 to change, 0 to destroy, 0 to change ownership.
 	})
 }
 
+func TestStructuredOutputModify(t *testing.T) {
+	ansi.DisableColors(true)
+	opts := &Options{OutputFormat: "structured"}
+	oldManifest := `
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: prod
+spec:
+  replicas: 2
+  template:
+    spec:
+      containers:
+      - name: app
+        image: demo:v1
+`
+	newManifest := `
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: prod
+spec:
+  replicas: 3
+  template:
+    spec:
+      containers:
+      - name: app
+        image: demo:v2
+`
+	oldIndex := manifest.Parse(oldManifest, "prod", true)
+	newIndex := manifest.Parse(newManifest, "prod", true)
+
+	var buf bytes.Buffer
+	changed := Manifests(oldIndex, newIndex, opts, &buf)
+	require.True(t, changed)
+
+	var entries []StructuredEntry
+	require.NoError(t, json.Unmarshal(buf.Bytes(), &entries))
+	require.Len(t, entries, 1)
+	entry := entries[0]
+	require.Equal(t, "MODIFY", entry.ChangeType)
+	require.Equal(t, "apps/v1", entry.APIVersion)
+	require.Equal(t, "Deployment", entry.Kind)
+	require.Equal(t, "prod", entry.Namespace)
+	require.Equal(t, "web", entry.Name)
+	require.Len(t, entry.Changes, 2)
+	replicasChange, ok := findChange(entry.Changes, "spec", "replicas")
+	require.True(t, ok)
+	require.InDelta(t, float64(2), replicasChange.OldValue, 0.001)
+	require.InDelta(t, float64(3), replicasChange.NewValue, 0.001)
+
+	imageChange, ok := findChange(entry.Changes, "spec.template.spec.containers[0]", "image")
+	require.True(t, ok)
+	require.Equal(t, "demo:v1", imageChange.OldValue)
+	require.Equal(t, "demo:v2", imageChange.NewValue)
+}
+
+func TestStructuredOutputAddAndRemove(t *testing.T) {
+	ansi.DisableColors(true)
+	opts := &Options{OutputFormat: "structured"}
+	newManifest := `
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migrate
+  namespace: ops
+spec: {}
+`
+	newIndex := manifest.Parse(newManifest, "ops", true)
+
+	var buf bytes.Buffer
+	changed := Manifests(map[string]*manifest.MappingResult{}, newIndex, opts, &buf)
+	require.True(t, changed)
+
+	var entries []StructuredEntry
+	require.NoError(t, json.Unmarshal(buf.Bytes(), &entries))
+	require.Len(t, entries, 1)
+	require.Equal(t, "ADD", entries[0].ChangeType)
+	require.True(t, entries[0].ResourceStatus.NewExists)
+	require.False(t, entries[0].ResourceStatus.OldExists)
+
+	// Now test removal
+	buf.Reset()
+	changed = Manifests(newIndex, map[string]*manifest.MappingResult{}, opts, &buf)
+	require.True(t, changed)
+	require.NoError(t, json.Unmarshal(buf.Bytes(), &entries))
+	require.Len(t, entries, 1)
+	require.Equal(t, "REMOVE", entries[0].ChangeType)
+	require.True(t, entries[0].ResourceStatus.OldExists)
+	require.False(t, entries[0].ResourceStatus.NewExists)
+}
+
+func TestStructuredOutputSuppressedKind(t *testing.T) {
+	ansi.DisableColors(true)
+	opts := &Options{
+		OutputFormat:    "structured",
+		SuppressedKinds: []string{"Secret"},
+	}
+	oldManifest := `
+apiVersion: v1
+kind: Secret
+metadata:
+  name: creds
+data:
+  password: c29tZQ==
+`
+	newManifest := `
+apiVersion: v1
+kind: Secret
+metadata:
+  name: creds
+data:
+  password: Zm9v
+`
+	oldIndex := manifest.Parse(oldManifest, "default", true)
+	newIndex := manifest.Parse(newManifest, "default", true)
+
+	var buf bytes.Buffer
+	changed := Manifests(oldIndex, newIndex, opts, &buf)
+	require.True(t, changed)
+
+	var entries []StructuredEntry
+	require.NoError(t, json.Unmarshal(buf.Bytes(), &entries))
+	require.Len(t, entries, 1)
+	require.True(t, entries[0].ChangesSuppressed)
+	require.Empty(t, entries[0].Changes)
+}
+
+func findChange(changes []FieldChange, path, field string) (FieldChange, bool) {
+	for _, change := range changes {
+		if change.Path == path && change.Field == field {
+			return change, true
+		}
+	}
+	return FieldChange{}, false
+}
+
+func TestStructuredOutputErrorPaths(t *testing.T) {
+	ansi.DisableColors(true)
+
+	key := "default, failing, ConfigMap (v1)"
+	opts := &Options{OutputFormat: "structured"}
+	validConfigMap := `
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: valid
+  namespace: default
+data:
+  foo: bar
+`
+
+	makeMapping := func(content string) *manifest.MappingResult {
+		return &manifest.MappingResult{
+			Name:    key,
+			Kind:    "ConfigMap",
+			Content: content,
+		}
+	}
+
+	t.Run("InvalidNewManifestYAML", func(t *testing.T) {
+		oldIndex := map[string]*manifest.MappingResult{
+			key: makeMapping(validConfigMap),
+		}
+		newIndex := map[string]*manifest.MappingResult{
+			key: makeMapping(":\n  not-valid: value"),
+		}
+
+		var buf bytes.Buffer
+		changed := Manifests(oldIndex, newIndex, opts, &buf)
+		require.True(t, changed, "Should report resource-level change even when YAML parsing fails")
+
+		var entries []StructuredEntry
+		require.NoError(t, json.Unmarshal(buf.Bytes(), &entries))
+		require.Len(t, entries, 1)
+		require.Equal(t, "MODIFY", entries[0].ChangeType)
+	})
+
+	t.Run("InvalidOldManifestYAML", func(t *testing.T) {
+		oldIndex := map[string]*manifest.MappingResult{
+			key: makeMapping("metadata:\n  name: invalid\n  namespace: default\n  labels:\n    : bad"),
+		}
+		newIndex := map[string]*manifest.MappingResult{
+			key: makeMapping(validConfigMap),
+		}
+
+		var buf bytes.Buffer
+		changed := Manifests(oldIndex, newIndex, opts, &buf)
+		require.True(t, changed, "Should report resource-level change even when YAML parsing fails")
+
+		var entries []StructuredEntry
+		require.NoError(t, json.Unmarshal(buf.Bytes(), &entries))
+		require.Len(t, entries, 1)
+		require.Equal(t, "MODIFY", entries[0].ChangeType)
+	})
+
+	t.Run("ArrayDocumentProducesJSONUnmarshalError", func(t *testing.T) {
+		listManifest := `
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: list
+    namespace: default
+  data:
+    key: value
+`
+		newIndex := map[string]*manifest.MappingResult{
+			key: makeMapping(listManifest),
+		}
+
+		var buf bytes.Buffer
+		changed := Manifests(map[string]*manifest.MappingResult{}, newIndex, opts, &buf)
+		require.True(t, changed, "Should report resource-level change even when JSON unmarshal fails")
+
+		var entries []StructuredEntry
+		require.NoError(t, json.Unmarshal(buf.Bytes(), &entries))
+		require.Len(t, entries, 1)
+		require.Equal(t, "ADD", entries[0].ChangeType)
+	})
+}
+
+func TestStructuredOutputAdditionalScenarios(t *testing.T) {
+	ansi.DisableColors(true)
+	opts := &Options{OutputFormat: "structured"}
+
+	t.Run("EmptyManifestHandling", func(t *testing.T) {
+		emptyManifest := ``
+		validManifest := `
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test
+  namespace: default
+`
+		oldIndex := manifest.Parse(emptyManifest, "default", true)
+		newIndex := manifest.Parse(validManifest, "default", true)
+
+		var buf bytes.Buffer
+		changed := Manifests(oldIndex, newIndex, opts, &buf)
+		require.True(t, changed)
+
+		var entries []StructuredEntry
+		require.NoError(t, json.Unmarshal(buf.Bytes(), &entries))
+		require.Len(t, entries, 1)
+		require.Equal(t, "ADD", entries[0].ChangeType)
+		require.False(t, entries[0].ResourceStatus.OldExists)
+		require.True(t, entries[0].ResourceStatus.NewExists)
+	})
+
+	t.Run("NullYAMLDocument", func(t *testing.T) {
+		nullManifest := `null`
+		validManifest := `
+apiVersion: v1
+kind: Service
+metadata:
+  name: test
+  namespace: default
+`
+		oldIndex := manifest.Parse(nullManifest, "default", true)
+		newIndex := manifest.Parse(validManifest, "default", true)
+
+		var buf bytes.Buffer
+		changed := Manifests(oldIndex, newIndex, opts, &buf)
+		require.True(t, changed)
+
+		var entries []StructuredEntry
+		require.NoError(t, json.Unmarshal(buf.Bytes(), &entries))
+		require.Len(t, entries, 1)
+		require.Equal(t, "ADD", entries[0].ChangeType)
+	})
+
+	t.Run("ComplexNestedStructuresForJSONPatch", func(t *testing.T) {
+		oldManifest := `
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: complex
+  namespace: default
+  labels:
+    app: test
+    version: v1
+data:
+  config.yaml: |
+    nested:
+      deeply:
+        value: old
+`
+		newManifest := `
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: complex
+  namespace: default
+  labels:
+    app: test
+    version: v2
+data:
+  config.yaml: |
+    nested:
+      deeply:
+        value: new
+`
+		oldIndex := manifest.Parse(oldManifest, "default", true)
+		newIndex := manifest.Parse(newManifest, "default", true)
+
+		var buf bytes.Buffer
+		changed := Manifests(oldIndex, newIndex, opts, &buf)
+		require.True(t, changed)
+
+		var entries []StructuredEntry
+		require.NoError(t, json.Unmarshal(buf.Bytes(), &entries))
+		require.Len(t, entries, 1)
+		require.Equal(t, "MODIFY", entries[0].ChangeType)
+		require.NotEmpty(t, entries[0].Changes, "Should detect changes in nested structures")
+
+		versionChange, found := findChange(entries[0].Changes, "metadata.labels", "version")
+		require.True(t, found, "Should find version label change")
+		require.Equal(t, "v1", versionChange.OldValue)
+		require.Equal(t, "v2", versionChange.NewValue)
+	})
+
+	t.Run("ArrayChangesInStructuredOutput", func(t *testing.T) {
+		oldManifest := `
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app
+  namespace: prod
+spec:
+  template:
+    spec:
+      containers:
+      - name: app
+        image: myapp:v1
+        env:
+        - name: KEY1
+          value: val1
+`
+		newManifest := `
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app
+  namespace: prod
+spec:
+  template:
+    spec:
+      containers:
+      - name: app
+        image: myapp:v2
+        env:
+        - name: KEY1
+          value: val1
+        - name: KEY2
+          value: val2
+`
+		oldIndex := manifest.Parse(oldManifest, "prod", true)
+		newIndex := manifest.Parse(newManifest, "prod", true)
+
+		var buf bytes.Buffer
+		changed := Manifests(oldIndex, newIndex, opts, &buf)
+		require.True(t, changed)
+
+		var entries []StructuredEntry
+		require.NoError(t, json.Unmarshal(buf.Bytes(), &entries))
+		require.Len(t, entries, 1)
+		require.Equal(t, "MODIFY", entries[0].ChangeType)
+		require.NotEmpty(t, entries[0].Changes, "Should detect changes")
+
+		imageChange, found := findChange(entries[0].Changes, "spec.template.spec.containers[0]", "image")
+		require.True(t, found, "Should find image change")
+		require.Equal(t, "myapp:v1", imageChange.OldValue)
+		require.Equal(t, "myapp:v2", imageChange.NewValue)
+	})
+
+	t.Run("BothManifestsEmpty", func(t *testing.T) {
+		emptyManifest1 := ``
+		emptyManifest2 := ``
+
+		oldIndex := manifest.Parse(emptyManifest1, "default", true)
+		newIndex := manifest.Parse(emptyManifest2, "default", true)
+
+		var buf bytes.Buffer
+		changed := Manifests(oldIndex, newIndex, opts, &buf)
+		require.False(t, changed, "No changes should be detected with both empty")
+
+		var entries []StructuredEntry
+		require.NoError(t, json.Unmarshal(buf.Bytes(), &entries))
+		require.Empty(t, entries, "Should have no entries for empty manifests")
+	})
+}
 func TestManifestsWithRedactedSecrets(t *testing.T) {
 	ansi.DisableColors(true)
 
