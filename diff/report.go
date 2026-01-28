@@ -1,6 +1,7 @@
 package diff
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -65,6 +66,8 @@ func (r *Report) setupReportFormat(format string) {
 		setupJSONReport(r)
 	case "dyff":
 		setupDyffReport(r)
+	case "ai":
+		setupAIReport(r)
 	default:
 		setupDiffReport(r)
 	}
@@ -72,6 +75,10 @@ func (r *Report) setupReportFormat(format string) {
 
 func setupDyffReport(r *Report) {
 	r.format.output = printDyffReport
+}
+
+func setupAIReport(r *Report) {
+	r.format.output = printAIReport
 }
 
 func printDyffReport(r *Report, to io.Writer) {
@@ -111,6 +118,110 @@ func printDyffReport(r *Report, to io.Writer) {
 		MinorChangeThreshold: 0.1,
 	}
 	_ = reportWriter.WriteReport(to)
+}
+
+type aiResourceChange struct {
+	Metadata aiResourceMetadata `json:"metadata"`
+	Change   string             `json:"change"`
+	Summary  string             `json:"summary"`
+	Content  aiChangeContent    `json:"content,omitempty"`
+}
+
+type aiResourceMetadata struct {
+	Namespace string `json:"namespace"`
+	Name      string `json:"name"`
+	Kind      string `json:"kind"`
+	API       string `json:"api"`
+}
+
+type aiChangeContent struct {
+	Added    []string `json:"added,omitempty"`
+	Removed  []string `json:"removed,omitempty"`
+	Modified []string `json:"modified,omitempty"`
+}
+
+func printAIReport(r *Report, to io.Writer) {
+	encoder := json.NewEncoder(to)
+	encoder.SetIndent("", "  ")
+
+	changes := make([]aiResourceChange, 0, len(r.Entries))
+
+	for _, entry := range r.Entries {
+		templateData := ReportTemplateSpec{}
+		if err := templateData.loadFromKey(entry.Key); err != nil {
+			log.Println("error processing report entry")
+			continue
+		}
+
+		change := aiResourceChange{
+			Metadata: aiResourceMetadata{
+				Namespace: templateData.Namespace,
+				Name:      templateData.Name,
+				Kind:      templateData.Kind,
+				API:       templateData.API,
+			},
+			Change: entry.ChangeType,
+		}
+
+		var added, removed, modified []string
+
+		for _, record := range entry.Diffs {
+			switch record.Delta {
+			case difflib.LeftOnly:
+				removed = append(removed, record.Payload)
+			case difflib.RightOnly:
+				added = append(added, record.Payload)
+			case difflib.Common:
+				modified = append(modified, record.Payload)
+			}
+		}
+
+		if len(added) > 0 || len(removed) > 0 {
+			change.Content = aiChangeContent{
+				Added:    added,
+				Removed:  removed,
+				Modified: modified,
+			}
+
+			change.Summary = generateChangeSummary(added, removed, entry.ChangeType)
+		} else {
+			change.Summary = getChangeDescription(entry.ChangeType)
+		}
+
+		changes = append(changes, change)
+	}
+
+	_ = encoder.Encode(changes)
+}
+
+func generateChangeSummary(added, removed []string, changeType string) string {
+	addedCount := len(added)
+	removedCount := len(removed)
+
+	switch {
+	case changeType == "ADD" && addedCount > 0:
+		return fmt.Sprintf("Added %d lines", addedCount)
+	case changeType == "REMOVE" && removedCount > 0:
+		return fmt.Sprintf("Removed %d lines", removedCount)
+	case changeType == "MODIFY":
+		return fmt.Sprintf("Modified: +%d, -%d", addedCount, removedCount)
+	default:
+		return fmt.Sprintf("%d additions, %d deletions", addedCount, removedCount)
+	}
+}
+
+func getChangeDescription(changeType string) string {
+	descriptions := map[string]string{
+		"ADD":               "Resource created",
+		"REMOVE":            "Resource deleted",
+		"MODIFY":            "Resource updated",
+		"OWNERSHIP":         "Ownership changed",
+		"MODIFY_SUPPRESSED": "Resource modified (diff suppressed)",
+	}
+	if desc, ok := descriptions[changeType]; ok {
+		return desc
+	}
+	return changeType
 }
 
 // addEntry: stores diff changes.
