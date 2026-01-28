@@ -120,63 +120,108 @@ func printDyffReport(r *Report, to io.Writer) {
 	_ = reportWriter.WriteReport(to)
 }
 
+type aiResourceChange struct {
+	Metadata aiResourceMetadata `json:"metadata"`
+	Change   string             `json:"change"`
+	Summary  string             `json:"summary"`
+	Content  aiChangeContent    `json:"content,omitempty"`
+}
+
+type aiResourceMetadata struct {
+	Namespace string `json:"namespace"`
+	Name      string `json:"name"`
+	Kind      string `json:"kind"`
+	API       string `json:"api"`
+}
+
+type aiChangeContent struct {
+	Added    []string `json:"added,omitempty"`
+	Removed  []string `json:"removed,omitempty"`
+	Modified []string `json:"modified,omitempty"`
+}
+
 func printAIReport(r *Report, to io.Writer) {
-	_, _ = fmt.Fprint(to, "[\n")
-	for i, entry := range r.Entries {
+	encoder := json.NewEncoder(to)
+	encoder.SetIndent("", "  ")
+
+	changes := make([]aiResourceChange, 0, len(r.Entries))
+
+	for _, entry := range r.Entries {
 		templateData := ReportTemplateSpec{}
-		err := templateData.loadFromKey(entry.Key)
-		if err != nil {
+		if err := templateData.loadFromKey(entry.Key); err != nil {
 			log.Println("error processing report entry")
 			continue
 		}
 
-		_, _ = fmt.Fprintf(to, "  {\n")
-		_, _ = fmt.Fprintf(to, "    \"api\": \"%s\",\n", escapeJSON(templateData.API))
-		_, _ = fmt.Fprintf(to, "    \"kind\": \"%s\",\n", escapeJSON(templateData.Kind))
-		_, _ = fmt.Fprintf(to, "    \"namespace\": \"%s\",\n", escapeJSON(templateData.Namespace))
-		_, _ = fmt.Fprintf(to, "    \"name\": \"%s\",\n", escapeJSON(templateData.Name))
-		_, _ = fmt.Fprintf(to, "    \"change\": \"%s\",\n", escapeJSON(entry.ChangeType))
-		_, _ = fmt.Fprintf(to, "    \"diffs\": [\n")
+		change := aiResourceChange{
+			Metadata: aiResourceMetadata{
+				Namespace: templateData.Namespace,
+				Name:      templateData.Name,
+				Kind:      templateData.Kind,
+				API:       templateData.API,
+			},
+			Change: entry.ChangeType,
+		}
 
-		for j, record := range entry.Diffs {
-			deltaType := "common"
+		var added, removed, modified []string
+
+		for _, record := range entry.Diffs {
 			switch record.Delta {
 			case difflib.LeftOnly:
-				deltaType = "removed"
+				removed = append(removed, record.Payload)
 			case difflib.RightOnly:
-				deltaType = "added"
-			}
-
-			_, _ = fmt.Fprintf(to, "      {\n")
-			_, _ = fmt.Fprintf(to, "        \"type\": \"%s\",\n", deltaType)
-			_, _ = fmt.Fprintf(to, "        \"content\": %s\n", escapeJSONString(record.Payload))
-			if j < len(entry.Diffs)-1 {
-				_, _ = fmt.Fprint(to, "      },\n")
-			} else {
-				_, _ = fmt.Fprint(to, "      }\n")
+				added = append(added, record.Payload)
+			case difflib.Common:
+				modified = append(modified, record.Payload)
 			}
 		}
 
-		if i < len(r.Entries)-1 {
-			_, _ = fmt.Fprintf(to, "    ]\n  },\n")
+		if len(added) > 0 || len(removed) > 0 {
+			change.Content = aiChangeContent{
+				Added:    added,
+				Removed:  removed,
+				Modified: modified,
+			}
+
+			change.Summary = generateChangeSummary(added, removed, entry.ChangeType)
 		} else {
-			_, _ = fmt.Fprintf(to, "    ]\n  }\n")
+			change.Summary = getChangeDescription(entry.ChangeType)
 		}
+
+		changes = append(changes, change)
 	}
-	_, _ = fmt.Fprint(to, "]\n")
+
+	_ = encoder.Encode(changes)
 }
 
-func escapeJSON(s string) string {
-	if s == "" {
-		return ""
+func generateChangeSummary(added, removed []string, changeType string) string {
+	addedCount := len(added)
+	removedCount := len(removed)
+
+	switch {
+	case changeType == "ADD" && addedCount > 0:
+		return fmt.Sprintf("Added %d lines", addedCount)
+	case changeType == "REMOVE" && removedCount > 0:
+		return fmt.Sprintf("Removed %d lines", removedCount)
+	case changeType == "MODIFY":
+		return fmt.Sprintf("Modified: +%d, -%d", addedCount, removedCount)
+	default:
+		return fmt.Sprintf("%d additions, %d deletions", addedCount, removedCount)
 	}
-	b, _ := json.Marshal(s)
-	return string(b[1 : len(b)-1])
 }
 
-func escapeJSONString(s string) string {
-	b, _ := json.Marshal(s)
-	return string(b)
+func getChangeDescription(changeType string) string {
+	descriptions := map[string]string{
+		"ADD":               "Resource created",
+		"REMOVE":            "Resource deleted",
+		"MODIFY":            "Resource updated",
+		"OWNERSHIP":         "Ownership changed",
+		"MODIFY_SUPPRESSED": "Resource modified (diff suppressed)",
+	}
+	if desc, ok := descriptions[changeType]; ok {
+		return desc
+	}
+	return changeType
 }
 
 // addEntry: stores diff changes.

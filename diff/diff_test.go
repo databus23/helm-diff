@@ -574,8 +574,8 @@ Plan: 0 to add, 1 to change, 0 to destroy, 0 to change ownership.
 		require.Contains(t, buf1.String(), `"namespace": "default"`)
 		require.Contains(t, buf1.String(), `"name": "nginx"`)
 		require.Contains(t, buf1.String(), `"change": "MODIFY"`)
-		require.Contains(t, buf1.String(), `"diffs"`)
-		require.Contains(t, buf1.String(), `"type"`)
+		require.Contains(t, buf1.String(), `"summary"`)
+		require.Contains(t, buf1.String(), `"metadata"`)
 		require.Contains(t, buf1.String(), `"content"`)
 	})
 
