@@ -561,6 +561,24 @@ Plan: 0 to add, 1 to change, 0 to destroy, 0 to change ownership.
 `, buf1.String())
 	})
 
+	t.Run("OnChangeAI", func(t *testing.T) {
+		var buf1 bytes.Buffer
+		diffOptions := Options{"ai", 10, false, true, false, []string{}, 0.0, []string{}}
+
+		if changesSeen := Manifests(specBeta, specRelease, &diffOptions, &buf1); !changesSeen {
+			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
+		}
+
+		require.Contains(t, buf1.String(), `"api": "apps"`)
+		require.Contains(t, buf1.String(), `"kind": "Deployment"`)
+		require.Contains(t, buf1.String(), `"namespace": "default"`)
+		require.Contains(t, buf1.String(), `"name": "nginx"`)
+		require.Contains(t, buf1.String(), `"change": "MODIFY"`)
+		require.Contains(t, buf1.String(), `"diffs"`)
+		require.Contains(t, buf1.String(), `"type"`)
+		require.Contains(t, buf1.String(), `"content"`)
+	})
+
 	t.Run("OnNoChangeTemplate", func(t *testing.T) {
 		var buf2 bytes.Buffer
 		diffOptions := Options{"template", 10, false, true, false, []string{}, 0.0, []string{}}

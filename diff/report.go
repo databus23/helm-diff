@@ -1,6 +1,7 @@
 package diff
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -65,6 +66,8 @@ func (r *Report) setupReportFormat(format string) {
 		setupJSONReport(r)
 	case "dyff":
 		setupDyffReport(r)
+	case "ai":
+		setupAIReport(r)
 	default:
 		setupDiffReport(r)
 	}
@@ -72,6 +75,10 @@ func (r *Report) setupReportFormat(format string) {
 
 func setupDyffReport(r *Report) {
 	r.format.output = printDyffReport
+}
+
+func setupAIReport(r *Report) {
+	r.format.output = printAIReport
 }
 
 func printDyffReport(r *Report, to io.Writer) {
@@ -111,6 +118,65 @@ func printDyffReport(r *Report, to io.Writer) {
 		MinorChangeThreshold: 0.1,
 	}
 	_ = reportWriter.WriteReport(to)
+}
+
+func printAIReport(r *Report, to io.Writer) {
+	_, _ = fmt.Fprint(to, "[\n")
+	for i, entry := range r.Entries {
+		templateData := ReportTemplateSpec{}
+		err := templateData.loadFromKey(entry.Key)
+		if err != nil {
+			log.Println("error processing report entry")
+			continue
+		}
+
+		_, _ = fmt.Fprintf(to, "  {\n")
+		_, _ = fmt.Fprintf(to, "    \"api\": \"%s\",\n", escapeJSON(templateData.API))
+		_, _ = fmt.Fprintf(to, "    \"kind\": \"%s\",\n", escapeJSON(templateData.Kind))
+		_, _ = fmt.Fprintf(to, "    \"namespace\": \"%s\",\n", escapeJSON(templateData.Namespace))
+		_, _ = fmt.Fprintf(to, "    \"name\": \"%s\",\n", escapeJSON(templateData.Name))
+		_, _ = fmt.Fprintf(to, "    \"change\": \"%s\",\n", escapeJSON(entry.ChangeType))
+		_, _ = fmt.Fprintf(to, "    \"diffs\": [\n")
+
+		for j, record := range entry.Diffs {
+			deltaType := "common"
+			switch record.Delta {
+			case difflib.LeftOnly:
+				deltaType = "removed"
+			case difflib.RightOnly:
+				deltaType = "added"
+			}
+
+			_, _ = fmt.Fprintf(to, "      {\n")
+			_, _ = fmt.Fprintf(to, "        \"type\": \"%s\",\n", deltaType)
+			_, _ = fmt.Fprintf(to, "        \"content\": %s\n", escapeJSONString(record.Payload))
+			if j < len(entry.Diffs)-1 {
+				_, _ = fmt.Fprint(to, "      },\n")
+			} else {
+				_, _ = fmt.Fprint(to, "      }\n")
+			}
+		}
+
+		if i < len(r.Entries)-1 {
+			_, _ = fmt.Fprintf(to, "    ]\n  },\n")
+		} else {
+			_, _ = fmt.Fprintf(to, "    ]\n  }\n")
+		}
+	}
+	_, _ = fmt.Fprint(to, "]\n")
+}
+
+func escapeJSON(s string) string {
+	if s == "" {
+		return ""
+	}
+	b, _ := json.Marshal(s)
+	return string(b[1 : len(b)-1])
+}
+
+func escapeJSONString(s string) string {
+	b, _ := json.Marshal(s)
+	return string(b)
 }
 
 // addEntry: stores diff changes.
