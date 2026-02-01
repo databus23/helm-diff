@@ -178,8 +178,8 @@ func createPatch(originalObj, currentObj runtime.Object, target *resource.Info) 
 		// 2. Apply this patch to current (live state with manual changes)
 		// 3. Create a patch from current -> merged result
 		// 4. If chart changed (old != new), return step 3's patch
-		// 5. If chart unchanged (old == new) but current != new, return new->current patch to restore chart state
-		//    (i.e., detect and revert manual changes to chart-owned fields)
+		// 5. If chart unchanged (old == new) but current != new, return current->new patch applied to current to restore chart state
+		//    (i.e., detect and revert manual changes by restoring chart-owned fields to the chart's desired state)
 
 		// Step 1: Create patch from old -> new (what the chart wants to change)
 		chartChanges, err := jsonpatch.CreateMergePatch(oldData, newData)
