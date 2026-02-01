@@ -82,6 +82,69 @@ func TestHelmDiffWithKubeContextReuseValues(t *testing.T) {
 	require.NoError(t, cmd.New().Execute())
 }
 
+func TestHelmDiffRevisionWithKubeContext(t *testing.T) {
+	os.Setenv(env, envValue)
+	defer os.Unsetenv(env)
+
+	helmBin, helmBinSet := os.LookupEnv("HELM_BIN")
+	os.Setenv("HELM_BIN", os.Args[0])
+	defer func() {
+		if helmBinSet {
+			os.Setenv("HELM_BIN", helmBin)
+		} else {
+			os.Unsetenv("HELM_BIN")
+		}
+	}()
+
+	oldArgs := os.Args
+	defer func() { os.Args = oldArgs }()
+
+	os.Args = []string{"helm-diff", "revision", "--kube-context", "test-context", "test-release", "2"}
+	require.NoError(t, cmd.New().Execute())
+}
+
+func TestHelmDiffRollbackWithKubeContext(t *testing.T) {
+	os.Setenv(env, envValue)
+	defer os.Unsetenv(env)
+
+	helmBin, helmBinSet := os.LookupEnv("HELM_BIN")
+	os.Setenv("HELM_BIN", os.Args[0])
+	defer func() {
+		if helmBinSet {
+			os.Setenv("HELM_BIN", helmBin)
+		} else {
+			os.Unsetenv("HELM_BIN")
+		}
+	}()
+
+	oldArgs := os.Args
+	defer func() { os.Args = oldArgs }()
+
+	os.Args = []string{"helm-diff", "rollback", "--kube-context", "test-context", "test-release", "2"}
+	require.NoError(t, cmd.New().Execute())
+}
+
+func TestHelmDiffReleaseWithKubeContext(t *testing.T) {
+	os.Setenv(env, envValue)
+	defer os.Unsetenv(env)
+
+	helmBin, helmBinSet := os.LookupEnv("HELM_BIN")
+	os.Setenv("HELM_BIN", os.Args[0])
+	defer func() {
+		if helmBinSet {
+			os.Setenv("HELM_BIN", helmBin)
+		} else {
+			os.Unsetenv("HELM_BIN")
+		}
+	}()
+
+	oldArgs := os.Args
+	defer func() { os.Args = oldArgs }()
+
+	os.Args = []string{"helm-diff", "release", "--kube-context", "test-context", "test-release1", "test-release2"}
+	require.NoError(t, cmd.New().Execute())
+}
+
 const (
 	env      = "BECOME_FAKE_HELM"
 	envValue = "1"
@@ -141,6 +204,37 @@ var helmSubcmdStubs = []fakeHelmSubcmd{
 	{
 		cmd:  []string{"template"},
 		args: []string{"test-release", "test/testdata/test-chart", "--kube-context", "test-context", "--values", "*", "--values", "test/testdata/test-values.yaml", "--validate", "--is-upgrade"},
+	},
+	{
+		cmd:  []string{"get", "manifest"},
+		args: []string{"test-release", "--revision", "2", "--kube-context", "test-context"},
+		stdout: `---
+# Source: test-chart/templates/cm.yaml
+`,
+	},
+	{
+		cmd:  []string{"get", "manifest"},
+		args: []string{"test-release1", "--kube-context", "test-context"},
+		stdout: `---
+# Source: test-chart/templates/cm.yaml
+`,
+	},
+	{
+		cmd:    []string{"get", "all"},
+		args:   []string{"test-release1", "--template", "*", "--kube-context", "test-context"},
+		stdout: `test-chart`,
+	},
+	{
+		cmd:  []string{"get", "manifest"},
+		args: []string{"test-release2", "--kube-context", "test-context"},
+		stdout: `---
+# Source: test-chart/templates/cm.yaml
+`,
+	},
+	{
+		cmd:    []string{"get", "all"},
+		args:   []string{"test-release2", "--template", "*", "--kube-context", "test-context"},
+		stdout: `test-chart`,
 	},
 }
 
