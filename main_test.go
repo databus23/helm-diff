@@ -33,7 +33,52 @@ func TestHelmDiff(t *testing.T) {
 		}
 	}()
 
+	oldArgs := os.Args
+	defer func() { os.Args = oldArgs }()
+
 	os.Args = []string{"helm-diff", "upgrade", "-f", "test/testdata/test-values.yaml", "test-release", "test/testdata/test-chart"}
+	require.NoError(t, cmd.New().Execute())
+}
+
+func TestHelmDiffWithKubeContext(t *testing.T) {
+	os.Setenv(env, envValue)
+	defer os.Unsetenv(env)
+
+	helmBin, helmBinSet := os.LookupEnv("HELM_BIN")
+	os.Setenv("HELM_BIN", os.Args[0])
+	defer func() {
+		if helmBinSet {
+			os.Setenv("HELM_BIN", helmBin)
+		} else {
+			os.Unsetenv("HELM_BIN")
+		}
+	}()
+
+	oldArgs := os.Args
+	defer func() { os.Args = oldArgs }()
+
+	os.Args = []string{"helm-diff", "upgrade", "-f", "test/testdata/test-values.yaml", "--kube-context", "test-context", "test-release", "test/testdata/test-chart"}
+	require.NoError(t, cmd.New().Execute())
+}
+
+func TestHelmDiffWithKubeContextReuseValues(t *testing.T) {
+	os.Setenv(env, envValue)
+	defer os.Unsetenv(env)
+
+	helmBin, helmBinSet := os.LookupEnv("HELM_BIN")
+	os.Setenv("HELM_BIN", os.Args[0])
+	defer func() {
+		if helmBinSet {
+			os.Setenv("HELM_BIN", helmBin)
+		} else {
+			os.Unsetenv("HELM_BIN")
+		}
+	}()
+
+	oldArgs := os.Args
+	defer func() { os.Args = oldArgs }()
+
+	os.Args = []string{"helm-diff", "upgrade", "--reuse-values", "--kube-context", "test-context", "-f", "test/testdata/test-values.yaml", "test-release", "test/testdata/test-chart"}
 	require.NoError(t, cmd.New().Execute())
 }
 
@@ -70,6 +115,33 @@ var helmSubcmdStubs = []fakeHelmSubcmd{
 		cmd:  []string{"get", "hooks"},
 		args: []string{"test-release"},
 	},
+	{
+		cmd:  []string{"get", "manifest"},
+		args: []string{"test-release", "--kube-context", "test-context"},
+		stdout: `---
+# Source: test-chart/templates/cm.yaml
+`,
+	},
+	{
+		cmd:  []string{"template"},
+		args: []string{"test-release", "test/testdata/test-chart", "--kube-context", "test-context", "--values", "test/testdata/test-values.yaml", "--validate", "--is-upgrade"},
+	},
+	{
+		cmd:  []string{"get", "hooks"},
+		args: []string{"test-release", "--kube-context", "test-context"},
+	},
+	{
+		cmd:  []string{"get", "values"},
+		args: []string{"test-release", "--output", "yaml", "--all", "--kube-context", "test-context"},
+	},
+	{
+		cmd:  []string{"get", "values"},
+		args: []string{"test-release", "--output", "yaml", "--all", "--kube-context", "test-context", "--namespace", "*"},
+	},
+	{
+		cmd:  []string{"template"},
+		args: []string{"test-release", "test/testdata/test-chart", "--kube-context", "test-context", "--values", "*", "--values", "test/testdata/test-values.yaml", "--validate", "--is-upgrade"},
+	},
 }
 
 func runFakeHelm() int {
@@ -84,8 +156,15 @@ func runFakeHelm() int {
 	for i := range helmSubcmdStubs {
 		s := helmSubcmdStubs[i]
 		if reflect.DeepEqual(s.cmd, cmdAndArgs[:len(s.cmd)]) {
-			stub = &s
-			break
+			want := s.args
+			if want == nil {
+				want = []string{}
+			}
+			got := cmdAndArgs[len(s.cmd):]
+			if argsMatch(want, got) {
+				stub = &s
+				break
+			}
 		}
 	}
 
@@ -94,19 +173,22 @@ func runFakeHelm() int {
 		return 1
 	}
 
-	want := stub.args
-	if want == nil {
-		want = []string{}
-	}
-	got := cmdAndArgs[len(stub.cmd):]
-	if !reflect.DeepEqual(want, got) {
-		_, _ = fmt.Fprintf(os.Stderr, "want: %v\n", want)
-		_, _ = fmt.Fprintf(os.Stderr, "got : %v\n", got)
-		_, _ = fmt.Fprintf(os.Stderr, "args : %v\n", os.Args)
-		_, _ = fmt.Fprintf(os.Stderr, "env : %v\n", os.Environ())
-		return 1
-	}
 	_, _ = fmt.Fprintf(os.Stdout, "%s", stub.stdout)
 	_, _ = fmt.Fprintf(os.Stderr, "%s", stub.stderr)
 	return stub.exitCode
+}
+
+func argsMatch(want, got []string) bool {
+	if len(want) != len(got) {
+		return false
+	}
+	for i := range want {
+		if want[i] == "*" {
+			continue
+		}
+		if want[i] != got[i] {
+			return false
+		}
+	}
+	return true
 }
