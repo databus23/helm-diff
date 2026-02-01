@@ -1,6 +1,7 @@
 package diff
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -21,6 +22,7 @@ import (
 type Report struct {
 	format  ReportFormat
 	Entries []ReportEntry
+	mode    string
 }
 
 // ReportEntry to store changes between releases
@@ -31,6 +33,7 @@ type ReportEntry struct {
 	Context         int
 	Diffs           []difflib.DiffRecord
 	ChangeType      string
+	Structured      *StructuredEntry
 }
 
 // ReportFormat to the context to make a changes report
@@ -56,6 +59,7 @@ type ReportTemplateSpec struct {
 
 // setupReportFormat: process output argument.
 func (r *Report) setupReportFormat(format string) {
+	r.mode = format
 	switch format {
 	case "simple":
 		setupSimpleReport(r)
@@ -63,6 +67,8 @@ func (r *Report) setupReportFormat(format string) {
 		setupTemplateReport(r)
 	case "json":
 		setupJSONReport(r)
+	case "structured":
+		setupStructuredReport(r)
 	case "dyff":
 		setupDyffReport(r)
 	default:
@@ -114,7 +120,7 @@ func printDyffReport(r *Report, to io.Writer) {
 }
 
 // addEntry: stores diff changes.
-func (r *Report) addEntry(key string, suppressedKinds []string, kind string, context int, diffs []difflib.DiffRecord, changeType string) {
+func (r *Report) addEntry(key string, suppressedKinds []string, kind string, context int, diffs []difflib.DiffRecord, changeType string, structured *StructuredEntry) {
 	entry := ReportEntry{
 		key,
 		suppressedKinds,
@@ -122,6 +128,7 @@ func (r *Report) addEntry(key string, suppressedKinds []string, kind string, con
 		context,
 		diffs,
 		changeType,
+		structured,
 	}
 	r.Entries = append(r.Entries, entry)
 }
@@ -247,6 +254,33 @@ func setupTemplateReport(r *Report) {
 	r.format.changestyles["MODIFY"] = ChangeStyle{color: "yellow", message: ""}
 	r.format.changestyles["OWNERSHIP"] = ChangeStyle{color: "magenta", message: ""}
 	r.format.changestyles["MODIFY_SUPPRESSED"] = ChangeStyle{color: "blue+h", message: ""}
+}
+
+func setupStructuredReport(r *Report) {
+	r.format.output = printStructuredReport
+}
+
+func printStructuredReport(r *Report, to io.Writer) {
+	entries := make([]StructuredEntry, 0, len(r.Entries))
+	for _, entry := range r.Entries {
+		if entry.Structured != nil {
+			structuredCopy := *entry.Structured
+			if structuredCopy.ChangeType == "" {
+				structuredCopy.ChangeType = entry.ChangeType
+			}
+			entries = append(entries, structuredCopy)
+			continue
+		}
+		entries = append(entries, StructuredEntry{
+			Name:       entry.Key,
+			ChangeType: entry.ChangeType,
+		})
+	}
+	encoder := json.NewEncoder(to)
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(entries); err != nil {
+		log.Printf("Error encoding structured diff output: %v\n", err)
+	}
 }
 
 // report with template output will only have access to ReportTemplateSpec.
