@@ -170,8 +170,44 @@ func createPatch(originalObj, currentObj runtime.Object, target *resource.Info) 
 	_, isCRD := versionedObject.(*apiextv1.CustomResourceDefinition)
 
 	if isUnstructured || isCRD {
-		// fall back to generic JSON merge patch
-		patch, err := jsonpatch.CreateMergePatch(oldData, newData)
+		// For unstructured objects (CRDs, CRs), we need to perform a three-way merge
+		// to detect manual changes made in the cluster.
+		//
+		// The approach is:
+		// 1. Create a patch from old -> new (chart changes)
+		// 2. Apply this patch to current (live state with manual changes)
+		// 3. Create a patch from current -> merged result
+		// 4. If chart changed (old != new), return step 3's patch
+		// 5. If chart unchanged (old == new) but current != new, return current->new patch applied to current to restore chart state
+		//    (i.e., detect and revert manual changes by restoring chart-owned fields to the chart's desired state)
+
+		// Step 1: Create patch from old -> new (what the chart wants to change)
+		chartChanges, err := jsonpatch.CreateMergePatch(oldData, newData)
+		if err != nil {
+			return nil, types.MergePatchType, fmt.Errorf("creating chart changes patch: %w", err)
+		}
+
+		// Check if chart actually changed anything
+		chartChanged := !isPatchEmpty(chartChanges)
+
+		if chartChanged {
+			// Step 2: Apply chart changes to current (merge chart changes with live state)
+			mergedData, err := jsonpatch.MergePatch(currentData, chartChanges)
+			if err != nil {
+				return nil, types.MergePatchType, fmt.Errorf("applying chart changes to current: %w", err)
+			}
+
+			// Step 3: Create patch from current -> merged (what to apply to current)
+			// This patch, when applied to current, will produce the merged result
+			patch, err := jsonpatch.CreateMergePatch(currentData, mergedData)
+			return patch, types.MergePatchType, err
+		}
+
+		// Chart didn't change (old == new), but we need to detect if current diverges
+		// from the chart state. This is the case where manual changes were made to
+		// chart-owned fields.
+		// Create a patch from current -> new to detect and restore drift
+		patch, err := jsonpatch.CreateMergePatch(currentData, newData)
 		return patch, types.MergePatchType, err
 	}
 
@@ -182,6 +218,10 @@ func createPatch(originalObj, currentObj runtime.Object, target *resource.Info) 
 
 	patch, err := strategicpatch.CreateThreeWayMergePatch(oldData, newData, currentData, patchMeta, true)
 	return patch, types.StrategicMergePatchType, err
+}
+
+func isPatchEmpty(patch []byte) bool {
+	return len(patch) == 0 || string(patch) == "{}" || string(patch) == "null"
 }
 
 func objectKey(r *resource.Info) string {
