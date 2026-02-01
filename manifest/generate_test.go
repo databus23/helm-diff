@@ -76,8 +76,8 @@ func TestCreatePatchForUnstructured(t *testing.T) {
 					},
 				},
 			},
-			expectedChange: false,
-			description:    "Manual annotation should be preserved, but not cause a diff since chart doesn't change anything",
+			expectedChange: true,
+			description:    "Manual annotation that is not in chart will cause diff to remove it (JSON merge patch semantics)",
 		},
 		{
 			name: "CR with no manual changes",
@@ -189,6 +189,59 @@ func TestCreatePatchForUnstructured(t *testing.T) {
 			description:    "Chart changes maxReplicaCount, manual changes minReplicaCount - should merge",
 		},
 		{
+			name: "CR with field unchanged in chart but modified in live state (issue #917)",
+			original: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "keda.sh/v1alpha1",
+					"kind":       "ScaledObject",
+					"metadata": map[string]interface{}{
+						"name":      "test-so",
+						"namespace": "default",
+					},
+					"spec": map[string]interface{}{
+						"maxReplicaCount": 10,
+					},
+				},
+			},
+			current: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "keda.sh/v1alpha1",
+					"kind":       "ScaledObject",
+					"metadata": map[string]interface{}{
+						"name":      "test-so",
+						"namespace": "default",
+					},
+					"spec": map[string]interface{}{
+						"maxReplicaCount": 30,
+					},
+				},
+			},
+			target: &resource.Info{
+				Mapping: &meta.RESTMapping{
+					GroupVersionKind: schema.GroupVersionKind{
+						Group:   "keda.sh",
+						Version: "v1alpha1",
+						Kind:    "ScaledObject",
+					},
+				},
+				Object: &unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"apiVersion": "keda.sh/v1alpha1",
+						"kind":       "ScaledObject",
+						"metadata": map[string]interface{}{
+							"name":      "test-so",
+							"namespace": "default",
+						},
+						"spec": map[string]interface{}{
+							"maxReplicaCount": 10,
+						},
+					},
+				},
+			},
+			expectedChange: true,
+			description:    "Field maxReplicaCount is 10 in both original and target, but 30 in current - should detect drift",
+		},
+		{
 			name: "CR with chart overriding manual change",
 			original: &unstructured.Unstructured{
 				Object: map[string]interface{}{
@@ -256,10 +309,11 @@ func TestCreatePatchForUnstructured(t *testing.T) {
 				require.NotEqual(t, []byte("{}"), patch, tt.description+": expected patch to detect changes, got empty patch")
 				require.NotEqual(t, []byte("null"), patch, tt.description+": expected patch to detect changes, got null patch")
 			} else {
-				// No changes expected
-				if len(patch) > 0 && string(patch) != "{}" && string(patch) != "null" {
-					t.Logf("%s: got unexpected patch: %s", tt.description, string(patch))
+				// No changes expected: patch must be empty or effectively empty ("{}" or "null")
+				if len(patch) == 0 || string(patch) == "{}" || string(patch) == "null" {
+					return
 				}
+				require.Failf(t, tt.description+": expected no changes, got unexpected patch", "unexpected patch: %s", string(patch))
 			}
 		})
 	}
