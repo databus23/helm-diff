@@ -170,8 +170,30 @@ func createPatch(originalObj, currentObj runtime.Object, target *resource.Info) 
 	_, isCRD := versionedObject.(*apiextv1.CustomResourceDefinition)
 
 	if isUnstructured || isCRD {
-		// fall back to generic JSON merge patch
-		patch, err := jsonpatch.CreateMergePatch(oldData, newData)
+		// For unstructured objects (CRDs, CRs), we need to perform a three-way merge
+		// to detect manual changes made in the cluster.
+		//
+		// The approach is:
+		// 1. Create a patch from old -> new (chart changes)
+		// 2. Apply this patch to current (live state with manual changes)
+		// 3. Create a patch from current -> merged result
+		// 4. Return that patch (which will be applied to current by the caller)
+
+		// Step 1: Create patch from old -> new (what the chart wants to change)
+		chartChanges, err := jsonpatch.CreateMergePatch(oldData, newData)
+		if err != nil {
+			return nil, types.MergePatchType, fmt.Errorf("creating chart changes patch: %w", err)
+		}
+
+		// Step 2: Apply chart changes to current (merge chart changes with live state)
+		mergedData, err := jsonpatch.MergePatch(currentData, chartChanges)
+		if err != nil {
+			return nil, types.MergePatchType, fmt.Errorf("applying chart changes to current: %w", err)
+		}
+
+		// Step 3: Create patch from current -> merged (what to apply to current)
+		// This patch, when applied to current, will produce the merged result
+		patch, err := jsonpatch.CreateMergePatch(currentData, mergedData)
 		return patch, types.MergePatchType, err
 	}
 
