@@ -13,6 +13,7 @@ import (
 )
 
 type release struct {
+	kubeContext        string
 	detailedExitCode   bool
 	releases           []string
 	includeTests       bool
@@ -63,6 +64,7 @@ func releaseCmd() *cobra.Command {
 	releaseCmd.Flags().BoolVar(&diff.detailedExitCode, "detailed-exitcode", false, "return a non-zero exit code when there are changes")
 	releaseCmd.Flags().BoolVar(&diff.includeTests, "include-tests", false, "enable the diffing of the helm test hooks")
 	releaseCmd.Flags().BoolVar(&diff.normalizeManifests, "normalize-manifests", false, "normalize manifests before running diff to exclude style differences from the output")
+	releaseCmd.Flags().StringVar(&diff.kubeContext, "kube-context", "", "name of the kubeconfig context to use")
 	AddDiffOptions(releaseCmd.Flags(), &diff.Options)
 
 	releaseCmd.SuggestionsMinimumDistance = 1
@@ -82,11 +84,11 @@ func (d *release) differentiateHelm3() error {
 		namespace1 = strings.Split(release1, "/")[0]
 		release1 = strings.Split(release1, "/")[1]
 	}
-	releaseResponse1, err := getRelease(release1, namespace1)
+	releaseResponse1, err := getRelease(release1, namespace1, d.kubeContext)
 	if err != nil {
 		return err
 	}
-	releaseChart1, err := getChart(release1, namespace1)
+	releaseChart1, err := getChart(release1, namespace1, d.kubeContext)
 	if err != nil {
 		return err
 	}
@@ -97,11 +99,11 @@ func (d *release) differentiateHelm3() error {
 		namespace2 = strings.Split(release2, "/")[0]
 		release2 = strings.Split(release2, "/")[1]
 	}
-	releaseResponse2, err := getRelease(release2, namespace2)
+	releaseResponse2, err := getRelease(release2, namespace2, d.kubeContext)
 	if err != nil {
 		return err
 	}
-	releaseChart2, err := getChart(release2, namespace2)
+	releaseChart2, err := getChart(release2, namespace2, d.kubeContext)
 	if err != nil {
 		return err
 	}

@@ -72,7 +72,8 @@ type diffCmd struct {
 	// - "server": dry run is performed with remote cluster access
 	// - "true": same as "client"
 	// - "false": same as "none"
-	dryRunMode string
+	dryRunMode  string
+	kubeContext string
 }
 
 func (d *diffCmd) isAllowUnreleased() bool {
@@ -211,7 +212,7 @@ func newChartCommand() *cobra.Command {
 	var kubeconfig string
 	f.StringVar(&kubeconfig, "kubeconfig", "", "This flag is ignored, to allow passing of this top level flag to helm")
 	f.BoolVar(&diff.threeWayMerge, "three-way-merge", false, "use three-way-merge to compute patch and generate diff output")
-	// f.StringVar(&diff.kubeContext, "kube-context", "", "name of the kubeconfig context to use")
+	f.StringVar(&diff.kubeContext, "kube-context", "", "name of the kubeconfig context to use")
 	f.StringVar(&diff.chartVersion, "version", "", "specify the exact chart version to use. If this is not specified, the latest version is used")
 	f.StringVar(&diff.chartRepo, "repo", "", "specify the chart repository url to locate the requested chart")
 	f.BoolVar(&diff.detailedExitCode, "detailed-exitcode", false, "return a non-zero exit code when there are changes")
@@ -270,7 +271,7 @@ func (d *diffCmd) runHelm3() error {
 	}
 
 	if d.clusterAccessAllowed() {
-		releaseManifest, err = getRelease(d.release, d.namespace)
+		releaseManifest, err = getRelease(d.release, d.namespace, d.kubeContext)
 	}
 
 	var newInstall bool
@@ -295,6 +296,9 @@ func (d *diffCmd) runHelm3() error {
 	var actionConfig *action.Configuration
 	if d.threeWayMerge || d.takeOwnership {
 		actionConfig = new(action.Configuration)
+		if d.kubeContext != "" {
+			envSettings.KubeContext = d.kubeContext
+		}
 		if err := actionConfig.Init(envSettings.RESTClientGetter(), envSettings.Namespace(), os.Getenv("HELM_DRIVER")); err != nil {
 			log.Fatalf("%+v", err)
 		}
@@ -313,7 +317,7 @@ func (d *diffCmd) runHelm3() error {
 	currentSpecs := make(map[string]*manifest.MappingResult)
 	if !newInstall && d.clusterAccessAllowed() {
 		if !d.noHooks && !d.threeWayMerge {
-			hooks, err := getHooks(d.release, d.namespace)
+			hooks, err := getHooks(d.release, d.namespace, d.kubeContext)
 			if err != nil {
 				return err
 			}
