@@ -184,7 +184,7 @@ func getTestStubs() []fakeHelmSubcmd {
 			},
 			{
 				cmd:  []string{"template"},
-				args: []string{"test-release", "test/testdata/test-chart", "--values", "test/testdata/test-values.yaml", "--dry-run=server", "--is-upgrade"},
+				args: []string{"test-release", "test/testdata/test-chart", "--values", "test/testdata/test-values.yaml", "--is-upgrade", "--dry-run=server"},
 			},
 			{
 				cmd:  []string{"get", "hooks"},
@@ -199,7 +199,7 @@ func getTestStubs() []fakeHelmSubcmd {
 			},
 			{
 				cmd:  []string{"template"},
-				args: []string{"test-release", "test/testdata/test-chart", "--values", "test/testdata/test-values.yaml", "--dry-run=client", "--is-upgrade"},
+				args: []string{"test-release", "test/testdata/test-chart", "--values", "test/testdata/test-values.yaml", "--is-upgrade", "--dry-run=client"},
 			},
 		}
 	case "v4DryRunServer":
@@ -210,7 +210,7 @@ func getTestStubs() []fakeHelmSubcmd {
 			},
 			{
 				cmd:  []string{"template"},
-				args: []string{"test-release", "test/testdata/test-chart", "--values", "test/testdata/test-values.yaml", "--dry-run=server", "--is-upgrade"},
+				args: []string{"test-release", "test/testdata/test-chart", "--values", "test/testdata/test-values.yaml", "--is-upgrade", "--dry-run=server"},
 			},
 		}
 	case "v3":
@@ -228,7 +228,7 @@ func getTestStubs() []fakeHelmSubcmd {
 			},
 			{
 				cmd:  []string{"template"},
-				args: []string{"test-release", "test/testdata/test-chart", "--values", "test/testdata/test-values.yaml", "--validate", "--dry-run=client", "--is-upgrade"},
+				args: []string{"test-release", "test/testdata/test-chart", "--values", "test/testdata/test-values.yaml", "--is-upgrade", "--validate", "--dry-run=client"},
 			},
 			{
 				cmd:  []string{"get", "hooks"},
@@ -243,7 +243,7 @@ func getTestStubs() []fakeHelmSubcmd {
 			},
 			{
 				cmd:  []string{"template"},
-				args: []string{"test-release", "test/testdata/test-chart", "--values", "test/testdata/test-values.yaml", "--dry-run=client", "--is-upgrade"},
+				args: []string{"test-release", "test/testdata/test-chart", "--values", "test/testdata/test-values.yaml", "--is-upgrade", "--dry-run=client"},
 			},
 		}
 	default:
