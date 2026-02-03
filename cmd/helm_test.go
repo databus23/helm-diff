@@ -135,3 +135,35 @@ To connect to your database directly from outside the K8s cluster:
 		})
 	}
 }
+
+// TestDryRunModeCoverage documents the expected dry-run flag behavior
+// for different Helm versions and configurations.
+//
+// This test documents the expected behavior to ensure the fix for #894
+// (conflicting dry-run flags with Helm v4) is maintained.
+//
+// The actual behavior is tested integration-style by running helm-diff
+// against different Helm versions. Key invariants:
+//
+// 1. Only one --dry-run=... flag should ever be passed to helm template
+// 2. For Helm v4 with cluster access and validation enabled, use --dry-run=server
+// 3. For Helm v3 or when validation is disabled, use --dry-run=client
+// 4. User's explicit --dry-run=server request always takes precedence
+// 5. For Helm v3, --validate flag is used for validation
+// 6. For Helm v4, --dry-run=server replaces --validate for validation
+func TestDryRunModeCoverage(t *testing.T) {
+	// This is a documentation test. Actual behavior is tested
+	// by integration tests that run helm-diff against different Helm versions.
+	// See: https://github.com/databus23/helm-diff/issues/894
+
+	// Expected behavior matrix:
+	// Helm version | dryRunMode | validation enabled | cluster access | Expected flag(s)
+	// v4           | ""/client  | true               | true           | --dry-run=server
+	// v4           | ""/client  | false              | true           | --dry-run=client
+	// v4           | ""/client  | true               | false          | --dry-run=client
+	// v4           | server     | any                | any            | --dry-run=server
+	// v3           | ""/client  | true               | true           | --validate, --dry-run=client
+	// v3           | ""/client  | false              | true           | --dry-run=client
+	// v3           | ""/client  | true               | false          | --dry-run=client
+	// v3           | server     | any                | any            | --dry-run=server
+}
