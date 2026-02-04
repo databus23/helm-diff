@@ -110,6 +110,15 @@ func getDryRunFlag(dryRunMode string, isHelmV4, disableValidation bool, clusterA
 	return "--dry-run=client"
 }
 
+// getValidateFlag returns the appropriate --validate flag based on
+// Helm version, validation settings, and cluster access.
+func getValidateFlag(isHelmV4, disableValidation, clusterAccess bool) string {
+	if !disableValidation && clusterAccess && !isHelmV4 {
+		return "--validate"
+	}
+	return ""
+}
+
 func isHelmVersionAtLeast(versionToCompareTo *semver.Version) (bool, error) {
 	helmVersion, err := getHelmVersion()
 
@@ -345,11 +354,7 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 		// If version detection fails, err is ignored (intentional - we err on the side of
 		// caution rather than guessing wrong behavior for validation.
 
-		if !d.disableValidation && d.clusterAccessAllowed() {
-			if !isHelmV4 {
-				flags = append(flags, "--validate")
-			}
-		}
+		flags = append(flags, getValidateFlag(isHelmV4, d.disableValidation, d.clusterAccessAllowed()))
 
 		if isUpgrade {
 			flags = append(flags, "--is-upgrade")

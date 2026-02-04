@@ -140,9 +140,8 @@ To connect to your database directly from outside of K8s cluster:
 // TestDryRunModeCoverage verifies dry-run flag selection logic
 // for different Helm versions and configurations.
 //
-// This test verifies that the dry-run flag selection logic
-// in template() correctly handles all scenarios and ensures
-// only one --dry-run=... flag is passed to helm template.
+// This test verifies that the production code's getDryRunFlag()
+// and getValidateFlag() helpers correctly compute flags.
 //
 // Expected behavior matrix:
 // Helm version | dryRunMode | validation enabled | cluster access | Expected flag(s)
@@ -249,43 +248,18 @@ func TestDryRunModeCoverage(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Use the actual production logic to compute dry-run flag
+			// Use production code helpers to compute flags
 			isHelmV4 := strings.HasPrefix(tc.helmVersion, "v4")
 			dryRunFlag := getDryRunFlag(tc.dryRunMode, isHelmV4, tc.disableValidation, tc.clusterAccess)
+			validateFlag := getValidateFlag(isHelmV4, tc.disableValidation, tc.clusterAccess)
 
-			// Build flags using the same logic as template()
-			flags := []string{}
-			if !tc.disableValidation && tc.clusterAccess {
-				if !isHelmV4 {
-					flags = append(flags, "--validate")
-				}
-			}
-			flags = append(flags, dryRunFlag)
-
-			// Verify only one dry-run flag
-			dryRunCount := 0
-			for _, f := range flags {
-				if strings.HasPrefix(f, "--dry-run") {
-					dryRunCount++
-					if f != tc.wantDryRunFlag {
-						t.Errorf("Got dry-run flag %q, want %q", f, tc.wantDryRunFlag)
-					}
-				}
-			}
-
-			if dryRunCount != 1 {
-				t.Errorf("Expected exactly 1 dry-run flag, got %d", dryRunCount)
+			// Verify dry-run flag
+			if dryRunFlag != tc.wantDryRunFlag {
+				t.Errorf("Dry-run flag: got %q, want %q", dryRunFlag, tc.wantDryRunFlag)
 			}
 
 			// Verify validate flag
-			hasValidate := false
-			for _, f := range flags {
-				if f == "--validate" {
-					hasValidate = true
-					break
-				}
-			}
-
+			hasValidate := validateFlag != ""
 			if hasValidate != tc.wantValidateFlag {
 				t.Errorf("Validate flag: got %v, want %v", hasValidate, tc.wantValidateFlag)
 			}
