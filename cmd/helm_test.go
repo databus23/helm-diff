@@ -249,23 +249,20 @@ func TestDryRunModeCoverage(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			flags := []string{}
+			// Use the actual production logic to compute dry-run flag
 			isHelmV4 := strings.HasPrefix(tc.helmVersion, "v4")
+			dryRunFlag := getDryRunFlag(tc.dryRunMode, isHelmV4, tc.disableValidation, tc.clusterAccess)
 
+			// Build flags using the same logic as template()
+			flags := []string{}
 			if !tc.disableValidation && tc.clusterAccess {
 				if !isHelmV4 {
 					flags = append(flags, "--validate")
 				}
 			}
+			flags = append(flags, dryRunFlag)
 
-			if tc.dryRunMode == "server" {
-				flags = append(flags, "--dry-run=server")
-			} else if isHelmV4 && !tc.disableValidation && tc.clusterAccess {
-				flags = append(flags, "--dry-run=server")
-			} else {
-				flags = append(flags, "--dry-run=client")
-			}
-
+			// Verify only one dry-run flag
 			dryRunCount := 0
 			for _, f := range flags {
 				if strings.HasPrefix(f, "--dry-run") {
@@ -280,6 +277,7 @@ func TestDryRunModeCoverage(t *testing.T) {
 				t.Errorf("Expected exactly 1 dry-run flag, got %d", dryRunCount)
 			}
 
+			// Verify validate flag
 			hasValidate := false
 			for _, f := range flags {
 				if f == "--validate" {

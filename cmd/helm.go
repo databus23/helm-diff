@@ -97,6 +97,19 @@ func getHelmVersion() (*semver.Version, error) {
 	return helmVersion, nil
 }
 
+// getDryRunFlag returns the appropriate --dry-run flag based on
+// Helm version, dry-run mode, validation settings, and cluster access.
+// This ensures only one dry-run flag is used and prevents conflicts.
+func getDryRunFlag(dryRunMode string, isHelmV4, disableValidation bool, clusterAccess bool) string {
+	if dryRunMode == "server" {
+		return "--dry-run=server"
+	}
+	if isHelmV4 && !disableValidation && clusterAccess {
+		return "--dry-run=server"
+	}
+	return "--dry-run=client"
+}
+
 func isHelmVersionAtLeast(versionToCompareTo *semver.Version) (bool, error) {
 	helmVersion, err := getHelmVersion()
 
@@ -353,14 +366,8 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 		// To keep the full compatibility with older helm-diff versions,
 		// we pass --dry-run to `helm template` only if Helm is greater than v3.13.0.
 		if useDryRunService, err := isHelmVersionAtLeast(minHelmVersionWithDryRunLookupSupport); err == nil && useDryRunService {
-			switch {
-			case d.dryRunMode == "server":
-				flags = append(flags, "--dry-run=server")
-			case isHelmV4 && !d.disableValidation && d.clusterAccessAllowed():
-				flags = append(flags, "--dry-run=server")
-			default:
-				flags = append(flags, "--dry-run=client")
-			}
+			dryRunFlag := getDryRunFlag(d.dryRunMode, isHelmV4, d.disableValidation, d.clusterAccessAllowed())
+			flags = append(flags, dryRunFlag)
 		}
 
 		subcmd = "template"
