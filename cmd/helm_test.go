@@ -137,37 +137,24 @@ To connect to your database directly from outside of K8s cluster:
 	}
 }
 
-// TestDryRunModeCoverage documents expected dry-run flag behavior
+// TestDryRunModeCoverage verifies dry-run flag selection logic
 // for different Helm versions and configurations.
 //
-// This test documents the expected behavior matrix to ensure the fix for #894
-// (conflicting dry-run flags with Helm v4) is maintained.
+// This test verifies that the dry-run flag selection logic
+// in template() correctly handles all scenarios and ensures
+// only one --dry-run=... flag is passed to helm template.
 //
-// Key invariants tested:
-// 1. Only one --dry-run=... flag should ever be passed to helm template
-// 2. For Helm v4 with cluster access and validation enabled, use --dry-run=server
-// 3. For Helm v3 or when validation is disabled, use --dry-run=client
-// 4. User's explicit --dry-run=server request always takes precedence
-// 5. For Helm v3, --validate flag is used for validation
-// 6. For Helm v4, --dry-run=server replaces --validate for validation
+// Expected behavior matrix:
+// Helm version | dryRunMode | validation enabled | cluster access | Expected flag(s)
+// v4           | ""/client  | true               | true           | --dry-run=server
+// v4           | ""/client  | false              | true           | --dry-run=client
+// v4           | ""/client  | true               | false          | --dry-run=client
+// v4           | server     | any                | any            | --dry-run=server
+// v3           | ""/client  | true               | true           | --validate, --dry-run=client
+// v3           | ""/client  | false              | true           | --dry-run=client
+// v3           | ""/client  | true               | false          | --dry-run=client
+// v3           | server     | any                | any            | --dry-run=server
 func TestDryRunModeCoverage(t *testing.T) {
-	// Expected behavior matrix:
-	// Helm version | dryRunMode | validation enabled | cluster access | Expected flag(s)
-	// v4           | ""/client  | true               | true           | --dry-run=server
-	// v4           | ""/client  | false              | true           | --dry-run=client
-	// v4           | ""/client  | true               | false          | --dry-run=client
-	// v4           | server     | any                | any            | --dry-run=server
-	// v3           | ""/client  | true               | true           | --validate, --dry-run=client
-	// v3           | ""/client  | false              | true           | --dry-run=client
-	// v3           | ""/client  | true               | false          | --dry-run=client
-	// v3           | server     | any                | any            | --dry-run=server
-}
-
-// TestDryRunFlags verifies the exact flags passed to helm template
-// for different Helm versions and configurations. This is a table-driven test
-// that simulates the flag generation logic in the template() function
-// to ensure the fix for #894 works correctly.
-func TestDryRunFlags(t *testing.T) {
 	testCases := []struct {
 		name              string
 		helmVersion       string
@@ -232,6 +219,15 @@ func TestDryRunFlags(t *testing.T) {
 			wantValidateFlag:  false,
 		},
 		{
+			name:              "Helm v3, validation enabled, no cluster access, default dry-run",
+			helmVersion:       "v3.19.2",
+			dryRunMode:        "none",
+			disableValidation: false,
+			clusterAccess:     false,
+			wantDryRunFlag:    "--dry-run=client",
+			wantValidateFlag:  false,
+		},
+		{
 			name:              "Helm v3, explicit --dry-run=server",
 			helmVersion:       "v3.19.2",
 			dryRunMode:        "server",
@@ -240,22 +236,28 @@ func TestDryRunFlags(t *testing.T) {
 			wantDryRunFlag:    "--dry-run=server",
 			wantValidateFlag:  true,
 		},
+		{
+			name:              "Helm v3, validation disabled, explicit --dry-run=server",
+			helmVersion:       "v3.19.2",
+			dryRunMode:        "server",
+			disableValidation: true,
+			clusterAccess:     true,
+			wantDryRunFlag:    "--dry-run=server",
+			wantValidateFlag:  false,
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Simulate template function flag generation logic
 			flags := []string{}
 			isHelmV4 := strings.HasPrefix(tc.helmVersion, "v4")
 
-			// Validation flag logic from template()
 			if !tc.disableValidation && tc.clusterAccess {
 				if !isHelmV4 {
 					flags = append(flags, "--validate")
 				}
 			}
 
-			// Dry-run flag logic from template()
 			if tc.dryRunMode == "server" {
 				flags = append(flags, "--dry-run=server")
 			} else if isHelmV4 && !tc.disableValidation && tc.clusterAccess {
@@ -264,7 +266,6 @@ func TestDryRunFlags(t *testing.T) {
 				flags = append(flags, "--dry-run=client")
 			}
 
-			// Verify only one dry-run flag
 			dryRunCount := 0
 			for _, f := range flags {
 				if strings.HasPrefix(f, "--dry-run") {
@@ -279,7 +280,6 @@ func TestDryRunFlags(t *testing.T) {
 				t.Errorf("Expected exactly 1 dry-run flag, got %d", dryRunCount)
 			}
 
-			// Verify validate flag
 			hasValidate := false
 			for _, f := range flags {
 				if f == "--validate" {

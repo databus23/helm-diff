@@ -329,6 +329,8 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 		}
 	} else {
 		isHelmV4, _ := isHelmVersionGreaterThanEqual(helmV4Version)
+		// If version detection fails, err is ignored (intentional - we err on the side of
+		// caution rather than guessing wrong behavior for validation.
 
 		if !d.disableValidation && d.clusterAccessAllowed() {
 			if !isHelmV4 {
