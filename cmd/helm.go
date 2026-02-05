@@ -340,11 +340,11 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 		// As HELM_DIFF_UPGRADE_DRY_RUN is there for producing more complete and correct diff results,
 		// we use --dry-run=server if the version of helm supports it.
 		// Otherwise, we use --dry-run=client, as that's the best we can do.
-		if useDryRunService, err := isHelmVersionAtLeast(minHelmVersionWithDryRunLookupSupport); err == nil && useDryRunService {
-			flags = append(flags, "--dry-run=server")
-		} else {
-			flags = append(flags, "--dry-run")
-		}
+		isHelmV4, _ := isHelmVersionGreaterThanEqual(helmV4Version)
+		// If version detection fails, err is ignored (intentional - we err on the side of
+		// caution rather than guessing wrong behavior for dry-run mode.
+		dryRunFlag := getDryRunFlag("server", isHelmV4, d.disableValidation, d.clusterAccessAllowed())
+		flags = append(flags, dryRunFlag)
 		subcmd = "upgrade"
 		filter = func(s []byte) []byte {
 			return extractManifestFromHelmUpgradeDryRunOutput(s, d.noHooks)
