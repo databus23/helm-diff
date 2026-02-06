@@ -374,8 +374,11 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 		// To keep the full compatibility with older helm-diff versions,
 		// we pass --dry-run to `helm template` only if Helm is greater than v3.13.0.
 		if useDryRunService, err := isHelmVersionAtLeast(minHelmVersionWithDryRunLookupSupport); err == nil && useDryRunService {
-			dryRunFlag := getDryRunFlag(d.dryRunMode, isHelmV4, d.disableValidation, d.clusterAccessAllowed())
-			flags = append(flags, dryRunFlag)
+			if d.dryRunMode == "server" {
+				flags = append(flags, "--dry-run=server")
+			} else {
+				flags = append(flags, "--dry-run=client")
+			}
 		}
 
 		subcmd = "template"
