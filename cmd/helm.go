@@ -97,19 +97,6 @@ func getHelmVersion() (*semver.Version, error) {
 	return helmVersion, nil
 }
 
-// getDryRunFlag returns the appropriate --dry-run flag based on
-// Helm version, dry-run mode, validation settings, and cluster access.
-// This ensures only one dry-run flag is used and prevents conflicts.
-func getDryRunFlag(dryRunMode string, isHelmV4, disableValidation bool, clusterAccess bool) string {
-	if dryRunMode == "server" {
-		return "--dry-run=server"
-	}
-	if isHelmV4 && !disableValidation && clusterAccess {
-		return "--dry-run=server"
-	}
-	return "--dry-run=client"
-}
-
 // getValidateFlag returns the appropriate --validate flag based on
 // Helm version, validation settings, and cluster access.
 func getValidateFlag(isHelmV4, disableValidation, clusterAccess bool) string {
