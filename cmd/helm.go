@@ -97,6 +97,15 @@ func getHelmVersion() (*semver.Version, error) {
 	return helmVersion, nil
 }
 
+// getValidateFlag returns the appropriate --validate flag based on
+// Helm version, validation settings, and cluster access.
+func getValidateFlag(isHelmV4, disableValidation, clusterAccess bool) string {
+	if !disableValidation && clusterAccess && !isHelmV4 {
+		return "--validate"
+	}
+	return ""
+}
+
 func isHelmVersionAtLeast(versionToCompareTo *semver.Version) (bool, error) {
 	helmVersion, err := getHelmVersion()
 
@@ -318,8 +327,11 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 		// As HELM_DIFF_UPGRADE_DRY_RUN is there for producing more complete and correct diff results,
 		// we use --dry-run=server if the version of helm supports it.
 		// Otherwise, we use --dry-run=client, as that's the best we can do.
+		isHelmV4, _ := isHelmVersionGreaterThanEqual(helmV4Version)
 		if useDryRunService, err := isHelmVersionAtLeast(minHelmVersionWithDryRunLookupSupport); err == nil && useDryRunService {
 			flags = append(flags, "--dry-run=server")
+		} else if isHelmV4 {
+			flags = append(flags, "--dry-run=client")
 		} else {
 			flags = append(flags, "--dry-run")
 		}
@@ -328,15 +340,11 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 			return extractManifestFromHelmUpgradeDryRunOutput(s, d.noHooks)
 		}
 	} else {
-		if !d.disableValidation && d.clusterAccessAllowed() {
-			isHelmV4, err := isHelmVersionGreaterThanEqual(helmV4Version)
-			if err == nil && isHelmV4 {
-				// Flag --validate has been deprecated, use '--dry-run=server' instead in Helm v4+
-				flags = append(flags, "--dry-run=server")
-			} else {
-				flags = append(flags, "--validate")
-			}
-		}
+		isHelmV4, _ := isHelmVersionGreaterThanEqual(helmV4Version)
+		// If version detection fails, err is ignored (intentional - we err on the side of
+		// caution rather than guessing wrong behavior for validation).
+
+		flags = append(flags, getValidateFlag(isHelmV4, d.disableValidation, d.clusterAccessAllowed()))
 
 		if isUpgrade {
 			flags = append(flags, "--is-upgrade")
@@ -353,41 +361,9 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 		// To keep the full compatibility with older helm-diff versions,
 		// we pass --dry-run to `helm template` only if Helm is greater than v3.13.0.
 		if useDryRunService, err := isHelmVersionAtLeast(minHelmVersionWithDryRunLookupSupport); err == nil && useDryRunService {
-			// However, which dry-run mode to use is still not clear.
-			//
-			// For compatibility with the old and new helm-diff options,
-			// old and new helm, we assume that the user wants to use the older `helm template --dry-run=client` mode
-			// if helm-diff has been invoked with any of the following flags:
-			//
-			// * no dry-run flags (to be consistent with helm-template)
-			// * --dry-run
-			// * --dry-run=""
-			// * --dry-run=client
-			//
-			// and the newer `helm template --dry-run=server` mode when invoked with:
-			//
-			// * --dry-run=server
-			//
-			// Any other values should result in errors.
-			//
-			// See the fllowing link for more details:
-			// - https://github.com/databus23/helm-diff/pull/458
-			// - https://github.com/helm/helm/pull/9426#issuecomment-1501005666
 			if d.dryRunMode == "server" {
-				// This is for security reasons!
-				//
-				// We give helm-template the additional cluster access for the helm `lookup` function
-				// only if the user has explicitly requested it by --dry-run=server,
-				//
-				// In other words, although helm-diff-upgrade implies limited cluster access by default,
-				// helm-diff-upgrade without a --dry-run flag does NOT imply
-				// full cluster-access via helm-template --dry-run=server!
 				flags = append(flags, "--dry-run=server")
 			} else {
-				// Since helm-diff 3.9.0 and helm 3.13.0, we pass --dry-run=client to `helm template` by default.
-				// This doesn't make any difference for helm-diff itself,
-				// because helm-template w/o flags is equivalent to helm-template --dry-run=client.
-				// See https://github.com/helm/helm/pull/9426#discussion_r1181397259
 				flags = append(flags, "--dry-run=client")
 			}
 		}
