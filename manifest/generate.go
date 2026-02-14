@@ -181,8 +181,23 @@ func createPatch(originalObj, currentObj runtime.Object, target *resource.Info) 
 		// 5. If chart unchanged (old == new) but current != new, return current->new patch applied to current to restore chart state
 		//    (i.e., detect and revert manual changes by restoring chart-owned fields to the chart's desired state)
 
+		// Clean metadata fields that shouldn't be compared (they're server-managed)
+		// This prevents "resourceVersion: Invalid value: 0" errors when dry-running patches
+		cleanedOldData, err := cleanMetadataForPatch(oldData)
+		if err != nil {
+			return nil, types.MergePatchType, fmt.Errorf("cleaning old metadata: %w", err)
+		}
+		cleanedNewData, err := cleanMetadataForPatch(newData)
+		if err != nil {
+			return nil, types.MergePatchType, fmt.Errorf("cleaning new metadata: %w", err)
+		}
+		cleanedCurrentData, err := cleanMetadataForPatch(currentData)
+		if err != nil {
+			return nil, types.MergePatchType, fmt.Errorf("cleaning current metadata: %w", err)
+		}
+
 		// Step 1: Create patch from old -> new (what the chart wants to change)
-		chartChanges, err := jsonpatch.CreateMergePatch(oldData, newData)
+		chartChanges, err := jsonpatch.CreateMergePatch(cleanedOldData, cleanedNewData)
 		if err != nil {
 			return nil, types.MergePatchType, fmt.Errorf("creating chart changes patch: %w", err)
 		}
@@ -192,14 +207,14 @@ func createPatch(originalObj, currentObj runtime.Object, target *resource.Info) 
 
 		if chartChanged {
 			// Step 2: Apply chart changes to current (merge chart changes with live state)
-			mergedData, err := jsonpatch.MergePatch(currentData, chartChanges)
+			mergedData, err := jsonpatch.MergePatch(cleanedCurrentData, chartChanges)
 			if err != nil {
 				return nil, types.MergePatchType, fmt.Errorf("applying chart changes to current: %w", err)
 			}
 
 			// Step 3: Create patch from current -> merged (what to apply to current)
 			// This patch, when applied to current, will produce the merged result
-			patch, err := jsonpatch.CreateMergePatch(currentData, mergedData)
+			patch, err := jsonpatch.CreateMergePatch(cleanedCurrentData, mergedData)
 			return patch, types.MergePatchType, err
 		}
 
@@ -207,7 +222,7 @@ func createPatch(originalObj, currentObj runtime.Object, target *resource.Info) 
 		// from the chart state. This is the case where manual changes were made to
 		// chart-owned fields.
 		// Create a patch from current -> new to detect and restore drift
-		patch, err := jsonpatch.CreateMergePatch(currentData, newData)
+		patch, err := jsonpatch.CreateMergePatch(cleanedCurrentData, cleanedNewData)
 		return patch, types.MergePatchType, err
 	}
 
@@ -222,6 +237,26 @@ func createPatch(originalObj, currentObj runtime.Object, target *resource.Info) 
 
 func isPatchEmpty(patch []byte) bool {
 	return len(patch) == 0 || string(patch) == "{}" || string(patch) == "null"
+}
+
+func cleanMetadataForPatch(data []byte) ([]byte, error) {
+	var objMap map[string]interface{}
+	if err := json.Unmarshal(data, &objMap); err != nil {
+		return nil, err
+	}
+
+	if metadata, ok := objMap["metadata"].(map[string]interface{}); ok {
+		delete(metadata, "resourceVersion")
+		delete(metadata, "generation")
+		delete(metadata, "creationTimestamp")
+		delete(metadata, "uid")
+		delete(metadata, "managedFields")
+		delete(metadata, "selfLink")
+	}
+
+	delete(objMap, "status")
+
+	return json.Marshal(objMap)
 }
 
 func objectKey(r *resource.Info) string {
