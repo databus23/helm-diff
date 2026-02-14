@@ -1,6 +1,8 @@
 package cmd
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestIsRemoteAccessAllowed(t *testing.T) {
 	cases := []struct {

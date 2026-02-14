@@ -27,6 +27,7 @@ var (
 
 const (
 	dryRunNoOptDefVal = "client"
+	envTrue           = "true"
 )
 
 type diffCmd struct {
@@ -116,7 +117,7 @@ func newChartCommand() *cobra.Command {
 	diff := diffCmd{
 		namespace: os.Getenv("HELM_NAMESPACE"),
 	}
-	unknownFlags := os.Getenv("HELM_DIFF_IGNORE_UNKNOWN_FLAGS") == "true"
+	unknownFlags := os.Getenv("HELM_DIFF_IGNORE_UNKNOWN_FLAGS") == envTrue
 
 	cmd := &cobra.Command{
 		Use:   "upgrade [flags] [RELEASE] [CHART]",
@@ -166,10 +167,10 @@ func newChartCommand() *cobra.Command {
 			cmd.SilenceUsage = true
 
 			// See https://github.com/databus23/helm-diff/issues/253
-			diff.useUpgradeDryRun = os.Getenv("HELM_DIFF_USE_UPGRADE_DRY_RUN") == "true"
+			diff.useUpgradeDryRun = os.Getenv("HELM_DIFF_USE_UPGRADE_DRY_RUN") == envTrue
 
 			if !diff.threeWayMerge && !cmd.Flags().Changed("three-way-merge") {
-				enabled := os.Getenv("HELM_DIFF_THREE_WAY_MERGE") == "true"
+				enabled := os.Getenv("HELM_DIFF_THREE_WAY_MERGE") == envTrue
 				diff.threeWayMerge = enabled
 
 				if enabled {
@@ -178,7 +179,7 @@ func newChartCommand() *cobra.Command {
 			}
 
 			if !diff.normalizeManifests && !cmd.Flags().Changed("normalize-manifests") {
-				enabled := os.Getenv("HELM_DIFF_NORMALIZE_MANIFESTS") == "true"
+				enabled := os.Getenv("HELM_DIFF_NORMALIZE_MANIFESTS") == envTrue
 				diff.normalizeManifests = enabled
 
 				if enabled {
