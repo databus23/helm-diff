@@ -178,8 +178,8 @@ func createPatch(originalObj, currentObj runtime.Object, target *resource.Info) 
 		// 2. Apply this patch to current (live state with manual changes)
 		// 3. Create a patch from current -> merged result
 		// 4. If chart changed (old != new), return step 3's patch
-		// 5. If chart unchanged (old == new) but current != new, return current->new patch applied to current to restore chart state
-		//    (i.e., detect and revert manual changes by restoring chart-owned fields to the chart's desired state)
+		// 5. If chart unchanged (old == new), build desired state by applying new onto current
+		//    (preserving live-only fields), then diff current -> desired to detect drift
 
 		// Clean metadata fields that shouldn't be compared (they're server-managed)
 		// This prevents "resourceVersion: Invalid value: 0" errors when dry-running patches
@@ -219,10 +219,14 @@ func createPatch(originalObj, currentObj runtime.Object, target *resource.Info) 
 		}
 
 		// Chart didn't change (old == new), but we need to detect if current diverges
-		// from the chart state. This is the case where manual changes were made to
-		// chart-owned fields.
-		// Create a patch from current -> new to detect and restore drift
-		patch, err := jsonpatch.CreateMergePatch(cleanedCurrentData, cleanedNewData)
+		// from the chart state on chart-owned fields.
+		// Build desired state by applying new onto current (preserves live-only additions),
+		// then diff current -> desired to detect drift on chart-owned fields.
+		desiredData, err := jsonpatch.MergePatch(cleanedCurrentData, cleanedNewData)
+		if err != nil {
+			return nil, types.MergePatchType, fmt.Errorf("building desired state: %w", err)
+		}
+		patch, err := jsonpatch.CreateMergePatch(cleanedCurrentData, desiredData)
 		return patch, types.MergePatchType, err
 	}
 
@@ -245,16 +249,27 @@ func cleanMetadataForPatch(data []byte) ([]byte, error) {
 		return nil, err
 	}
 
+	delete(objMap, "status")
+
 	if metadata, ok := objMap["metadata"].(map[string]interface{}); ok {
-		delete(metadata, "resourceVersion")
+		delete(metadata, "managedFields")
 		delete(metadata, "generation")
 		delete(metadata, "creationTimestamp")
+		delete(metadata, "resourceVersion")
 		delete(metadata, "uid")
-		delete(metadata, "managedFields")
-		delete(metadata, "selfLink")
-	}
 
-	delete(objMap, "status")
+		// Remove helm-related and k8s annotations that shouldn't be compared
+		if a := metadata["annotations"]; a != nil {
+			annotations := a.(map[string]interface{})
+			delete(annotations, "meta.helm.sh/release-name")
+			delete(annotations, "meta.helm.sh/release-namespace")
+			delete(annotations, "deployment.kubernetes.io/revision")
+
+			if len(annotations) == 0 {
+				delete(metadata, "annotations")
+			}
+		}
+	}
 
 	return json.Marshal(objMap)
 }

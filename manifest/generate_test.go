@@ -76,8 +76,8 @@ func TestCreatePatchForUnstructured(t *testing.T) {
 					},
 				},
 			},
-			expectedChange: true,
-			description:    "Manual annotation that is not in chart will cause diff to remove it (JSON merge patch semantics)",
+			expectedChange: false,
+			description:    "Manual annotation not present in chart should be preserved; no effective change expected from three-way merge",
 		},
 		{
 			name: "CR with no manual changes",
