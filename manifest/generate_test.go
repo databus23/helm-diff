@@ -4,7 +4,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -317,4 +319,102 @@ func TestCreatePatchForUnstructured(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestCreatePatchForCRD tests the three-way merge implementation for CRD objects.
+// This ensures the isCRD branch in createPatch is properly covered.
+func TestCreatePatchForCRD(t *testing.T) {
+	originalCRD := &apiextv1.CustomResourceDefinition{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "apiextensions.k8s.io/v1",
+			Kind:       "CustomResourceDefinition",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "crds.example.com",
+		},
+		Spec: apiextv1.CustomResourceDefinitionSpec{
+			Group: "example.com",
+			Names: apiextv1.CustomResourceDefinitionNames{
+				Plural:   "crds",
+				Singular: "crd",
+				Kind:     "Crd",
+			},
+			Versions: []apiextv1.CustomResourceDefinitionVersion{
+				{
+					Name:    "v1",
+					Served:  true,
+					Storage: true,
+				},
+			},
+		},
+	}
+
+	currentCRD := &apiextv1.CustomResourceDefinition{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "apiextensions.k8s.io/v1",
+			Kind:       "CustomResourceDefinition",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "crds.example.com",
+		},
+		Spec: apiextv1.CustomResourceDefinitionSpec{
+			Group: "example.com",
+			Names: apiextv1.CustomResourceDefinitionNames{
+				Plural:   "crds",
+				Singular: "crd",
+				Kind:     "Crd",
+			},
+			Versions: []apiextv1.CustomResourceDefinitionVersion{
+				{
+					Name:    "v1",
+					Served:  true,
+					Storage: true,
+				},
+			},
+		},
+	}
+
+	targetCRD := &apiextv1.CustomResourceDefinition{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "apiextensions.k8s.io/v1",
+			Kind:       "CustomResourceDefinition",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "crds.example.com",
+		},
+		Spec: apiextv1.CustomResourceDefinitionSpec{
+			Group: "example.com",
+			Names: apiextv1.CustomResourceDefinitionNames{
+				Plural:   "crds",
+				Singular: "crd",
+				Kind:     "Crd",
+			},
+			Versions: []apiextv1.CustomResourceDefinitionVersion{
+				{
+					Name:    "v1",
+					Served:  true,
+					Storage: true,
+				},
+			},
+		},
+	}
+
+	target := &resource.Info{
+		Mapping: &meta.RESTMapping{
+			GroupVersionKind: schema.GroupVersionKind{
+				Group:   "apiextensions.k8s.io",
+				Version: "v1",
+				Kind:    "CustomResourceDefinition",
+			},
+		},
+		Object: targetCRD,
+	}
+
+	patch, patchType, err := createPatch(originalCRD, currentCRD, target)
+	require.NoError(t, err, "createPatch should not return an error for CRD")
+	require.Equal(t, types.MergePatchType, patchType, "patch type should be MergePatchType for CRD objects")
+
+	t.Logf("CRD Patch result: %s", string(patch))
+
+	require.Equal(t, "{}", string(patch), "CRD with no changes should result in empty patch")
 }

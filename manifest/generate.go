@@ -244,33 +244,10 @@ func isPatchEmpty(patch []byte) bool {
 }
 
 func cleanMetadataForPatch(data []byte) ([]byte, error) {
-	var objMap map[string]interface{}
-	if err := json.Unmarshal(data, &objMap); err != nil {
+	objMap, err := deleteStatusAndTidyMetadata(data)
+	if err != nil {
 		return nil, err
 	}
-
-	delete(objMap, "status")
-
-	if metadata, ok := objMap["metadata"].(map[string]interface{}); ok {
-		delete(metadata, "managedFields")
-		delete(metadata, "generation")
-		delete(metadata, "creationTimestamp")
-		delete(metadata, "resourceVersion")
-		delete(metadata, "uid")
-
-		// Remove helm-related and k8s annotations that shouldn't be compared
-		if a := metadata["annotations"]; a != nil {
-			annotations := a.(map[string]interface{})
-			delete(annotations, "meta.helm.sh/release-name")
-			delete(annotations, "meta.helm.sh/release-namespace")
-			delete(annotations, "deployment.kubernetes.io/revision")
-
-			if len(annotations) == 0 {
-				delete(metadata, "annotations")
-			}
-		}
-	}
-
 	return json.Marshal(objMap)
 }
 
