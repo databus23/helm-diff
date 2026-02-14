@@ -19,127 +19,78 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func TestHelmDiff(t *testing.T) {
+type helmDiffTestHelper struct {
+	oldArgs    []string
+	helmBin    string
+	helmBinSet bool
+}
+
+func setupHelmDiffTest(t *testing.T) *helmDiffTestHelper {
+	t.Helper()
 	os.Setenv(env, envValue)
-	defer os.Unsetenv(env)
 
-	helmBin, helmBinSet := os.LookupEnv("HELM_BIN")
+	h := &helmDiffTestHelper{
+		oldArgs: os.Args,
+	}
+	h.helmBin, h.helmBinSet = os.LookupEnv("HELM_BIN")
 	os.Setenv("HELM_BIN", os.Args[0])
-	defer func() {
-		if helmBinSet {
-			os.Setenv("HELM_BIN", helmBin)
-		} else {
-			os.Unsetenv("HELM_BIN")
-		}
-	}()
 
-	oldArgs := os.Args
-	defer func() { os.Args = oldArgs }()
+	return h
+}
+
+func (h *helmDiffTestHelper) cleanup() {
+	os.Unsetenv(env)
+	os.Args = h.oldArgs
+	if h.helmBinSet {
+		os.Setenv("HELM_BIN", h.helmBin)
+	} else {
+		os.Unsetenv("HELM_BIN")
+	}
+}
+
+func TestHelmDiff(t *testing.T) {
+	h := setupHelmDiffTest(t)
+	defer h.cleanup()
 
 	os.Args = []string{"helm-diff", "upgrade", "-f", "test/testdata/test-values.yaml", "test-release", "test/testdata/test-chart"}
 	require.NoError(t, cmd.New().Execute())
 }
 
 func TestHelmDiffWithKubeContext(t *testing.T) {
-	os.Setenv(env, envValue)
-	defer os.Unsetenv(env)
-
-	helmBin, helmBinSet := os.LookupEnv("HELM_BIN")
-	os.Setenv("HELM_BIN", os.Args[0])
-	defer func() {
-		if helmBinSet {
-			os.Setenv("HELM_BIN", helmBin)
-		} else {
-			os.Unsetenv("HELM_BIN")
-		}
-	}()
-
-	oldArgs := os.Args
-	defer func() { os.Args = oldArgs }()
+	h := setupHelmDiffTest(t)
+	defer h.cleanup()
 
 	os.Args = []string{"helm-diff", "upgrade", "-f", "test/testdata/test-values.yaml", "--kube-context", "test-context", "test-release", "test/testdata/test-chart"}
 	require.NoError(t, cmd.New().Execute())
 }
 
 func TestHelmDiffWithKubeContextReuseValues(t *testing.T) {
-	os.Setenv(env, envValue)
-	defer os.Unsetenv(env)
-
-	helmBin, helmBinSet := os.LookupEnv("HELM_BIN")
-	os.Setenv("HELM_BIN", os.Args[0])
-	defer func() {
-		if helmBinSet {
-			os.Setenv("HELM_BIN", helmBin)
-		} else {
-			os.Unsetenv("HELM_BIN")
-		}
-	}()
-
-	oldArgs := os.Args
-	defer func() { os.Args = oldArgs }()
+	h := setupHelmDiffTest(t)
+	defer h.cleanup()
 
 	os.Args = []string{"helm-diff", "upgrade", "--reuse-values", "--kube-context", "test-context", "-f", "test/testdata/test-values.yaml", "test-release", "test/testdata/test-chart"}
 	require.NoError(t, cmd.New().Execute())
 }
 
 func TestHelmDiffRevisionWithKubeContext(t *testing.T) {
-	os.Setenv(env, envValue)
-	defer os.Unsetenv(env)
-
-	helmBin, helmBinSet := os.LookupEnv("HELM_BIN")
-	os.Setenv("HELM_BIN", os.Args[0])
-	defer func() {
-		if helmBinSet {
-			os.Setenv("HELM_BIN", helmBin)
-		} else {
-			os.Unsetenv("HELM_BIN")
-		}
-	}()
-
-	oldArgs := os.Args
-	defer func() { os.Args = oldArgs }()
+	h := setupHelmDiffTest(t)
+	defer h.cleanup()
 
 	os.Args = []string{"helm-diff", "revision", "--kube-context", "test-context", "test-release", "2"}
 	require.NoError(t, cmd.New().Execute())
 }
 
 func TestHelmDiffRollbackWithKubeContext(t *testing.T) {
-	os.Setenv(env, envValue)
-	defer os.Unsetenv(env)
-
-	helmBin, helmBinSet := os.LookupEnv("HELM_BIN")
-	os.Setenv("HELM_BIN", os.Args[0])
-	defer func() {
-		if helmBinSet {
-			os.Setenv("HELM_BIN", helmBin)
-		} else {
-			os.Unsetenv("HELM_BIN")
-		}
-	}()
-
-	oldArgs := os.Args
-	defer func() { os.Args = oldArgs }()
+	h := setupHelmDiffTest(t)
+	defer h.cleanup()
 
 	os.Args = []string{"helm-diff", "rollback", "--kube-context", "test-context", "test-release", "2"}
 	require.NoError(t, cmd.New().Execute())
 }
 
 func TestHelmDiffReleaseWithKubeContext(t *testing.T) {
-	os.Setenv(env, envValue)
-	defer os.Unsetenv(env)
-
-	helmBin, helmBinSet := os.LookupEnv("HELM_BIN")
-	os.Setenv("HELM_BIN", os.Args[0])
-	defer func() {
-		if helmBinSet {
-			os.Setenv("HELM_BIN", helmBin)
-		} else {
-			os.Unsetenv("HELM_BIN")
-		}
-	}()
-
-	oldArgs := os.Args
-	defer func() { os.Args = oldArgs }()
+	h := setupHelmDiffTest(t)
+	defer h.cleanup()
 
 	os.Args = []string{"helm-diff", "release", "--kube-context", "test-context", "test-release1", "test-release2"}
 	require.NoError(t, cmd.New().Execute())
@@ -199,7 +150,7 @@ var helmSubcmdStubs = []fakeHelmSubcmd{
 	},
 	{
 		cmd:  []string{"get", "values"},
-		args: []string{"test-release", "--output", "yaml", "--all", "--kube-context", "test-context", "--namespace", "*"},
+		args: []string{"test-release", "--output", "yaml", "--all", "--namespace", "*", "--kube-context", "test-context"},
 	},
 	{
 		cmd:  []string{"template"},
