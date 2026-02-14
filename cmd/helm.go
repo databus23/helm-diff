@@ -131,37 +131,49 @@ func compatibleHelm3Version() error {
 	return nil
 }
 
-func getRelease(release, namespace string) ([]byte, error) {
+func getRelease(release, namespace, kubeContext string) ([]byte, error) {
 	args := []string{"get", "manifest", release}
 	if namespace != "" {
 		args = append(args, "--namespace", namespace)
 	}
+	if kubeContext != "" {
+		args = append(args, "--kube-context", kubeContext)
+	}
 	cmd := exec.Command(os.Getenv("HELM_BIN"), args...)
 	return outputWithRichError(cmd)
 }
 
-func getHooks(release, namespace string) ([]byte, error) {
+func getHooks(release, namespace, kubeContext string) ([]byte, error) {
 	args := []string{"get", "hooks", release}
 	if namespace != "" {
 		args = append(args, "--namespace", namespace)
 	}
-	cmd := exec.Command(os.Getenv("HELM_BIN"), args...)
-	return outputWithRichError(cmd)
-}
-
-func getRevision(release string, revision int, namespace string) ([]byte, error) {
-	args := []string{"get", "manifest", release, "--revision", strconv.Itoa(revision)}
-	if namespace != "" {
-		args = append(args, "--namespace", namespace)
+	if kubeContext != "" {
+		args = append(args, "--kube-context", kubeContext)
 	}
 	cmd := exec.Command(os.Getenv("HELM_BIN"), args...)
 	return outputWithRichError(cmd)
 }
 
-func getChart(release, namespace string) (string, error) {
+func getRevision(release string, revision int, namespace, kubeContext string) ([]byte, error) {
+	args := []string{"get", "manifest", release, "--revision", strconv.Itoa(revision)}
+	if namespace != "" {
+		args = append(args, "--namespace", namespace)
+	}
+	if kubeContext != "" {
+		args = append(args, "--kube-context", kubeContext)
+	}
+	cmd := exec.Command(os.Getenv("HELM_BIN"), args...)
+	return outputWithRichError(cmd)
+}
+
+func getChart(release, namespace, kubeContext string) (string, error) {
 	args := []string{"get", "all", release, "--template", "{{.Release.Chart.Name}}"}
 	if namespace != "" {
 		args = append(args, "--namespace", namespace)
+	}
+	if kubeContext != "" {
+		args = append(args, "--kube-context", kubeContext)
 	}
 	cmd := exec.Command(os.Getenv("HELM_BIN"), args...)
 	out, err := outputWithRichError(cmd)
@@ -190,6 +202,9 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 	}
 	if d.namespace != "" {
 		flags = append(flags, "--namespace", d.namespace)
+	}
+	if d.kubeContext != "" {
+		flags = append(flags, "--kube-context", d.kubeContext)
 	}
 	if d.postRenderer != "" {
 		flags = append(flags, "--post-renderer", d.postRenderer)
@@ -410,6 +425,12 @@ func (d *diffCmd) writeExistingValues(f *os.File, all bool) error {
 	args := []string{"get", "values", d.release, "--output", "yaml"}
 	if all {
 		args = append(args, "--all")
+	}
+	if d.namespace != "" {
+		args = append(args, "--namespace", d.namespace)
+	}
+	if d.kubeContext != "" {
+		args = append(args, "--kube-context", d.kubeContext)
 	}
 	cmd := exec.Command(os.Getenv("HELM_BIN"), args...)
 	debugPrint("Executing %s", strings.Join(cmd.Args, " "))
