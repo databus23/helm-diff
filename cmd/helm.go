@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -332,9 +333,11 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 			isHelmV4, err := isHelmVersionGreaterThanEqual(helmV4Version)
 			if err == nil && isHelmV4 {
 				// For Helm v4, we use --dry-run=server by default to get correct .Capabilities.APIVersions.
-				// This is only applied if the user hasn't explicitly set --dry-run=client.
+				// This is only applied if the user hasn't explicitly set --dry-run=client, --dry-run=true, or --dry-run=false.
+				// Note: dryRunMode="true" behaves like "client" (no cluster access).
+				// Note: dryRunMode="false" behaves like "none" (no dry-run flag at all).
 				// See https://github.com/databus23/helm-diff/issues/894
-				if d.dryRunMode != "client" {
+				if !slices.Contains([]string{"client", "true", "false"}, d.dryRunMode) {
 					flags = append(flags, "--dry-run=server")
 				}
 			} else {
@@ -359,9 +362,15 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 		if useDryRunService, err := isHelmVersionAtLeast(minHelmVersionWithDryRunLookupSupport); err == nil && useDryRunService {
 			isHelmV4, _ := isHelmVersionGreaterThanEqual(helmV4Version)
 
-			// For Helm v4, --dry-run=server is already added above if d.dryRunMode != "client"
-			// Only add it here if d.dryRunMode == "client" or for Helm v3
-			if !(isHelmV4 && d.dryRunMode != "client") {
+			// For Helm v4, --dry-run=server may already have been added above when
+			// clusterAccessAllowed() is true and d.dryRunMode is not "client", "true", or "false".
+			// In that case (Helm v4 and d.dryRunMode not "client"/"true"/"false"), we skip adding any
+			// additional dry-run flag here. In all other cases (Helm v3 or d.dryRunMode is "client"/"true"),
+			// we add the appropriate dry-run mode below.
+			// Note: dryRunMode="false" means no dry-run flag at all.
+			if d.dryRunMode == "false" {
+				// "false" means no dry-run, skip adding any dry-run flag
+			} else if !(isHelmV4 && !slices.Contains([]string{"client", "true"}, d.dryRunMode)) {
 				if d.dryRunMode == "server" {
 					// This is for security reasons!
 					//

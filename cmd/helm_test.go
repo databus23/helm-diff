@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"reflect"
+	"slices"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -20,7 +21,7 @@ func getTemplateDryRunFlags(cfg dryRunFlagsConfig) []string {
 
 	if !cfg.disableValidation && cfg.clusterAccessAllowed {
 		if cfg.isHelmV4 {
-			if cfg.dryRunMode != "client" {
+			if !slices.Contains([]string{"client", "true", "false"}, cfg.dryRunMode) {
 				flags = append(flags, "--dry-run=server")
 			}
 		} else {
@@ -29,7 +30,9 @@ func getTemplateDryRunFlags(cfg dryRunFlagsConfig) []string {
 	}
 
 	if cfg.supportsDryRunLookup {
-		if !(cfg.isHelmV4 && cfg.dryRunMode != "client") {
+		if cfg.dryRunMode == "false" {
+			// "false" means no dry-run, skip adding any dry-run flag
+		} else if !(cfg.isHelmV4 && !slices.Contains([]string{"client", "true"}, cfg.dryRunMode)) {
 			if cfg.dryRunMode == "server" {
 				flags = append(flags, "--dry-run=server")
 			} else {
@@ -167,6 +170,68 @@ func TestGetTemplateDryRunFlags(t *testing.T) {
 				dryRunMode:           "",
 			},
 			expected: []string{"--dry-run=server"},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			actual := getTemplateDryRunFlags(tc.config)
+			if !reflect.DeepEqual(actual, tc.expected) {
+				t.Errorf("Expected %v, got %v", tc.expected, actual)
+			}
+		})
+	}
+}
+
+func TestGetTemplateDryRunFlagsBoolModes(t *testing.T) {
+	cases := []struct {
+		name     string
+		config   dryRunFlagsConfig
+		expected []string
+	}{
+		{
+			name: "Helm v3 dryRunMode=true behaves like client",
+			config: dryRunFlagsConfig{
+				isHelmV4:             false,
+				supportsDryRunLookup: true,
+				clusterAccessAllowed: true,
+				disableValidation:    false,
+				dryRunMode:           "true",
+			},
+			expected: []string{"--validate", "--dry-run=client"},
+		},
+		{
+			name: "Helm v3 dryRunMode=false behaves like none",
+			config: dryRunFlagsConfig{
+				isHelmV4:             false,
+				supportsDryRunLookup: true,
+				clusterAccessAllowed: true,
+				disableValidation:    false,
+				dryRunMode:           "false",
+			},
+			expected: []string{"--validate"},
+		},
+		{
+			name: "Helm v4 dryRunMode=true behaves like client",
+			config: dryRunFlagsConfig{
+				isHelmV4:             true,
+				supportsDryRunLookup: true,
+				clusterAccessAllowed: false,
+				disableValidation:    false,
+				dryRunMode:           "true",
+			},
+			expected: []string{"--dry-run=client"},
+		},
+		{
+			name: "Helm v4 dryRunMode=false behaves like none",
+			config: dryRunFlagsConfig{
+				isHelmV4:             true,
+				supportsDryRunLookup: true,
+				clusterAccessAllowed: true,
+				disableValidation:    false,
+				dryRunMode:           "false",
+			},
+			expected: nil,
 		},
 	}
 

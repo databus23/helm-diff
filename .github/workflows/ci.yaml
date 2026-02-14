@@ -144,8 +144,6 @@ jobs:
 
       - name: helm diff upgrade --install helm-diff ./helm-diff
         run: helm diff upgrade --install helm-diff ./helm-diff
-        env:
-          HELM_DEBUG: "true"
 
       - name: helm upgrade -i helm-diff ./helm-diff
         run: helm upgrade -i helm-diff ./helm-diff
