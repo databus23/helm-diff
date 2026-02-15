@@ -248,6 +248,9 @@ func cleanMetadataForPatch(data []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	if objMap == nil {
+		return []byte("null"), nil
+	}
 	return json.Marshal(objMap)
 }
 
