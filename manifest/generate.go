@@ -215,7 +215,10 @@ func createPatch(originalObj, currentObj runtime.Object, target *resource.Info) 
 			// Step 3: Create patch from current -> merged (what to apply to current)
 			// This patch, when applied to current, will produce the merged result
 			patch, err := jsonpatch.CreateMergePatch(cleanedCurrentData, mergedData)
-			return patch, types.MergePatchType, err
+			if err != nil {
+				return nil, types.MergePatchType, fmt.Errorf("creating patch from current to merged: %w", err)
+			}
+			return patch, types.MergePatchType, nil
 		}
 
 		// Chart didn't change (old == new), but we need to detect if current diverges
@@ -227,7 +230,10 @@ func createPatch(originalObj, currentObj runtime.Object, target *resource.Info) 
 			return nil, types.MergePatchType, fmt.Errorf("building desired state: %w", err)
 		}
 		patch, err := jsonpatch.CreateMergePatch(cleanedCurrentData, desiredData)
-		return patch, types.MergePatchType, err
+		if err != nil {
+			return nil, types.MergePatchType, fmt.Errorf("creating patch from current to desired: %w", err)
+		}
+		return patch, types.MergePatchType, nil
 	}
 
 	patchMeta, err := strategicpatch.NewPatchMetaFromStruct(versionedObject)

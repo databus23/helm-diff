@@ -31,13 +31,14 @@ func deleteStatusAndTidyMetadata(obj []byte) (map[string]any, error) {
 	delete(metadata, "uid")
 
 	if a := metadata["annotations"]; a != nil {
-		annotations := a.(map[string]any)
-		delete(annotations, "meta.helm.sh/release-name")
-		delete(annotations, "meta.helm.sh/release-namespace")
-		delete(annotations, "deployment.kubernetes.io/revision")
+		if annotations, ok := a.(map[string]any); ok {
+			delete(annotations, "meta.helm.sh/release-name")
+			delete(annotations, "meta.helm.sh/release-namespace")
+			delete(annotations, "deployment.kubernetes.io/revision")
 
-		if len(annotations) == 0 {
-			delete(metadata, "annotations")
+			if len(annotations) == 0 {
+				delete(metadata, "annotations")
+			}
 		}
 	}
 
