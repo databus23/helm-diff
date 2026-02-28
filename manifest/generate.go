@@ -170,9 +170,70 @@ func createPatch(originalObj, currentObj runtime.Object, target *resource.Info) 
 	_, isCRD := versionedObject.(*apiextv1.CustomResourceDefinition)
 
 	if isUnstructured || isCRD {
-		// fall back to generic JSON merge patch
-		patch, err := jsonpatch.CreateMergePatch(oldData, newData)
-		return patch, types.MergePatchType, err
+		// For unstructured objects (CRDs, CRs), we need to perform a three-way merge
+		// to detect manual changes made in the cluster.
+		//
+		// The approach is:
+		// 1. Create a patch from old -> new (chart changes)
+		// 2. Apply this patch to current (live state with manual changes)
+		// 3. Create a patch from current -> merged result
+		// 4. If chart changed (old != new), return step 3's patch
+		// 5. If chart unchanged (old == new), build desired state by applying new onto current
+		//    (preserving live-only fields), then diff current -> desired to detect drift
+
+		// Clean metadata fields that shouldn't be compared (they're server-managed)
+		// This prevents "resourceVersion: Invalid value: 0" errors when dry-running patches
+		cleanedOldData, err := cleanMetadataForPatch(oldData)
+		if err != nil {
+			return nil, types.MergePatchType, fmt.Errorf("cleaning old metadata: %w", err)
+		}
+		cleanedNewData, err := cleanMetadataForPatch(newData)
+		if err != nil {
+			return nil, types.MergePatchType, fmt.Errorf("cleaning new metadata: %w", err)
+		}
+		cleanedCurrentData, err := cleanMetadataForPatch(currentData)
+		if err != nil {
+			return nil, types.MergePatchType, fmt.Errorf("cleaning current metadata: %w", err)
+		}
+
+		// Step 1: Create patch from old -> new (what the chart wants to change)
+		chartChanges, err := jsonpatch.CreateMergePatch(cleanedOldData, cleanedNewData)
+		if err != nil {
+			return nil, types.MergePatchType, fmt.Errorf("creating chart changes patch: %w", err)
+		}
+
+		// Check if chart actually changed anything
+		chartChanged := !isPatchEmpty(chartChanges)
+
+		if chartChanged {
+			// Step 2: Apply chart changes to current (merge chart changes with live state)
+			mergedData, err := jsonpatch.MergePatch(cleanedCurrentData, chartChanges)
+			if err != nil {
+				return nil, types.MergePatchType, fmt.Errorf("applying chart changes to current: %w", err)
+			}
+
+			// Step 3: Create patch from current -> merged (what to apply to current)
+			// This patch, when applied to current, will produce the merged result
+			patch, err := jsonpatch.CreateMergePatch(cleanedCurrentData, mergedData)
+			if err != nil {
+				return nil, types.MergePatchType, fmt.Errorf("creating patch from current to merged: %w", err)
+			}
+			return patch, types.MergePatchType, nil
+		}
+
+		// Chart didn't change (old == new), but we need to detect if current diverges
+		// from the chart state on chart-owned fields.
+		// Build desired state by applying new onto current (preserves live-only additions),
+		// then diff current -> desired to detect drift on chart-owned fields.
+		desiredData, err := jsonpatch.MergePatch(cleanedCurrentData, cleanedNewData)
+		if err != nil {
+			return nil, types.MergePatchType, fmt.Errorf("building desired state: %w", err)
+		}
+		patch, err := jsonpatch.CreateMergePatch(cleanedCurrentData, desiredData)
+		if err != nil {
+			return nil, types.MergePatchType, fmt.Errorf("creating patch from current to desired: %w", err)
+		}
+		return patch, types.MergePatchType, nil
 	}
 
 	patchMeta, err := strategicpatch.NewPatchMetaFromStruct(versionedObject)
@@ -182,6 +243,21 @@ func createPatch(originalObj, currentObj runtime.Object, target *resource.Info) 
 
 	patch, err := strategicpatch.CreateThreeWayMergePatch(oldData, newData, currentData, patchMeta, true)
 	return patch, types.StrategicMergePatchType, err
+}
+
+func isPatchEmpty(patch []byte) bool {
+	return len(patch) == 0 || string(patch) == "{}" || string(patch) == "null"
+}
+
+func cleanMetadataForPatch(data []byte) ([]byte, error) {
+	objMap, err := deleteStatusAndTidyMetadata(data)
+	if err != nil {
+		return nil, err
+	}
+	if objMap == nil {
+		return []byte("null"), nil
+	}
+	return json.Marshal(objMap)
 }
 
 func objectKey(r *resource.Info) string {
