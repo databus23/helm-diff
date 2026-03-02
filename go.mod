@@ -18,11 +18,11 @@ require (
 	golang.org/x/term v0.40.0
 	gopkg.in/yaml.v2 v2.4.0
 	helm.sh/helm/v4 v4.1.1
-	k8s.io/api v0.35.1
+	k8s.io/api v0.35.2
 	k8s.io/apiextensions-apiserver v0.35.1
-	k8s.io/apimachinery v0.35.1
-	k8s.io/cli-runtime v0.35.1
-	k8s.io/client-go v0.35.1
+	k8s.io/apimachinery v0.35.2
+	k8s.io/cli-runtime v0.35.2
+	k8s.io/client-go v0.35.2
 	sigs.k8s.io/yaml v1.6.0
 )
 
