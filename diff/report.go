@@ -110,7 +110,12 @@ func printDyffReport(r *Report, to io.Writer) {
 
 	currentInputFile, newInputFile, _ := ytbx.LoadFiles(currentFile.Name(), newFile.Name())
 
-	report, _ := dyff.CompareInputFiles(currentInputFile, newInputFile)
+	report, _ := dyff.CompareInputFiles(
+		currentInputFile, newInputFile,
+		dyff.IgnoreWhitespaceChanges(true),
+		dyff.KubernetesEntityDetection(true),
+		dyff.DetectRenames(true),
+	)
 	reportWriter := &dyff.HumanReport{
 		Report:               report,
 		OmitHeader:           true,
