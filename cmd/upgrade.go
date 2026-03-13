@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -202,6 +203,17 @@ func newChartCommand() *cobra.Command {
 
 			diff.release = args[0]
 			diff.chart = args[1]
+
+			// helm by default looks for values.yaml in the chart. See #566
+			// Looking for chart/values.yaml if valueFiles is empty
+			if len(diff.valueFiles) == 0 {
+				defaultValuePath := filepath.Join(diff.chart, "values.yaml")
+				_, err := os.Stat(defaultValuePath)
+				if !os.IsNotExist(err) {
+					diff.valueFiles = append(diff.valueFiles, defaultValuePath)
+				}
+			}
+
 			return diff.runHelm3()
 		},
 		FParseErrWhitelist: cobra.FParseErrWhitelist{
@@ -224,6 +236,9 @@ func newChartCommand() *cobra.Command {
 	// Support for kube-version was re-enabled and ported from helm2 to helm3 on https://github.com/helm/helm/pull/9040
 	f.StringVar(&diff.kubeVersion, "kube-version", "", "Kubernetes version used for Capabilities.KubeVersion")
 	f.VarP(&diff.valueFiles, "values", "f", "specify values in a YAML file (can specify multiple)")
+	//  Add string for the default value
+	defaultValueFiles := valueFiles{"CHART/values.yaml"}
+	f.Lookup("values").DefValue = defaultValueFiles.String()
 	f.StringArrayVar(&diff.values, "set", []string{}, "set values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)")
 	f.StringArrayVar(&diff.stringValues, "set-string", []string{}, "set STRING values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)")
 	f.StringArrayVar(&diff.stringLiteralValues, "set-literal", []string{}, "set STRING literal values on the command line")
