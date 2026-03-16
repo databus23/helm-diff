@@ -17,7 +17,7 @@ require (
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/term v0.40.0
 	gopkg.in/yaml.v2 v2.4.0
-	helm.sh/helm/v4 v4.1.1
+	helm.sh/helm/v4 v4.1.3
 	k8s.io/api v0.35.2
 	k8s.io/apiextensions-apiserver v0.35.2
 	k8s.io/apimachinery v0.35.2
@@ -67,6 +67,7 @@ require (
 	github.com/go-openapi/swag/typeutils v0.25.5 // indirect
 	github.com/go-openapi/swag/yamlutils v0.25.5 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
+	github.com/gofrs/flock v0.13.0 // indirect
 	github.com/gonvenience/idem v0.0.3 // indirect
 	github.com/gonvenience/neat v1.3.18 // indirect
 	github.com/gonvenience/term v1.0.5 // indirect
