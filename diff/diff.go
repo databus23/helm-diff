@@ -256,10 +256,8 @@ func doDiff(report *Report, key string, oldContent *manifest.MappingResult, newC
 		}
 	case newContent == nil:
 		changeType = "REMOVE"
-		if oldContent != nil {
-			subjectKind = oldContent.Kind
-		}
-		if !options.StructuredOutput() && oldContent != nil {
+		subjectKind = oldContent.Kind
+		if !options.StructuredOutput() {
 			emptyMapping := &manifest.MappingResult{}
 			diffs = diffMappingResults(oldContent, emptyMapping, options.StripTrailingCR)
 		}
