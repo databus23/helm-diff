@@ -6,8 +6,8 @@
 
 This is a Helm plugin giving you a preview of what a `helm upgrade` would change.
 It basically generates a diff between the latest deployed version of a release
-and a `helm upgrade --debug --dry-run`. This can also be used to compare two
-revisions/versions of your helm release.
+and a `helm template`-rendered manifest (or `helm upgrade --dry-run` when `HELM_DIFF_USE_UPGRADE_DRY_RUN=true` is set).
+This can also be used to compare two revisions/versions of your helm release.
 
 <a href="https://asciinema.org/a/105326" target="_blank"><img src="https://asciinema.org/a/105326.png" /></a>
 
