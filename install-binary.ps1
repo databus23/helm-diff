@@ -59,8 +59,6 @@ $version = Get-Version -Update $Update
 $tmpDir = New-TemporaryDirectory
 trap {  Remove-Item -path $tmpDir -Recurse -Force }
 
-# --- MODIFICATION START ---
-
 $output = Join-Path $tmpDir $archiveName
 
 # Check for offline installation via environment variable
@@ -78,8 +76,6 @@ else {
     $url = Get-Url -Version $version -Architecture $arch
     Download-Plugin -Url $url -Output $output
 }
-
-# --- MODIFICATION END ---
 
 Install-Plugin -ArchiveDirectory $tmpDir -ArchiveName $archiveName -Destination (Join-Path $env:HELM_PLUGIN_DIR "bin")
 
