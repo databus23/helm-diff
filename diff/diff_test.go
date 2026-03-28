@@ -617,8 +617,8 @@ spec:
       - name: app
         image: demo:v2
 `
-	oldIndex := manifest.Parse(oldManifest, "prod", true)
-	newIndex := manifest.Parse(newManifest, "prod", true)
+	oldIndex := manifest.Parse([]byte(oldManifest), "prod", true)
+	newIndex := manifest.Parse([]byte(newManifest), "prod", true)
 
 	var buf bytes.Buffer
 	changed := Manifests(oldIndex, newIndex, opts, &buf)
@@ -656,7 +656,7 @@ metadata:
   namespace: ops
 spec: {}
 `
-	newIndex := manifest.Parse(newManifest, "ops", true)
+	newIndex := manifest.Parse([]byte(newManifest), "ops", true)
 
 	var buf bytes.Buffer
 	changed := Manifests(map[string]*manifest.MappingResult{}, newIndex, opts, &buf)
@@ -702,8 +702,8 @@ metadata:
 data:
   password: Zm9v
 `
-	oldIndex := manifest.Parse(oldManifest, "default", true)
-	newIndex := manifest.Parse(newManifest, "default", true)
+	oldIndex := manifest.Parse([]byte(oldManifest), "default", true)
+	newIndex := manifest.Parse([]byte(newManifest), "default", true)
 
 	var buf bytes.Buffer
 	changed := Manifests(oldIndex, newIndex, opts, &buf)
@@ -822,8 +822,8 @@ metadata:
   name: test
   namespace: default
 `
-		oldIndex := manifest.Parse(emptyManifest, "default", true)
-		newIndex := manifest.Parse(validManifest, "default", true)
+		oldIndex := manifest.Parse([]byte(emptyManifest), "default", true)
+		newIndex := manifest.Parse([]byte(validManifest), "default", true)
 
 		var buf bytes.Buffer
 		changed := Manifests(oldIndex, newIndex, opts, &buf)
@@ -846,8 +846,8 @@ metadata:
   name: test
   namespace: default
 `
-		oldIndex := manifest.Parse(nullManifest, "default", true)
-		newIndex := manifest.Parse(validManifest, "default", true)
+		oldIndex := manifest.Parse([]byte(nullManifest), "default", true)
+		newIndex := manifest.Parse([]byte(validManifest), "default", true)
 
 		var buf bytes.Buffer
 		changed := Manifests(oldIndex, newIndex, opts, &buf)
@@ -890,8 +890,8 @@ data:
       deeply:
         value: new
 `
-		oldIndex := manifest.Parse(oldManifest, "default", true)
-		newIndex := manifest.Parse(newManifest, "default", true)
+		oldIndex := manifest.Parse([]byte(oldManifest), "default", true)
+		newIndex := manifest.Parse([]byte(newManifest), "default", true)
 
 		var buf bytes.Buffer
 		changed := Manifests(oldIndex, newIndex, opts, &buf)
@@ -944,8 +944,8 @@ spec:
         - name: KEY2
           value: val2
 `
-		oldIndex := manifest.Parse(oldManifest, "prod", true)
-		newIndex := manifest.Parse(newManifest, "prod", true)
+		oldIndex := manifest.Parse([]byte(oldManifest), "prod", true)
+		newIndex := manifest.Parse([]byte(newManifest), "prod", true)
 
 		var buf bytes.Buffer
 		changed := Manifests(oldIndex, newIndex, opts, &buf)
@@ -967,8 +967,8 @@ spec:
 		emptyManifest1 := ``
 		emptyManifest2 := ``
 
-		oldIndex := manifest.Parse(emptyManifest1, "default", true)
-		newIndex := manifest.Parse(emptyManifest2, "default", true)
+		oldIndex := manifest.Parse([]byte(emptyManifest1), "default", true)
+		newIndex := manifest.Parse([]byte(emptyManifest2), "default", true)
 
 		var buf bytes.Buffer
 		changed := Manifests(oldIndex, newIndex, opts, &buf)

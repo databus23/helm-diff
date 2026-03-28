@@ -198,6 +198,16 @@ func contentSearch(report *Report, possiblyRemoved []string, oldIndex map[string
 				continue
 			}
 
+			oldLen := len(oldContent.Content)
+			newLen := len(newContent.Content)
+			if oldLen == 0 || newLen == 0 {
+				continue
+			}
+			ratio := float32(oldLen) / float32(newLen)
+			if ratio < 0.1 || ratio > 10 {
+				continue
+			}
+
 			switch {
 			case options.ShowSecretsDecoded:
 				decodeSecrets(oldContent, newContent)
@@ -208,7 +218,7 @@ func contentSearch(report *Report, possiblyRemoved []string, oldIndex map[string
 			diff := diffMappingResults(oldContent, newContent, options.StripTrailingCR)
 			delta := actualChanges(diff)
 			if delta == 0 || len(diff) == 0 {
-				continue // Should never happen, but better safe than sorry
+				continue
 			}
 			fraction := float32(delta) / float32(len(diff))
 			if fraction > 0 && fraction < smallestFraction {
