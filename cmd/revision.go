@@ -99,9 +99,12 @@ func (d *revision) differentiateHelm3() error {
 			return err
 		}
 
+		oldSpecs := manifest.Parse(revisionResponse, namespace, d.normalizeManifests, excludes...)
+		newSpecs := manifest.Parse(releaseResponse, namespace, d.normalizeManifests, excludes...)
+
 		diff.Manifests(
-			manifest.Parse(revisionResponse, namespace, d.normalizeManifests, excludes...),
-			manifest.Parse(releaseResponse, namespace, d.normalizeManifests, excludes...),
+			oldSpecs,
+			newSpecs,
 			&d.Options,
 			os.Stdout)
 
@@ -122,9 +125,12 @@ func (d *revision) differentiateHelm3() error {
 			return err
 		}
 
+		oldSpecs := manifest.Parse(revisionResponse1, namespace, d.normalizeManifests, excludes...)
+		newSpecs := manifest.Parse(revisionResponse2, namespace, d.normalizeManifests, excludes...)
+
 		seenAnyChanges := diff.Manifests(
-			manifest.Parse(revisionResponse1, namespace, d.normalizeManifests, excludes...),
-			manifest.Parse(revisionResponse2, namespace, d.normalizeManifests, excludes...),
+			oldSpecs,
+			newSpecs,
 			&d.Options,
 			os.Stdout)
 

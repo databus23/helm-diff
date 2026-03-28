@@ -1593,3 +1593,128 @@ data:
 		require.Contains(t, new.Content, "key1: '++++++++ # (6 bytes)'")
 	})
 }
+
+func TestRenameDetectionLengthRatio(t *testing.T) {
+	ansi.DisableColors(true)
+
+	makeSpec := func(name string, content string) map[string]*manifest.MappingResult {
+		return map[string]*manifest.MappingResult{
+			name: {
+				Name:    name,
+				Kind:    "Deployment",
+				Content: content,
+			},
+		}
+	}
+
+	shortContent := `
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: short
+spec:
+  replicas: 1
+`
+
+	shortContentRenamed := `
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: short-renamed
+spec:
+  replicas: 1
+`
+
+	longContent := `
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: very-long
+spec:
+  replicas: 1
+  template:
+    spec:
+      containers:
+      - name: app
+        image: myapp:v1
+        ports:
+        - containerPort: 8080
+        env:
+        - name: VAR1
+          value: "hello"
+        - name: VAR2
+          value: "world"
+        - name: VAR3
+          value: "foo"
+        - name: VAR4
+          value: "bar"
+        - name: VAR5
+          value: "baz"
+        resources:
+          limits:
+            cpu: "1"
+            memory: "1Gi"
+`
+
+	t.Run("similar length detects rename", func(t *testing.T) {
+		var buf bytes.Buffer
+		opts := &Options{"diff", 10, false, true, false, []string{}, 0.5, []string{}}
+
+		oldSpec := makeSpec("default, short, Deployment (apps)", shortContent)
+		newSpec := makeSpec("default, short-renamed, Deployment (apps)", shortContentRenamed)
+
+		changed := Manifests(oldSpec, newSpec, opts, &buf)
+		require.True(t, changed)
+		require.Contains(t, buf.String(), "default, short, Deployment (apps) has changed")
+	})
+
+	t.Run("very different length skips rename", func(t *testing.T) {
+		var buf bytes.Buffer
+		opts := &Options{"diff", 10, false, true, false, []string{}, 0.5, []string{}}
+
+		oldSpec := makeSpec("default, short, Deployment (apps)", shortContent)
+		newSpec := makeSpec("default, very-long, Deployment (apps)", longContent)
+
+		changed := Manifests(oldSpec, newSpec, opts, &buf)
+		require.True(t, changed)
+		require.Contains(t, buf.String(), "default, short, Deployment (apps) has been removed")
+		require.Contains(t, buf.String(), "default, very-long, Deployment (apps) has been added")
+	})
+
+	t.Run("empty content skipped", func(t *testing.T) {
+		var buf bytes.Buffer
+		opts := &Options{"diff", 10, false, true, false, []string{}, 0.5, []string{}}
+
+		oldSpec := map[string]*manifest.MappingResult{
+			"default, empty, Deployment (apps)": {
+				Name:    "default, empty, Deployment (apps)",
+				Kind:    "Deployment",
+				Content: "",
+			},
+		}
+		newSpec := makeSpec("default, short-renamed, Deployment (apps)", shortContentRenamed)
+
+		changed := Manifests(oldSpec, newSpec, opts, &buf)
+		require.True(t, changed)
+		require.Contains(t, buf.String(), "has been added")
+	})
+
+	t.Run("different kind skipped", func(t *testing.T) {
+		var buf bytes.Buffer
+		opts := &Options{"diff", 10, false, true, false, []string{}, 0.5, []string{}}
+
+		oldSpec := map[string]*manifest.MappingResult{
+			"default, svc, Service (v1)": {
+				Name:    "default, svc, Service (v1)",
+				Kind:    "Service",
+				Content: shortContent,
+			},
+		}
+		newSpec := makeSpec("default, svc-renamed, Deployment (apps)", shortContentRenamed)
+
+		changed := Manifests(oldSpec, newSpec, opts, &buf)
+		require.True(t, changed)
+		require.Contains(t, buf.String(), "has been removed")
+		require.Contains(t, buf.String(), "has been added")
+	})
+}

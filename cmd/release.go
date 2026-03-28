@@ -109,9 +109,12 @@ func (d *release) differentiateHelm3() error {
 	}
 
 	if releaseChart1 == releaseChart2 {
+		oldSpecs := manifest.Parse(releaseResponse1, namespace1, d.normalizeManifests, excludes...)
+		newSpecs := manifest.Parse(releaseResponse2, namespace2, d.normalizeManifests, excludes...)
+
 		seenAnyChanges := diff.Releases(
-			manifest.Parse(releaseResponse1, namespace1, d.normalizeManifests, excludes...),
-			manifest.Parse(releaseResponse2, namespace2, d.normalizeManifests, excludes...),
+			oldSpecs,
+			newSpecs,
 			&d.Options,
 			os.Stdout)
 

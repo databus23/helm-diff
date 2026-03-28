@@ -181,6 +181,11 @@ func actualChanges(diff []difflib.DiffRecord) int {
 	return changes
 }
 
+const (
+	renameDetectionMinLengthRatio float32 = 0.1
+	renameDetectionMaxLengthRatio float32 = 10.0
+)
+
 func contentSearch(report *Report, possiblyRemoved []string, oldIndex map[string]*manifest.MappingResult, possiblyAdded []string, newIndex map[string]*manifest.MappingResult, options *Options) ([]string, []string) {
 	if options.FindRenames <= 0 {
 		return possiblyRemoved, possiblyAdded
@@ -204,7 +209,7 @@ func contentSearch(report *Report, possiblyRemoved []string, oldIndex map[string
 				continue
 			}
 			ratio := float32(oldLen) / float32(newLen)
-			if ratio < 0.1 || ratio > 10 {
+			if ratio < renameDetectionMinLengthRatio || ratio > renameDetectionMaxLengthRatio {
 				continue
 			}
 

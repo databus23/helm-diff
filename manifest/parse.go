@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"io"
 	"log"
 	"strings"
 
@@ -70,7 +71,7 @@ func scanYamlSpecs(data []byte, atEOF bool) (advance int, token []byte, err erro
 
 // Parse parses manifest bytes into MappingResult
 func Parse(manifest []byte, defaultNamespace string, normalizeManifests bool, excludedHooks ...string) map[string]*MappingResult {
-	scanner := bufio.NewScanner(bytes.NewReader(append([]byte("\n"), manifest...)))
+	scanner := bufio.NewScanner(io.MultiReader(strings.NewReader("\n"), bytes.NewReader(manifest)))
 	scanner.Split(scanYamlSpecs)
 	// Allow for tokens (specs) up to 10MiB in size
 	scanner.Buffer(make([]byte, bufio.MaxScanTokenSize), 10485760)

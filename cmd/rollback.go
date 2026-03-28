@@ -90,9 +90,12 @@ func (d *rollback) backcastHelm3() error {
 	}
 
 	// create a diff between the current manifest and the version of the manifest that a user is intended to rollback
+	oldSpecs := manifest.Parse(releaseResponse, namespace, d.normalizeManifests, excludes...)
+	newSpecs := manifest.Parse(revisionResponse, namespace, d.normalizeManifests, excludes...)
+
 	seenAnyChanges := diff.Manifests(
-		manifest.Parse(releaseResponse, namespace, d.normalizeManifests, excludes...),
-		manifest.Parse(revisionResponse, namespace, d.normalizeManifests, excludes...),
+		oldSpecs,
+		newSpecs,
 		&d.Options,
 		os.Stdout)
 
