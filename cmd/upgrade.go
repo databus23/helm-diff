@@ -333,8 +333,6 @@ func (d *diffCmd) runHelm3() error {
 		}
 	}
 
-	releaseManifest = nil
-
 	var newOwnedReleases map[string]diff.OwnershipDiff
 	if d.takeOwnership {
 		resources, err := actionConfig.KubeClient.Build(bytes.NewBuffer(installManifest), false)
@@ -353,8 +351,6 @@ func (d *diffCmd) runHelm3() error {
 	} else {
 		newSpecs = manifest.Parse(installManifest, d.namespace, d.normalizeManifests, manifest.Helm3TestHook, manifest.Helm2TestSuccessHook)
 	}
-
-	installManifest = nil
 
 	seenAnyChanges := diff.ManifestsOwnership(currentSpecs, newSpecs, newOwnedReleases, &d.Options, os.Stdout)
 
