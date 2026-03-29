@@ -99,9 +99,14 @@ func (d *revision) differentiateHelm3() error {
 			return err
 		}
 
+		oldSpecs := manifest.Parse(revisionResponse, namespace, d.normalizeManifests, excludes...)
+		newSpecs := manifest.Parse(releaseResponse, namespace, d.normalizeManifests, excludes...)
+		revisionResponse = nil //nolint:ineffassign // nil to allow GC to reclaim raw bytes before diff computation
+		releaseResponse = nil  //nolint:ineffassign // nil to allow GC to reclaim raw bytes before diff computation
+
 		diff.Manifests(
-			manifest.Parse(string(revisionResponse), namespace, d.normalizeManifests, excludes...),
-			manifest.Parse(string(releaseResponse), namespace, d.normalizeManifests, excludes...),
+			oldSpecs,
+			newSpecs,
 			&d.Options,
 			os.Stdout)
 
@@ -122,9 +127,14 @@ func (d *revision) differentiateHelm3() error {
 			return err
 		}
 
+		oldSpecs := manifest.Parse(revisionResponse1, namespace, d.normalizeManifests, excludes...)
+		newSpecs := manifest.Parse(revisionResponse2, namespace, d.normalizeManifests, excludes...)
+		revisionResponse1 = nil //nolint:ineffassign // nil to allow GC to reclaim raw bytes before diff computation
+		revisionResponse2 = nil //nolint:ineffassign // nil to allow GC to reclaim raw bytes before diff computation
+
 		seenAnyChanges := diff.Manifests(
-			manifest.Parse(string(revisionResponse1), namespace, d.normalizeManifests, excludes...),
-			manifest.Parse(string(revisionResponse2), namespace, d.normalizeManifests, excludes...),
+			oldSpecs,
+			newSpecs,
 			&d.Options,
 			os.Stdout)
 

@@ -181,6 +181,11 @@ func actualChanges(diff []difflib.DiffRecord) int {
 	return changes
 }
 
+const (
+	renameDetectionMinLengthRatio float32 = 0.1
+	renameDetectionMaxLengthRatio float32 = 10.0
+)
+
 func contentSearch(report *Report, possiblyRemoved []string, oldIndex map[string]*manifest.MappingResult, possiblyAdded []string, newIndex map[string]*manifest.MappingResult, options *Options) ([]string, []string) {
 	if options.FindRenames <= 0 {
 		return possiblyRemoved, possiblyAdded
@@ -198,6 +203,21 @@ func contentSearch(report *Report, possiblyRemoved []string, oldIndex map[string
 				continue
 			}
 
+			oldLen := len(oldContent.Content)
+			newLen := len(newContent.Content)
+			if oldLen == 0 || newLen == 0 {
+				continue
+			}
+			// Skip the length-ratio filter for Secrets: their raw content length can
+			// differ greatly from the post-processed (redacted/decoded) length, so the
+			// ratio would be an unreliable predictor of content similarity.
+			if oldContent.Kind != "Secret" {
+				ratio := float32(oldLen) / float32(newLen)
+				if ratio < renameDetectionMinLengthRatio || ratio > renameDetectionMaxLengthRatio {
+					continue
+				}
+			}
+
 			switch {
 			case options.ShowSecretsDecoded:
 				decodeSecrets(oldContent, newContent)
@@ -208,7 +228,7 @@ func contentSearch(report *Report, possiblyRemoved []string, oldIndex map[string
 			diff := diffMappingResults(oldContent, newContent, options.StripTrailingCR)
 			delta := actualChanges(diff)
 			if delta == 0 || len(diff) == 0 {
-				continue // Should never happen, but better safe than sorry
+				continue
 			}
 			fraction := float32(delta) / float32(len(diff))
 			if fraction > 0 && fraction < smallestFraction {

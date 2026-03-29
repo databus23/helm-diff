@@ -109,9 +109,14 @@ func (d *release) differentiateHelm3() error {
 	}
 
 	if releaseChart1 == releaseChart2 {
+		oldSpecs := manifest.Parse(releaseResponse1, namespace1, d.normalizeManifests, excludes...)
+		newSpecs := manifest.Parse(releaseResponse2, namespace2, d.normalizeManifests, excludes...)
+		releaseResponse1 = nil //nolint:ineffassign // nil to allow GC to reclaim raw bytes before diff computation
+		releaseResponse2 = nil //nolint:ineffassign // nil to allow GC to reclaim raw bytes before diff computation
+
 		seenAnyChanges := diff.Releases(
-			manifest.Parse(string(releaseResponse1), namespace1, d.normalizeManifests, excludes...),
-			manifest.Parse(string(releaseResponse2), namespace2, d.normalizeManifests, excludes...),
+			oldSpecs,
+			newSpecs,
 			&d.Options,
 			os.Stdout)
 

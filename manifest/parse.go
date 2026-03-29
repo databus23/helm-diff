@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"io"
 	"log"
 	"strings"
 
@@ -68,10 +69,9 @@ func scanYamlSpecs(data []byte, atEOF bool) (advance int, token []byte, err erro
 	return 0, nil, nil
 }
 
-// Parse parses manifest strings into MappingResult
-func Parse(manifest string, defaultNamespace string, normalizeManifests bool, excludedHooks ...string) map[string]*MappingResult {
-	// Ensure we have a newline in front of the yaml separator
-	scanner := bufio.NewScanner(strings.NewReader("\n" + manifest))
+// Parse parses manifest bytes into MappingResult
+func Parse(manifest []byte, defaultNamespace string, normalizeManifests bool, excludedHooks ...string) map[string]*MappingResult {
+	scanner := bufio.NewScanner(io.MultiReader(strings.NewReader("\n"), bytes.NewReader(manifest)))
 	scanner.Split(scanYamlSpecs)
 	// Allow for tokens (specs) up to 10MiB in size
 	scanner.Buffer(make([]byte, bufio.MaxScanTokenSize), 10485760)
@@ -79,8 +79,8 @@ func Parse(manifest string, defaultNamespace string, normalizeManifests bool, ex
 	result := make(map[string]*MappingResult)
 
 	for scanner.Scan() {
-		content := strings.TrimSpace(scanner.Text())
-		if content == "" {
+		content := bytes.TrimSpace(scanner.Bytes())
+		if len(content) == 0 {
 			continue
 		}
 
@@ -133,7 +133,7 @@ func ParseObject(object runtime.Object, defaultNamespace string, excludedHooks .
 		return nil, "", err
 	}
 
-	result, err := parseContent(string(content), defaultNamespace, true, excludedHooks...)
+	result, err := parseContent(content, defaultNamespace, true, excludedHooks...)
 	if err != nil {
 		return nil, "", err
 	}
@@ -147,9 +147,9 @@ func ParseObject(object runtime.Object, defaultNamespace string, excludedHooks .
 	return result[0], oldRelease, nil
 }
 
-func parseContent(content string, defaultNamespace string, normalizeManifests bool, excludedHooks ...string) ([]*MappingResult, error) {
+func parseContent(content []byte, defaultNamespace string, normalizeManifests bool, excludedHooks ...string) ([]*MappingResult, error) {
 	var parsedMetadata metadata
-	if err := yaml.Unmarshal([]byte(content), &parsedMetadata); err != nil {
+	if err := yaml.Unmarshal(content, &parsedMetadata); err != nil {
 		log.Fatalf("YAML unmarshal error: %s\nCan't unmarshal %s", err, content)
 	}
 
@@ -166,7 +166,7 @@ func parseContent(content string, defaultNamespace string, normalizeManifests bo
 
 		var list ListV1
 
-		if err := yaml.Unmarshal([]byte(content), &list); err != nil {
+		if err := yaml.Unmarshal(content, &list); err != nil {
 			log.Fatalf("YAML unmarshal error: %s\nCan't unmarshal %s", err, content)
 		}
 
@@ -178,7 +178,7 @@ func parseContent(content string, defaultNamespace string, normalizeManifests bo
 				log.Printf("YAML marshal error: %s\nCan't marshal %v", err, item)
 			}
 
-			subs, err := parseContent(string(subcontent), defaultNamespace, normalizeManifests, excludedHooks...)
+			subs, err := parseContent(subcontent, defaultNamespace, normalizeManifests, excludedHooks...)
 			if err != nil {
 				return nil, fmt.Errorf("Parsing YAML list item: %w", err)
 			}
@@ -190,18 +190,15 @@ func parseContent(content string, defaultNamespace string, normalizeManifests bo
 	}
 
 	if normalizeManifests {
-		// Unmarshal and marshal again content to normalize yaml structure
-		// This avoids style differences to show up as diffs but it can
-		// make the output different from the original template (since it is in normalized form)
 		var object map[interface{}]interface{}
-		if err := yaml.Unmarshal([]byte(content), &object); err != nil {
+		if err := yaml.Unmarshal(content, &object); err != nil {
 			log.Fatalf("YAML unmarshal error: %s\nCan't unmarshal %s", err, content)
 		}
 		normalizedContent, err := yaml.Marshal(object)
 		if err != nil {
 			log.Fatalf("YAML marshal error: %s\nCan't marshal %v", err, object)
 		}
-		content = string(normalizedContent)
+		content = normalizedContent
 	}
 
 	if isHook(parsedMetadata, excludedHooks...) {
@@ -217,7 +214,7 @@ func parseContent(content string, defaultNamespace string, normalizeManifests bo
 		{
 			Name:           name,
 			Kind:           parsedMetadata.Kind,
-			Content:        content,
+			Content:        string(content),
 			ResourcePolicy: parsedMetadata.Metadata.Annotations[resourcePolicyAnnotation],
 		},
 	}, nil

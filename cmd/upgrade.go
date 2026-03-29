@@ -327,11 +327,12 @@ func (d *diffCmd) runHelm3() error {
 			releaseManifest = append(releaseManifest, hooks...)
 		}
 		if d.includeTests {
-			currentSpecs = manifest.Parse(string(releaseManifest), d.namespace, d.normalizeManifests)
+			currentSpecs = manifest.Parse(releaseManifest, d.namespace, d.normalizeManifests)
 		} else {
-			currentSpecs = manifest.Parse(string(releaseManifest), d.namespace, d.normalizeManifests, manifest.Helm3TestHook, manifest.Helm2TestSuccessHook)
+			currentSpecs = manifest.Parse(releaseManifest, d.namespace, d.normalizeManifests, manifest.Helm3TestHook, manifest.Helm2TestSuccessHook)
 		}
 	}
+	releaseManifest = nil //nolint:ineffassign // nil to allow GC to reclaim raw bytes before diff computation
 
 	var newOwnedReleases map[string]diff.OwnershipDiff
 	if d.takeOwnership {
@@ -347,10 +348,11 @@ func (d *diffCmd) runHelm3() error {
 
 	var newSpecs map[string]*manifest.MappingResult
 	if d.includeTests {
-		newSpecs = manifest.Parse(string(installManifest), d.namespace, d.normalizeManifests)
+		newSpecs = manifest.Parse(installManifest, d.namespace, d.normalizeManifests)
 	} else {
-		newSpecs = manifest.Parse(string(installManifest), d.namespace, d.normalizeManifests, manifest.Helm3TestHook, manifest.Helm2TestSuccessHook)
+		newSpecs = manifest.Parse(installManifest, d.namespace, d.normalizeManifests, manifest.Helm3TestHook, manifest.Helm2TestSuccessHook)
 	}
+	installManifest = nil //nolint:ineffassign // nil to allow GC to reclaim raw bytes before diff computation
 
 	seenAnyChanges := diff.ManifestsOwnership(currentSpecs, newSpecs, newOwnedReleases, &d.Options, os.Stdout)
 

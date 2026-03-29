@@ -617,8 +617,8 @@ spec:
       - name: app
         image: demo:v2
 `
-	oldIndex := manifest.Parse(oldManifest, "prod", true)
-	newIndex := manifest.Parse(newManifest, "prod", true)
+	oldIndex := manifest.Parse([]byte(oldManifest), "prod", true)
+	newIndex := manifest.Parse([]byte(newManifest), "prod", true)
 
 	var buf bytes.Buffer
 	changed := Manifests(oldIndex, newIndex, opts, &buf)
@@ -656,7 +656,7 @@ metadata:
   namespace: ops
 spec: {}
 `
-	newIndex := manifest.Parse(newManifest, "ops", true)
+	newIndex := manifest.Parse([]byte(newManifest), "ops", true)
 
 	var buf bytes.Buffer
 	changed := Manifests(map[string]*manifest.MappingResult{}, newIndex, opts, &buf)
@@ -702,8 +702,8 @@ metadata:
 data:
   password: Zm9v
 `
-	oldIndex := manifest.Parse(oldManifest, "default", true)
-	newIndex := manifest.Parse(newManifest, "default", true)
+	oldIndex := manifest.Parse([]byte(oldManifest), "default", true)
+	newIndex := manifest.Parse([]byte(newManifest), "default", true)
 
 	var buf bytes.Buffer
 	changed := Manifests(oldIndex, newIndex, opts, &buf)
@@ -822,8 +822,8 @@ metadata:
   name: test
   namespace: default
 `
-		oldIndex := manifest.Parse(emptyManifest, "default", true)
-		newIndex := manifest.Parse(validManifest, "default", true)
+		oldIndex := manifest.Parse([]byte(emptyManifest), "default", true)
+		newIndex := manifest.Parse([]byte(validManifest), "default", true)
 
 		var buf bytes.Buffer
 		changed := Manifests(oldIndex, newIndex, opts, &buf)
@@ -846,8 +846,8 @@ metadata:
   name: test
   namespace: default
 `
-		oldIndex := manifest.Parse(nullManifest, "default", true)
-		newIndex := manifest.Parse(validManifest, "default", true)
+		oldIndex := manifest.Parse([]byte(nullManifest), "default", true)
+		newIndex := manifest.Parse([]byte(validManifest), "default", true)
 
 		var buf bytes.Buffer
 		changed := Manifests(oldIndex, newIndex, opts, &buf)
@@ -890,8 +890,8 @@ data:
       deeply:
         value: new
 `
-		oldIndex := manifest.Parse(oldManifest, "default", true)
-		newIndex := manifest.Parse(newManifest, "default", true)
+		oldIndex := manifest.Parse([]byte(oldManifest), "default", true)
+		newIndex := manifest.Parse([]byte(newManifest), "default", true)
 
 		var buf bytes.Buffer
 		changed := Manifests(oldIndex, newIndex, opts, &buf)
@@ -944,8 +944,8 @@ spec:
         - name: KEY2
           value: val2
 `
-		oldIndex := manifest.Parse(oldManifest, "prod", true)
-		newIndex := manifest.Parse(newManifest, "prod", true)
+		oldIndex := manifest.Parse([]byte(oldManifest), "prod", true)
+		newIndex := manifest.Parse([]byte(newManifest), "prod", true)
 
 		var buf bytes.Buffer
 		changed := Manifests(oldIndex, newIndex, opts, &buf)
@@ -967,8 +967,8 @@ spec:
 		emptyManifest1 := ``
 		emptyManifest2 := ``
 
-		oldIndex := manifest.Parse(emptyManifest1, "default", true)
-		newIndex := manifest.Parse(emptyManifest2, "default", true)
+		oldIndex := manifest.Parse([]byte(emptyManifest1), "default", true)
+		newIndex := manifest.Parse([]byte(emptyManifest2), "default", true)
 
 		var buf bytes.Buffer
 		changed := Manifests(oldIndex, newIndex, opts, &buf)
@@ -1591,5 +1591,130 @@ data:
 		}
 		redactSecrets(nil, new)
 		require.Contains(t, new.Content, "key1: '++++++++ # (6 bytes)'")
+	})
+}
+
+func TestRenameDetectionLengthRatio(t *testing.T) {
+	ansi.DisableColors(true)
+
+	makeSpec := func(name string, content string) map[string]*manifest.MappingResult {
+		return map[string]*manifest.MappingResult{
+			name: {
+				Name:    name,
+				Kind:    "Deployment",
+				Content: content,
+			},
+		}
+	}
+
+	shortContent := `
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: short
+spec:
+  replicas: 1
+`
+
+	shortContentRenamed := `
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: short-renamed
+spec:
+  replicas: 1
+`
+
+	longContent := `
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: very-long
+spec:
+  replicas: 1
+  template:
+    spec:
+      containers:
+      - name: app
+        image: myapp:v1
+        ports:
+        - containerPort: 8080
+        env:
+        - name: VAR1
+          value: "hello"
+        - name: VAR2
+          value: "world"
+        - name: VAR3
+          value: "foo"
+        - name: VAR4
+          value: "bar"
+        - name: VAR5
+          value: "baz"
+        resources:
+          limits:
+            cpu: "1"
+            memory: "1Gi"
+`
+
+	t.Run("similar length detects rename", func(t *testing.T) {
+		var buf bytes.Buffer
+		opts := &Options{OutputFormat: "diff", OutputContext: 10, ShowSecrets: true, FindRenames: 0.5}
+
+		oldSpec := makeSpec("default, short, Deployment (apps)", shortContent)
+		newSpec := makeSpec("default, short-renamed, Deployment (apps)", shortContentRenamed)
+
+		changed := Manifests(oldSpec, newSpec, opts, &buf)
+		require.True(t, changed)
+		require.Contains(t, buf.String(), "default, short, Deployment (apps) has changed")
+	})
+
+	t.Run("very different length skips rename", func(t *testing.T) {
+		var buf bytes.Buffer
+		opts := &Options{OutputFormat: "diff", OutputContext: 10, ShowSecrets: true, FindRenames: 0.5}
+
+		oldSpec := makeSpec("default, short, Deployment (apps)", shortContent)
+		newSpec := makeSpec("default, very-long, Deployment (apps)", longContent)
+
+		changed := Manifests(oldSpec, newSpec, opts, &buf)
+		require.True(t, changed)
+		require.Contains(t, buf.String(), "default, short, Deployment (apps) has been removed")
+		require.Contains(t, buf.String(), "default, very-long, Deployment (apps) has been added")
+	})
+
+	t.Run("empty content skipped", func(t *testing.T) {
+		var buf bytes.Buffer
+		opts := &Options{OutputFormat: "diff", OutputContext: 10, ShowSecrets: true, FindRenames: 0.5}
+
+		oldSpec := map[string]*manifest.MappingResult{
+			"default, empty, Deployment (apps)": {
+				Name:    "default, empty, Deployment (apps)",
+				Kind:    "Deployment",
+				Content: "",
+			},
+		}
+		newSpec := makeSpec("default, short-renamed, Deployment (apps)", shortContentRenamed)
+
+		changed := Manifests(oldSpec, newSpec, opts, &buf)
+		require.True(t, changed)
+		require.Contains(t, buf.String(), "has been added")
+	})
+
+	t.Run("different kind skipped", func(t *testing.T) {
+		var buf bytes.Buffer
+		opts := &Options{OutputFormat: "diff", OutputContext: 10, ShowSecrets: true, FindRenames: 0.5}
+
+		oldSpec := map[string]*manifest.MappingResult{
+			"default, svc, Service (v1)": {
+				Name:    "default, svc, Service (v1)",
+				Kind:    "Service",
+				Content: shortContent,
+			},
+		}
+		newSpec := makeSpec("default, svc-renamed, Deployment (apps)", shortContentRenamed)
+
+		changed := Manifests(oldSpec, newSpec, opts, &buf)
+		require.True(t, changed)
+		require.Contains(t, buf.String(), "has been removed")
+		require.Contains(t, buf.String(), "has been added")
 	})
 }
