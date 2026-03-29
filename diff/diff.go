@@ -208,9 +208,14 @@ func contentSearch(report *Report, possiblyRemoved []string, oldIndex map[string
 			if oldLen == 0 || newLen == 0 {
 				continue
 			}
-			ratio := float32(oldLen) / float32(newLen)
-			if ratio < renameDetectionMinLengthRatio || ratio > renameDetectionMaxLengthRatio {
-				continue
+			// Skip the length-ratio filter for Secrets: their raw content length can
+			// differ greatly from the post-processed (redacted/decoded) length, so the
+			// ratio would be an unreliable predictor of content similarity.
+			if oldContent.Kind != "Secret" {
+				ratio := float32(oldLen) / float32(newLen)
+				if ratio < renameDetectionMinLengthRatio || ratio > renameDetectionMaxLengthRatio {
+					continue
+				}
 			}
 
 			switch {

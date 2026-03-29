@@ -1658,7 +1658,7 @@ spec:
 
 	t.Run("similar length detects rename", func(t *testing.T) {
 		var buf bytes.Buffer
-		opts := &Options{"diff", 10, false, true, false, []string{}, 0.5, []string{}}
+		opts := &Options{OutputFormat: "diff", OutputContext: 10, ShowSecrets: true, FindRenames: 0.5}
 
 		oldSpec := makeSpec("default, short, Deployment (apps)", shortContent)
 		newSpec := makeSpec("default, short-renamed, Deployment (apps)", shortContentRenamed)
@@ -1670,7 +1670,7 @@ spec:
 
 	t.Run("very different length skips rename", func(t *testing.T) {
 		var buf bytes.Buffer
-		opts := &Options{"diff", 10, false, true, false, []string{}, 0.5, []string{}}
+		opts := &Options{OutputFormat: "diff", OutputContext: 10, ShowSecrets: true, FindRenames: 0.5}
 
 		oldSpec := makeSpec("default, short, Deployment (apps)", shortContent)
 		newSpec := makeSpec("default, very-long, Deployment (apps)", longContent)
@@ -1683,7 +1683,7 @@ spec:
 
 	t.Run("empty content skipped", func(t *testing.T) {
 		var buf bytes.Buffer
-		opts := &Options{"diff", 10, false, true, false, []string{}, 0.5, []string{}}
+		opts := &Options{OutputFormat: "diff", OutputContext: 10, ShowSecrets: true, FindRenames: 0.5}
 
 		oldSpec := map[string]*manifest.MappingResult{
 			"default, empty, Deployment (apps)": {
@@ -1701,7 +1701,7 @@ spec:
 
 	t.Run("different kind skipped", func(t *testing.T) {
 		var buf bytes.Buffer
-		opts := &Options{"diff", 10, false, true, false, []string{}, 0.5, []string{}}
+		opts := &Options{OutputFormat: "diff", OutputContext: 10, ShowSecrets: true, FindRenames: 0.5}
 
 		oldSpec := map[string]*manifest.MappingResult{
 			"default, svc, Service (v1)": {
