@@ -332,7 +332,7 @@ func (d *diffCmd) runHelm3() error {
 			currentSpecs = manifest.Parse(releaseManifest, d.namespace, d.normalizeManifests, manifest.Helm3TestHook, manifest.Helm2TestSuccessHook)
 		}
 	}
-	releaseManifest = nil
+	releaseManifest = nil //nolint:ineffassign // nil to allow GC to reclaim raw bytes before diff computation
 
 	var newOwnedReleases map[string]diff.OwnershipDiff
 	if d.takeOwnership {
@@ -352,7 +352,7 @@ func (d *diffCmd) runHelm3() error {
 	} else {
 		newSpecs = manifest.Parse(installManifest, d.namespace, d.normalizeManifests, manifest.Helm3TestHook, manifest.Helm2TestSuccessHook)
 	}
-	installManifest = nil
+	installManifest = nil //nolint:ineffassign // nil to allow GC to reclaim raw bytes before diff computation
 
 	seenAnyChanges := diff.ManifestsOwnership(currentSpecs, newSpecs, newOwnedReleases, &d.Options, os.Stdout)
 
