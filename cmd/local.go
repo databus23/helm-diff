@@ -115,14 +115,18 @@ func localCmd() *cobra.Command {
 }
 
 func (l *local) run() error {
+	if err := l.prepareStdinValues(); err != nil {
+		return err
+	}
+
 	manifest1, err := l.renderChart(l.chart1)
 	if err != nil {
-		return fmt.Errorf("Failed to render chart %s: %w", l.chart1, err)
+		return fmt.Errorf("failed to render chart %s: %w", l.chart1, err)
 	}
 
 	manifest2, err := l.renderChart(l.chart2)
 	if err != nil {
-		return fmt.Errorf("Failed to render chart %s: %w", l.chart2, err)
+		return fmt.Errorf("failed to render chart %s: %w", l.chart2, err)
 	}
 
 	excludes := []string{manifest.Helm3TestHook, manifest.Helm2TestSuccessHook}
@@ -142,6 +146,36 @@ func (l *local) run() error {
 		}
 	}
 
+	return nil
+}
+
+func (l *local) prepareStdinValues() error {
+	for i, valueFile := range l.valueFiles {
+		if strings.TrimSpace(valueFile) == "-" {
+			data, err := io.ReadAll(os.Stdin)
+			if err != nil {
+				return err
+			}
+
+			tmpfile, err := os.CreateTemp("", "helm-diff-stdin-values")
+			if err != nil {
+				return err
+			}
+			defer os.Remove(tmpfile.Name())
+
+			if _, err := tmpfile.Write(data); err != nil {
+				tmpfile.Close()
+				return err
+			}
+
+			if err := tmpfile.Close(); err != nil {
+				return err
+			}
+
+			l.valueFiles[i] = tmpfile.Name()
+			break
+		}
+	}
 	return nil
 }
 
@@ -165,33 +199,7 @@ func (l *local) renderChart(chartPath string) ([]byte, error) {
 	}
 
 	for _, valueFile := range l.valueFiles {
-		if strings.TrimSpace(valueFile) == "-" {
-			bytes, err := io.ReadAll(os.Stdin)
-			if err != nil {
-				return nil, err
-			}
-
-			tmpfile, err := os.CreateTemp("", "helm-diff-stdin-values")
-			if err != nil {
-				return nil, err
-			}
-			defer func() {
-				_ = os.Remove(tmpfile.Name())
-			}()
-
-			if _, err := tmpfile.Write(bytes); err != nil {
-				_ = tmpfile.Close()
-				return nil, err
-			}
-
-			if err := tmpfile.Close(); err != nil {
-				return nil, err
-			}
-
-			flags = append(flags, "--values", tmpfile.Name())
-		} else {
-			flags = append(flags, "--values", valueFile)
-		}
+		flags = append(flags, "--values", valueFile)
 	}
 
 	for _, value := range l.values {
@@ -229,6 +237,10 @@ func (l *local) renderChart(chartPath string) ([]byte, error) {
 	args := []string{"template", l.release, chartPath}
 	args = append(args, flags...)
 
-	cmd := exec.Command(os.Getenv("HELM_BIN"), args...)
+	helmBin := os.Getenv("HELM_BIN")
+	if helmBin == "" {
+		helmBin = "helm"
+	}
+	cmd := exec.Command(helmBin, args...)
 	return outputWithRichError(cmd)
 }
