@@ -9,7 +9,7 @@ require (
 	github.com/gonvenience/bunt v1.4.3
 	github.com/gonvenience/ytbx v1.4.9
 	github.com/google/go-cmp v0.7.0
-	github.com/homeport/dyff v1.11.2
+	github.com/homeport/dyff v1.11.3
 	github.com/json-iterator/go v1.1.12
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
 	github.com/spf13/cobra v1.10.2
@@ -93,7 +93,7 @@ require (
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/go-ps v1.0.0 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
-	github.com/mitchellh/hashstructure v1.1.0 // indirect
+	github.com/mitchellh/hashstructure/v2 v2.0.2 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/moby/term v0.5.2 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
