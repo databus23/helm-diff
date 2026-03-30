@@ -46,25 +46,23 @@ function Download-Plugin {
 function Install-Plugin {
   param ([Parameter(Mandatory=$true)][string] $ArchiveDirectory, [Parameter(Mandatory=$true)][string] $ArchiveName, [Parameter(Mandatory=$true)][string] $Destination)
   Push-Location $ArchiveDirectory
-  tar -xzf $ArchiveName -C . 
+  tar -xzf $ArchiveName -C .
   Pop-Location
   New-Item -ItemType Directory -Path $Destination -Force
   Copy-Item -Path (Join-Path $ArchiveDirectory "diff" "bin" "diff.exe") -Destination $Destination -Force
 }
 
 $ErrorActionPreference = "Stop"
+
 $archiveName = "helm-diff.tgz"
 $arch = Get-Architecture
-$version = Get-Version -Update $Update
 $tmpDir = New-TemporaryDirectory
-trap {  Remove-Item -path $tmpDir -Recurse -Force }
-
+trap {   Remove-Item -path $tmpDir -Recurse -Force }
 $output = Join-Path $tmpDir $archiveName
 
 # Check for offline installation via environment variable
 if ($env:HELM_DIFF_BIN_TGZ) {
     Write-Host "HELM_DIFF_BIN_TGZ is set. Using local package at: $($env:HELM_DIFF_BIN_TGZ)"
-
     if (-not (Test-Path $env:HELM_DIFF_BIN_TGZ -PathType Leaf)) {
         throw "Offline installation failed: File not found at '$($env:HELM_DIFF_BIN_TGZ)'"
     }
@@ -72,10 +70,9 @@ if ($env:HELM_DIFF_BIN_TGZ) {
 }
 else {
     # Proceed with online installation
-    Write-Host "HELM_DIFF_BIN_TGZ not set. Proceeding with online installation."
+    $version = Get-Version -Update $Update
     $url = Get-Url -Version $version -Architecture $arch
     Download-Plugin -Url $url -Output $output
 }
 
 Install-Plugin -ArchiveDirectory $tmpDir -ArchiveName $archiveName -Destination (Join-Path $env:HELM_PLUGIN_DIR "bin")
-
