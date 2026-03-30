@@ -134,8 +134,8 @@ func (l *local) run() error {
 		excludes = []string{}
 	}
 
-	specs1 := manifest.Parse(string(manifest1), l.namespace, l.normalizeManifests, excludes...)
-	specs2 := manifest.Parse(string(manifest2), l.namespace, l.normalizeManifests, excludes...)
+	specs1 := manifest.Parse(manifest1, l.namespace, l.normalizeManifests, excludes...)
+	specs2 := manifest.Parse(manifest2, l.namespace, l.normalizeManifests, excludes...)
 
 	seenAnyChanges := diff.Manifests(specs1, specs2, &l.Options, os.Stdout)
 
