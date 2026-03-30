@@ -161,10 +161,10 @@ func (l *local) prepareStdinValues() error {
 			if err != nil {
 				return err
 			}
-			defer os.Remove(tmpfile.Name())
+			defer func() { _ = os.Remove(tmpfile.Name()) }()
 
 			if _, err := tmpfile.Write(data); err != nil {
-				tmpfile.Close()
+				_ = tmpfile.Close()
 				return err
 			}
 
