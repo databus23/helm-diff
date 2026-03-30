@@ -35,6 +35,7 @@ $env:HELM_DIFF_BIN_TGZ = "C:\path\to\helm-diff-bin.tgz"
 ```
 
 Now, run `helm plugin install /path/to/helm-diff/`.
+Here, `/path/to/helm-diff/` must be a local copy of the Helm Diff plugin source directory (including `plugin.yaml` and the install scripts), for example from a repo you cloned or a source archive you downloaded earlier and transferred into the offline environment.
 The install script will skip the GitHub download and instead install from the `.tgz`.
 
 **For Helm 4 users:**
