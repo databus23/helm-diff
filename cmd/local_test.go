@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"errors"
 	"os"
 	"strings"
 	"testing"
@@ -258,8 +259,8 @@ fi
 		t.Fatal("Expected error with exit code 2 but got nil")
 	}
 
-	diffErr, ok := err.(Error)
-	if !ok {
+	var diffErr Error
+	if !errors.As(err, &diffErr) {
 		t.Fatalf("Expected Error type but got %T: %v", err, err)
 	}
 	if diffErr.Code != 2 {
