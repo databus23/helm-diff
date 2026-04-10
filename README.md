@@ -21,6 +21,26 @@ This can also be used to compare two revisions/versions of your helm release.
 helm plugin install https://github.com/databus23/helm-diff
 ```
 
+### Installing offline
+
+If installing this in an offline/airgapped environment, download the platform-specific binary archive (e.g., `helm-diff-linux-amd64.tgz` or `helm-diff-windows-amd64.tgz`) from [releases](https://github.com/databus23/helm-diff/releases). Make sure to select the correct `.tgz` file for your operating system and architecture.
+
+Set `HELM_DIFF_BIN_TGZ` to the absolute path to the downloaded binary archive:
+
+**POSIX shell:**
+```sh
+export HELM_DIFF_BIN_TGZ=/path/to/helm-diff-linux-amd64.tgz
+
+
+**PowerShell:**
+```powershell
+$env:HELM_DIFF_BIN_TGZ = "C:\path\to\helm-diff-bin.tgz"
+```
+
+Now, run `helm plugin install /path/to/helm-diff/`.
+Here, `/path/to/helm-diff/` must be a local copy of the Helm Diff plugin source directory (including `plugin.yaml` and the install scripts), for example from a repo you cloned or a source archive you downloaded earlier and transferred into the offline environment.
+The install script will skip the GitHub download and instead install from the `.tgz`.
+
 **For Helm 4 users:**
 
 Helm 4 requires plugin verification by default. Since this plugin does not yet provide provenance artifacts, you need to use the `--verify=false` flag:
