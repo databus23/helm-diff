@@ -113,8 +113,6 @@ This can be used to visualize what changes a helm upgrade will
 perform.
 `
 
-var envSettings = cli.New()
-
 func newChartCommand() *cobra.Command {
 	diff := diffCmd{
 		namespace: os.Getenv("HELM_NAMESPACE"),
