@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -111,8 +112,6 @@ and compares it to a chart plus values.
 This can be used to visualize what changes a helm upgrade will
 perform.
 `
-
-var envSettings = cli.New()
 
 func newChartCommand() *cobra.Command {
 	diff := diffCmd{
@@ -297,11 +296,7 @@ func (d *diffCmd) runHelm3() error {
 	var actionConfig *action.Configuration
 	if d.threeWayMerge || d.takeOwnership {
 		actionConfig = new(action.Configuration)
-		localEnv := cli.New()
-		*localEnv = *envSettings
-		if d.kubeContext != "" {
-			localEnv.KubeContext = d.kubeContext
-		}
+		localEnv := prepareEnvSettings(d.kubeContext)
 		if err := actionConfig.Init(localEnv.RESTClientGetter(), localEnv.Namespace(), os.Getenv("HELM_DRIVER")); err != nil {
 			log.Fatalf("%+v", err)
 		}
@@ -408,4 +403,15 @@ func checkOwnership(d *diffCmd, resources kube.ResourceList, currentSpecs map[st
 		return nil
 	})
 	return newOwnedReleases, err
+}
+
+func prepareEnvSettings(kubeContext string) *cli.EnvSettings {
+	localEnv := cli.New()
+	if len(filepath.SplitList(localEnv.KubeConfig)) > 1 {
+		localEnv.KubeConfig = ""
+	}
+	if kubeContext != "" {
+		localEnv.KubeContext = kubeContext
+	}
+	return localEnv
 }
