@@ -98,7 +98,7 @@ jobs:
 
       - name: Setup WSL
         if: "contains(matrix.shell, 'wsl')"
-        uses: Vampire/setup-wsl@v6
+        uses: Vampire/setup-wsl@v7
 
       - name: Setup Cygwin
         if: "contains(matrix.shell, 'cygwin')"
