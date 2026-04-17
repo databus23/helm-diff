@@ -166,6 +166,48 @@ func TestPrintDyffReportDoesNotMergeAddRemoveWithFindRenames(t *testing.T) {
 	require.Contains(t, addRemoveOutput, "new-app")
 }
 
+func TestPrintDyffReportFindRenamesChangesOutput(t *testing.T) {
+	entries := []ReportEntry{
+		{
+			Key:        "default, old-app, Deployment (apps)",
+			Kind:       "Deployment",
+			ChangeType: "REMOVE",
+			Diffs: []difflib.DiffRecord{
+				{Payload: "apiVersion: apps/v1", Delta: difflib.LeftOnly},
+				{Payload: "kind: Deployment", Delta: difflib.LeftOnly},
+				{Payload: "metadata:", Delta: difflib.LeftOnly},
+				{Payload: "  name: old-app", Delta: difflib.LeftOnly},
+				{Payload: "spec:", Delta: difflib.LeftOnly},
+				{Payload: "  replicas: 3", Delta: difflib.LeftOnly},
+			},
+		},
+		{
+			Key:        "default, new-app, Deployment (apps)",
+			Kind:       "Deployment",
+			ChangeType: "ADD",
+			Diffs: []difflib.DiffRecord{
+				{Payload: "apiVersion: apps/v1", Delta: difflib.RightOnly},
+				{Payload: "kind: Deployment", Delta: difflib.RightOnly},
+				{Payload: "metadata:", Delta: difflib.RightOnly},
+				{Payload: "  name: new-app", Delta: difflib.RightOnly},
+				{Payload: "spec:", Delta: difflib.RightOnly},
+				{Payload: "  replicas: 3", Delta: difflib.RightOnly},
+			},
+		},
+	}
+
+	var noRenameBuf bytes.Buffer
+	printDyffReport(&Report{FindRenames: 0, Entries: entries}, &noRenameBuf)
+	noRenameOutput := noRenameBuf.String()
+
+	var withRenameBuf bytes.Buffer
+	printDyffReport(&Report{FindRenames: 1.0, Entries: entries}, &withRenameBuf)
+	withRenameOutput := withRenameBuf.String()
+
+	require.NotEqual(t, noRenameOutput, withRenameOutput,
+		"Output with FindRenames > 0 should differ from FindRenames == 0 for similar ADD+REMOVE entries")
+}
+
 func TestPrintDyffReportEmpty(t *testing.T) {
 	report := &Report{
 		Entries: []ReportEntry{},

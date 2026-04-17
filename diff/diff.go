@@ -118,7 +118,9 @@ func doSuppress(report Report, suppressedOutputLineRegex []string) (Report, erro
 		return report, nil
 	}
 
-	filteredReport := Report{}
+	filteredReport := Report{
+		FindRenames: report.FindRenames,
+	}
 	filteredReport.format = report.format
 	filteredReport.Entries = []ReportEntry{}
 
