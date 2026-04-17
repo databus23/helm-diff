@@ -114,6 +114,7 @@ func printDyffReport(r *Report, to io.Writer) {
 	compareOptions = append(compareOptions,
 		dyff.IgnoreWhitespaceChanges(true),
 		dyff.KubernetesEntityDetection(true),
+		dyff.DetectRenames(true),
 	)
 	report, _ := dyff.CompareInputFiles(currentInputFile, newInputFile, compareOptions...)
 	reportWriter := &dyff.HumanReport{
