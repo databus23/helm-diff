@@ -104,8 +104,9 @@ func TestPrintDyffReportWithAddAndRemove(t *testing.T) {
 	require.Contains(t, output, "new-app", "Expected dyff output to show added resource new-app")
 }
 
-func TestPrintDyffReportDoesNotMergeAddRemove(t *testing.T) {
+func TestPrintDyffReportDoesNotMergeAddRemoveWithFindRenames(t *testing.T) {
 	addRemoveReport := &Report{
+		FindRenames: 1.0,
 		Entries: []ReportEntry{
 			{
 				Key:        "default, old-app, Deployment (apps)",
@@ -133,6 +134,7 @@ func TestPrintDyffReportDoesNotMergeAddRemove(t *testing.T) {
 	}
 
 	modifyReport := &Report{
+		FindRenames: 1.0,
 		Entries: []ReportEntry{
 			{
 				Key:        "default, app, Deployment (apps)",

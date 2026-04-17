@@ -65,7 +65,7 @@ func ManifestReport(oldIndex, newIndex map[string]*manifest.MappingResult, optio
 }
 
 func generateReport(oldIndex, newIndex map[string]*manifest.MappingResult, newOwnedReleases map[string]OwnershipDiff, options *Options) (bool, *Report, error) {
-	report := Report{}
+	report := Report{FindRenames: options.FindRenames}
 	report.setupReportFormat(options.OutputFormat)
 	var possiblyRemoved []string
 
