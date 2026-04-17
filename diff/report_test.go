@@ -164,6 +164,52 @@ func TestPrintDyffReportDoesNotMergeAddRemove(t *testing.T) {
 	require.Contains(t, addRemoveOutput, "new-app")
 }
 
+func TestPrintDyffReportDetectsRenames(t *testing.T) {
+	// When DetectRenames is enabled, dyff should correlate documents that
+	// differ only in metadata.name and show the name change as a
+	// modification instead of a full document removal + addition.
+	report := &Report{
+		Entries: []ReportEntry{
+			{
+				Key:        "default, my-app, Deployment (apps)",
+				Kind:       "Deployment",
+				ChangeType: "REMOVE",
+				Diffs: []difflib.DiffRecord{
+					{Payload: "apiVersion: apps/v1", Delta: difflib.LeftOnly},
+					{Payload: "kind: Deployment", Delta: difflib.LeftOnly},
+					{Payload: "metadata:", Delta: difflib.LeftOnly},
+					{Payload: "  name: my-app", Delta: difflib.LeftOnly},
+					{Payload: "spec:", Delta: difflib.LeftOnly},
+					{Payload: "  replicas: 3", Delta: difflib.LeftOnly},
+				},
+			},
+			{
+				Key:        "default, my-app-renamed, Deployment (apps)",
+				Kind:       "Deployment",
+				ChangeType: "ADD",
+				Diffs: []difflib.DiffRecord{
+					{Payload: "apiVersion: apps/v1", Delta: difflib.RightOnly},
+					{Payload: "kind: Deployment", Delta: difflib.RightOnly},
+					{Payload: "metadata:", Delta: difflib.RightOnly},
+					{Payload: "  name: my-app-renamed", Delta: difflib.RightOnly},
+					{Payload: "spec:", Delta: difflib.RightOnly},
+					{Payload: "  replicas: 3", Delta: difflib.RightOnly},
+				},
+			},
+		},
+	}
+
+	var buf bytes.Buffer
+	printDyffReport(report, &buf)
+	output := buf.String()
+
+	require.NotEmpty(t, output)
+	// With rename detection, dyff should show the name field change rather
+	// than presenting the entire documents as removed/added.
+	require.Contains(t, output, "metadata.name")
+	require.Contains(t, output, "my-app-renamed")
+}
+
 func TestPrintDyffReportEmpty(t *testing.T) {
 	report := &Report{
 		Entries: []ReportEntry{},
