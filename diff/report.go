@@ -20,9 +20,10 @@ import (
 
 // Report to store report data and format
 type Report struct {
-	format  ReportFormat
-	Entries []ReportEntry
-	mode    string
+	format      ReportFormat
+	Entries     []ReportEntry
+	mode        string
+	findRenames float32
 }
 
 // ReportEntry to store changes between releases
@@ -115,6 +116,9 @@ func printDyffReport(r *Report, to io.Writer) {
 		dyff.IgnoreWhitespaceChanges(true),
 		dyff.KubernetesEntityDetection(true),
 	)
+	if r.findRenames > 0 {
+		compareOptions = append(compareOptions, dyff.DetectRenames(true))
+	}
 	report, _ := dyff.CompareInputFiles(currentInputFile, newInputFile, compareOptions...)
 	reportWriter := &dyff.HumanReport{
 		Report:               report,

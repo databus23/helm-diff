@@ -104,8 +104,9 @@ func TestPrintDyffReportWithAddAndRemove(t *testing.T) {
 	require.Contains(t, output, "new-app", "Expected dyff output to show added resource new-app")
 }
 
-func TestPrintDyffReportDoesNotMergeAddRemove(t *testing.T) {
+func TestPrintDyffReportAddRemoveDiffersFromModify(t *testing.T) {
 	addRemoveReport := &Report{
+		findRenames: 1.0,
 		Entries: []ReportEntry{
 			{
 				Key:        "default, old-app, Deployment (apps)",
@@ -133,6 +134,7 @@ func TestPrintDyffReportDoesNotMergeAddRemove(t *testing.T) {
 	}
 
 	modifyReport := &Report{
+		findRenames: 1.0,
 		Entries: []ReportEntry{
 			{
 				Key:        "default, app, Deployment (apps)",
@@ -162,6 +164,55 @@ func TestPrintDyffReportDoesNotMergeAddRemove(t *testing.T) {
 		"ADD+REMOVE output should differ from MODIFY output to verify dyff does not merge them as a rename")
 	require.Contains(t, addRemoveOutput, "old-app")
 	require.Contains(t, addRemoveOutput, "new-app")
+}
+
+func TestPrintDyffReportRenameDetectionEnabledWithFindRenames(t *testing.T) {
+	entries := []ReportEntry{
+		{
+			Key:        "default, old-app, Deployment (apps)",
+			Kind:       "Deployment",
+			ChangeType: "REMOVE",
+			Diffs: []difflib.DiffRecord{
+				{Payload: "apiVersion: apps/v1", Delta: difflib.LeftOnly},
+				{Payload: "kind: Deployment", Delta: difflib.LeftOnly},
+				{Payload: "metadata:", Delta: difflib.LeftOnly},
+				{Payload: "  name: old-app", Delta: difflib.LeftOnly},
+				{Payload: "spec:", Delta: difflib.LeftOnly},
+				{Payload: "  replicas: 3", Delta: difflib.LeftOnly},
+			},
+		},
+		{
+			Key:        "default, new-app, Deployment (apps)",
+			Kind:       "Deployment",
+			ChangeType: "ADD",
+			Diffs: []difflib.DiffRecord{
+				{Payload: "apiVersion: apps/v1", Delta: difflib.RightOnly},
+				{Payload: "kind: Deployment", Delta: difflib.RightOnly},
+				{Payload: "metadata:", Delta: difflib.RightOnly},
+				{Payload: "  name: new-app", Delta: difflib.RightOnly},
+				{Payload: "spec:", Delta: difflib.RightOnly},
+				{Payload: "  replicas: 3", Delta: difflib.RightOnly},
+			},
+		},
+	}
+
+	var noRenameBuf bytes.Buffer
+	printDyffReport(&Report{findRenames: 0, Entries: entries}, &noRenameBuf)
+	noRenameOutput := noRenameBuf.String()
+
+	require.Contains(t, noRenameOutput, "one document removed",
+		"Without findRenames, dyff should report a separate document removal")
+	require.Contains(t, noRenameOutput, "one document added",
+		"Without findRenames, dyff should report a separate document addition")
+
+	var withRenameBuf bytes.Buffer
+	printDyffReport(&Report{findRenames: 1.0, Entries: entries}, &withRenameBuf)
+	withRenameOutput := withRenameBuf.String()
+
+	require.NotContains(t, withRenameOutput, "one document removed",
+		"With findRenames > 0, dyff should match documents as a rename, not report removal")
+	require.Contains(t, withRenameOutput, "value change",
+		"With findRenames > 0, dyff should show the matched rename as a value change")
 }
 
 func TestPrintDyffReportEmpty(t *testing.T) {
