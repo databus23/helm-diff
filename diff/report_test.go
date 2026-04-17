@@ -104,9 +104,9 @@ func TestPrintDyffReportWithAddAndRemove(t *testing.T) {
 	require.Contains(t, output, "new-app", "Expected dyff output to show added resource new-app")
 }
 
-func TestPrintDyffReportDoesNotMergeAddRemoveWithFindRenames(t *testing.T) {
+func TestPrintDyffReportAddRemoveDiffersFromModify(t *testing.T) {
 	addRemoveReport := &Report{
-		FindRenames: 1.0,
+		findRenames: 1.0,
 		Entries: []ReportEntry{
 			{
 				Key:        "default, old-app, Deployment (apps)",
@@ -134,7 +134,7 @@ func TestPrintDyffReportDoesNotMergeAddRemoveWithFindRenames(t *testing.T) {
 	}
 
 	modifyReport := &Report{
-		FindRenames: 1.0,
+		findRenames: 1.0,
 		Entries: []ReportEntry{
 			{
 				Key:        "default, app, Deployment (apps)",
@@ -166,7 +166,7 @@ func TestPrintDyffReportDoesNotMergeAddRemoveWithFindRenames(t *testing.T) {
 	require.Contains(t, addRemoveOutput, "new-app")
 }
 
-func TestPrintDyffReportFindRenamesChangesOutput(t *testing.T) {
+func TestPrintDyffReportRenameDetectionEnabledWithFindRenames(t *testing.T) {
 	entries := []ReportEntry{
 		{
 			Key:        "default, old-app, Deployment (apps)",
@@ -197,15 +197,22 @@ func TestPrintDyffReportFindRenamesChangesOutput(t *testing.T) {
 	}
 
 	var noRenameBuf bytes.Buffer
-	printDyffReport(&Report{FindRenames: 0, Entries: entries}, &noRenameBuf)
+	printDyffReport(&Report{findRenames: 0, Entries: entries}, &noRenameBuf)
 	noRenameOutput := noRenameBuf.String()
 
+	require.Contains(t, noRenameOutput, "one document removed",
+		"Without findRenames, dyff should report a separate document removal")
+	require.Contains(t, noRenameOutput, "one document added",
+		"Without findRenames, dyff should report a separate document addition")
+
 	var withRenameBuf bytes.Buffer
-	printDyffReport(&Report{FindRenames: 1.0, Entries: entries}, &withRenameBuf)
+	printDyffReport(&Report{findRenames: 1.0, Entries: entries}, &withRenameBuf)
 	withRenameOutput := withRenameBuf.String()
 
-	require.NotEqual(t, noRenameOutput, withRenameOutput,
-		"Output with FindRenames > 0 should differ from FindRenames == 0 for similar ADD+REMOVE entries")
+	require.NotContains(t, withRenameOutput, "one document removed",
+		"With findRenames > 0, dyff should match documents as a rename, not report removal")
+	require.Contains(t, withRenameOutput, "value change",
+		"With findRenames > 0, dyff should show the matched rename as a value change")
 }
 
 func TestPrintDyffReportEmpty(t *testing.T) {

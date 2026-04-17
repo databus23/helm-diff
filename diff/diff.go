@@ -65,7 +65,7 @@ func ManifestReport(oldIndex, newIndex map[string]*manifest.MappingResult, optio
 }
 
 func generateReport(oldIndex, newIndex map[string]*manifest.MappingResult, newOwnedReleases map[string]OwnershipDiff, options *Options) (bool, *Report, error) {
-	report := Report{FindRenames: options.FindRenames}
+	report := Report{findRenames: options.FindRenames}
 	report.setupReportFormat(options.OutputFormat)
 	var possiblyRemoved []string
 
@@ -119,7 +119,7 @@ func doSuppress(report Report, suppressedOutputLineRegex []string) (Report, erro
 	}
 
 	filteredReport := Report{
-		FindRenames: report.FindRenames,
+		findRenames: report.findRenames,
 	}
 	filteredReport.format = report.format
 	filteredReport.Entries = []ReportEntry{}

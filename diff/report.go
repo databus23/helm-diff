@@ -23,7 +23,7 @@ type Report struct {
 	format      ReportFormat
 	Entries     []ReportEntry
 	mode        string
-	FindRenames float32
+	findRenames float32
 }
 
 // ReportEntry to store changes between releases
@@ -116,7 +116,7 @@ func printDyffReport(r *Report, to io.Writer) {
 		dyff.IgnoreWhitespaceChanges(true),
 		dyff.KubernetesEntityDetection(true),
 	)
-	if r.FindRenames > 0 {
+	if r.findRenames > 0 {
 		compareOptions = append(compareOptions, dyff.DetectRenames(true))
 	}
 	report, _ := dyff.CompareInputFiles(currentInputFile, newInputFile, compareOptions...)
