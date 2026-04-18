@@ -48,8 +48,6 @@ func TestLocalCmdArgValidation(t *testing.T) {
 }
 
 func TestLocalCmdExecution(t *testing.T) {
-	tmpDir := t.TempDir()
-	fakeHelm := tmpDir + "/helm"
 	manifestYAML := `---
 apiVersion: v1
 kind: ConfigMap
@@ -59,17 +57,7 @@ metadata:
 data:
   key: value
 `
-
-	err := os.WriteFile(fakeHelm, []byte(`#!/bin/sh
-cat <<EOF
-`+manifestYAML+`
-EOF
-`), 0755)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	t.Setenv("HELM_BIN", fakeHelm)
+	setupFakeHelm(t, "default", manifestYAML, "", "")
 
 	chart1 := t.TempDir()
 	chart2 := t.TempDir()
@@ -77,15 +65,13 @@ EOF
 	cmd := localCmd()
 	cmd.SetArgs([]string{chart1, chart2})
 
-	err = cmd.Execute()
+	err := cmd.Execute()
 	if err != nil {
 		t.Errorf("Expected no error but got: %v", err)
 	}
 }
 
 func TestLocalCmdNoChanges(t *testing.T) {
-	tmpDir := t.TempDir()
-	fakeHelm := tmpDir + "/helm"
 	manifestYAML := `---
 apiVersion: v1
 kind: ConfigMap
@@ -95,16 +81,7 @@ metadata:
 data:
   key: value
 `
-	err := os.WriteFile(fakeHelm, []byte(`#!/bin/sh
-cat <<'EOF'
-`+manifestYAML+`
-EOF
-`), 0755)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	t.Setenv("HELM_BIN", fakeHelm)
+	setupFakeHelm(t, "default", manifestYAML, "", "")
 
 	chart1 := t.TempDir()
 	chart2 := t.TempDir()
@@ -116,7 +93,7 @@ EOF
 	cmd := localCmd()
 	cmd.SetArgs([]string{chart1, chart2})
 
-	err = cmd.Execute()
+	err := cmd.Execute()
 	w.Close()
 	os.Stdout = oldStdout
 
@@ -132,9 +109,6 @@ EOF
 }
 
 func TestLocalCmdWithChanges(t *testing.T) {
-	tmpDir := t.TempDir()
-	fakeHelm := tmpDir + "/helm"
-
 	manifest1 := `---
 apiVersion: v1
 kind: ConfigMap
@@ -153,28 +127,7 @@ metadata:
 data:
   key: value2
 `
-
-	script := `#!/bin/sh
-CALL_COUNT="` + tmpDir + `/call_count"
-COUNT=$(cat "$CALL_COUNT" 2>/dev/null || echo "0")
-COUNT=$((COUNT + 1))
-echo "$COUNT" > "$CALL_COUNT"
-if [ "$COUNT" = "1" ]; then
-cat <<'MANIFEST1'
-` + manifest1 + `
-MANIFEST1
-else
-cat <<'MANIFEST2'
-` + manifest2 + `
-MANIFEST2
-fi
-`
-	err := os.WriteFile(fakeHelm, []byte(script), 0755)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	t.Setenv("HELM_BIN", fakeHelm)
+	setupFakeHelmDual(t, manifest1, manifest2)
 
 	chart1 := t.TempDir()
 	chart2 := t.TempDir()
@@ -186,7 +139,7 @@ fi
 	cmd := localCmd()
 	cmd.SetArgs([]string{chart1, chart2})
 
-	err = cmd.Execute()
+	err := cmd.Execute()
 	w.Close()
 	os.Stdout = oldStdout
 
@@ -204,9 +157,6 @@ fi
 }
 
 func TestLocalCmdDetailedExitCode(t *testing.T) {
-	tmpDir := t.TempDir()
-	fakeHelm := tmpDir + "/helm"
-
 	manifest1 := `---
 apiVersion: v1
 kind: ConfigMap
@@ -225,28 +175,7 @@ metadata:
 data:
   key: value2
 `
-
-	script := `#!/bin/sh
-CALL_COUNT="` + tmpDir + `/call_count"
-COUNT=$(cat "$CALL_COUNT" 2>/dev/null || echo "0")
-COUNT=$((COUNT + 1))
-echo "$COUNT" > "$CALL_COUNT"
-if [ "$COUNT" = "1" ]; then
-cat <<'MANIFEST1'
-` + manifest1 + `
-MANIFEST1
-else
-cat <<'MANIFEST2'
-` + manifest2 + `
-MANIFEST2
-fi
-`
-	err := os.WriteFile(fakeHelm, []byte(script), 0755)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	t.Setenv("HELM_BIN", fakeHelm)
+	setupFakeHelmDual(t, manifest1, manifest2)
 
 	chart1 := t.TempDir()
 	chart2 := t.TempDir()
@@ -254,7 +183,7 @@ fi
 	cmd := localCmd()
 	cmd.SetArgs([]string{chart1, chart2, "--detailed-exitcode"})
 
-	err = cmd.Execute()
+	err := cmd.Execute()
 	if err == nil {
 		t.Fatal("Expected error with exit code 2 but got nil")
 	}
@@ -269,8 +198,6 @@ fi
 }
 
 func TestLocalCmdDetailedExitCodeNoChanges(t *testing.T) {
-	tmpDir := t.TempDir()
-	fakeHelm := tmpDir + "/helm"
 	manifestYAML := `---
 apiVersion: v1
 kind: ConfigMap
@@ -280,16 +207,7 @@ metadata:
 data:
   key: value
 `
-	err := os.WriteFile(fakeHelm, []byte(`#!/bin/sh
-cat <<'EOF'
-`+manifestYAML+`
-EOF
-`), 0755)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	t.Setenv("HELM_BIN", fakeHelm)
+	setupFakeHelm(t, "default", manifestYAML, "", "")
 
 	chart1 := t.TempDir()
 	chart2 := t.TempDir()
@@ -297,34 +215,23 @@ EOF
 	cmd := localCmd()
 	cmd.SetArgs([]string{chart1, chart2, "--detailed-exitcode"})
 
-	err = cmd.Execute()
+	err := cmd.Execute()
 	if err != nil {
 		t.Errorf("Expected no error when no changes, but got: %v", err)
 	}
 }
 
 func TestLocalCmdNamespace(t *testing.T) {
-	tmpDir := t.TempDir()
-	fakeHelm := tmpDir + "/helm"
-
-	script := `#!/bin/sh
-echo "$@" > ` + tmpDir + `/args
-cat <<'EOF'
----
+	manifestYAML := `---
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: test-config
 data:
   key: value
-EOF
 `
-	err := os.WriteFile(fakeHelm, []byte(script), 0755)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	t.Setenv("HELM_BIN", fakeHelm)
+	argsFile := t.TempDir() + "/args"
+	setupFakeHelm(t, "capture_args", manifestYAML, argsFile, "")
 
 	chart1 := t.TempDir()
 	chart2 := t.TempDir()
@@ -332,31 +239,19 @@ EOF
 	cmd := localCmd()
 	cmd.SetArgs([]string{chart1, chart2, "--namespace", "myns"})
 
-	err = cmd.Execute()
+	err := cmd.Execute()
 	if err != nil {
 		t.Fatalf("Expected no error but got: %v", err)
 	}
 
-	args1, _ := os.ReadFile(tmpDir + "/args")
+	args1, _ := os.ReadFile(argsFile)
 	if !strings.Contains(string(args1), "--namespace myns") {
 		t.Errorf("Expected --namespace myns in helm template args, got: %q", string(args1))
 	}
 }
 
 func TestLocalCmdHelmTemplateError(t *testing.T) {
-	tmpDir := t.TempDir()
-	fakeHelm := tmpDir + "/helm"
-
-	script := `#!/bin/sh
-echo "error: chart not found" >&2
-exit 1
-`
-	err := os.WriteFile(fakeHelm, []byte(script), 0755)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	t.Setenv("HELM_BIN", fakeHelm)
+	setupFakeHelm(t, "error", "", "", "")
 
 	chart1 := t.TempDir()
 	chart2 := t.TempDir()
@@ -364,8 +259,30 @@ exit 1
 	cmd := localCmd()
 	cmd.SetArgs([]string{chart1, chart2})
 
-	err = cmd.Execute()
+	err := cmd.Execute()
 	if err == nil {
 		t.Fatal("Expected error when helm template fails but got nil")
 	}
+}
+
+func setupFakeHelm(t *testing.T, mode, output, argsFile, countFile string) {
+	t.Helper()
+	t.Setenv("HELM_DIFF_FAKE_HELM", "1")
+	t.Setenv("HELM_DIFF_FAKE_HELM_MODE", mode)
+	t.Setenv("HELM_DIFF_FAKE_OUTPUT", output)
+	t.Setenv("HELM_DIFF_FAKE_ARGS_FILE", argsFile)
+	t.Setenv("HELM_DIFF_FAKE_COUNT_FILE", countFile)
+	exe, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HELM_BIN", exe)
+}
+
+func setupFakeHelmDual(t *testing.T, manifest1, manifest2 string) {
+	t.Helper()
+	countFile := t.TempDir() + "/call_count"
+	setupFakeHelm(t, "dual", "", "", countFile)
+	t.Setenv("HELM_DIFF_FAKE_OUTPUT_1", manifest1)
+	t.Setenv("HELM_DIFF_FAKE_OUTPUT_2", manifest2)
 }

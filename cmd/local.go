@@ -115,8 +115,12 @@ func localCmd() *cobra.Command {
 }
 
 func (l *local) run() error {
-	if err := l.prepareStdinValues(); err != nil {
+	cleanup, err := l.prepareStdinValues()
+	if err != nil {
 		return err
+	}
+	if cleanup != nil {
+		defer cleanup()
 	}
 
 	manifest1, err := l.renderChart(l.chart1)
@@ -149,34 +153,34 @@ func (l *local) run() error {
 	return nil
 }
 
-func (l *local) prepareStdinValues() error {
+func (l *local) prepareStdinValues() (func(), error) {
 	for i, valueFile := range l.valueFiles {
 		if strings.TrimSpace(valueFile) == "-" {
 			data, err := io.ReadAll(os.Stdin)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			tmpfile, err := os.CreateTemp("", "helm-diff-stdin-values")
 			if err != nil {
-				return err
+				return nil, err
 			}
-			defer func() { _ = os.Remove(tmpfile.Name()) }()
 
 			if _, err := tmpfile.Write(data); err != nil {
 				_ = tmpfile.Close()
-				return err
+				return nil, err
 			}
 
 			if err := tmpfile.Close(); err != nil {
-				return err
+				return nil, err
 			}
 
 			l.valueFiles[i] = tmpfile.Name()
-			break
+			name := tmpfile.Name()
+			return func() { _ = os.Remove(name) }, nil
 		}
 	}
-	return nil
+	return nil, nil
 }
 
 func (l *local) renderChart(chartPath string) ([]byte, error) {

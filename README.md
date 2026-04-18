@@ -210,7 +210,7 @@ Flags:
       --kube-version string                      Kubernetes version used for Capabilities.KubeVersion
       --namespace string                         namespace to use for template rendering
       --normalize-manifests                      normalize manifests before running diff to exclude style differences from the output
-      --output string                            Possible values: diff, simple, template, dyff. When set to "template", use the env var HELM_DIFF_TPL to specify the template. (default "diff")
+      --output string                            Possible values: diff, simple, template, json, structured, dyff. When set to "template", use the env var HELM_DIFF_TPL to specify the template. (default "diff")
       --post-renderer string                     the path to an executable to be used for post rendering. If it exists in $PATH, the binary will be used, otherwise it will try to look for the executable at the given path
       --post-renderer-args stringArray           an argument to the post-renderer (can specify multiple)
       --release string                           release name to use for template rendering (default "release")
