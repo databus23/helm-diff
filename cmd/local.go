@@ -132,13 +132,10 @@ func (l *local) run() error {
 		excludes = []string{}
 	}
 
-	var specs1, specs2 map[string]*manifest.MappingResult
-	func() {
-		specs1 = manifest.Parse(manifest1, l.namespace, l.normalizeManifests, excludes...)
-		specs2 = manifest.Parse(manifest2, l.namespace, l.normalizeManifests, excludes...)
-		manifest1 = nil
-		manifest2 = nil
-	}()
+	specs1 := manifest.Parse(manifest1, l.namespace, l.normalizeManifests, excludes...)
+	specs2 := manifest.Parse(manifest2, l.namespace, l.normalizeManifests, excludes...)
+	manifest1 = nil //nolint:ineffassign // nil to allow GC to reclaim raw bytes before diff computation
+	manifest2 = nil //nolint:ineffassign // nil to allow GC to reclaim raw bytes before diff computation
 
 	seenAnyChanges := diff.Manifests(specs1, specs2, &l.Options, os.Stdout)
 
