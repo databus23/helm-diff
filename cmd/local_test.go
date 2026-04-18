@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"bytes"
 	"errors"
 	"os"
 	"strings"
@@ -86,31 +85,20 @@ data:
 	chart1 := t.TempDir()
 	chart2 := t.TempDir()
 
-	oldStdout := os.Stdout
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("Failed to create pipe: %v", err)
-	}
-	os.Stdout = w
+	output, err := captureStdout(func() {
+		cmd := localCmd()
+		cmd.SetArgs([]string{chart1, chart2})
 
-	cmd := localCmd()
-	cmd.SetArgs([]string{chart1, chart2})
-
-	err = cmd.Execute()
-	w.Close()
-	os.Stdout = oldStdout
+		if execErr := cmd.Execute(); execErr != nil {
+			t.Errorf("Expected no error but got: %v", execErr)
+		}
+	})
 
 	if err != nil {
-		t.Fatalf("Expected no error but got: %v", err)
+		t.Fatalf("Failed to capture stdout: %v", err)
 	}
-
-	var buf bytes.Buffer
-	if _, err := buf.ReadFrom(r); err != nil {
-		t.Fatalf("Failed to read from pipe: %v", err)
-	}
-	r.Close()
-	if buf.String() != "" {
-		t.Errorf("Expected no output when charts are identical, got: %q", buf.String())
+	if output != "" {
+		t.Errorf("Expected no output when charts are identical, got: %q", output)
 	}
 }
 
@@ -138,30 +126,18 @@ data:
 	chart1 := t.TempDir()
 	chart2 := t.TempDir()
 
-	oldStdout := os.Stdout
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("Failed to create pipe: %v", err)
-	}
-	os.Stdout = w
+	output, err := captureStdout(func() {
+		cmd := localCmd()
+		cmd.SetArgs([]string{chart1, chart2})
 
-	cmd := localCmd()
-	cmd.SetArgs([]string{chart1, chart2})
-
-	err = cmd.Execute()
-	w.Close()
-	os.Stdout = oldStdout
+		if execErr := cmd.Execute(); execErr != nil {
+			t.Errorf("Expected no error but got: %v", execErr)
+		}
+	})
 
 	if err != nil {
-		t.Fatalf("Expected no error but got: %v", err)
+		t.Fatalf("Failed to capture stdout: %v", err)
 	}
-
-	var buf bytes.Buffer
-	if _, err := buf.ReadFrom(r); err != nil {
-		t.Fatalf("Failed to read from pipe: %v", err)
-	}
-	r.Close()
-	output := buf.String()
 
 	if !strings.Contains(output, "value1") || !strings.Contains(output, "value2") {
 		t.Errorf("Expected diff output containing value1 and value2, got: %q", output)
@@ -277,6 +253,92 @@ func TestLocalCmdHelmTemplateError(t *testing.T) {
 	err := cmd.Execute()
 	if err == nil {
 		t.Fatal("Expected error when helm template fails but got nil")
+	}
+}
+
+func TestPrepareStdinValues(t *testing.T) {
+	l := &local{
+		valueFiles: valueFiles{"-", "-", "real-values.yaml"},
+	}
+
+	stdinContent := `key: stdin-value
+`
+	tmpStdin, err := os.CreateTemp("", "fake-stdin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(tmpStdin.Name())
+	if _, err := tmpStdin.WriteString(stdinContent); err != nil {
+		t.Fatal(err)
+	}
+	if err := tmpStdin.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	oldStdin := os.Stdin
+	f, err := os.Open(tmpStdin.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.Stdin = f
+	defer func() {
+		os.Stdin = oldStdin
+		f.Close()
+	}()
+
+	cleanup, err := l.prepareStdinValues()
+	if err != nil {
+		t.Fatalf("Expected no error but got: %v", err)
+	}
+	if cleanup == nil {
+		t.Fatal("Expected cleanup function but got nil")
+	}
+
+	if l.valueFiles[0] == "-" {
+		t.Error("Expected first valueFile to be replaced with temp file path")
+	}
+	if l.valueFiles[1] == "-" {
+		t.Error("Expected second valueFile to be replaced with temp file path")
+	}
+	if l.valueFiles[0] != l.valueFiles[1] {
+		t.Errorf("Expected both '-' entries to point to the same temp file, got %q and %q", l.valueFiles[0], l.valueFiles[1])
+	}
+	if _, err := os.Stat(l.valueFiles[0]); os.IsNotExist(err) {
+		t.Errorf("Expected temp file %q to exist", l.valueFiles[0])
+	}
+	if l.valueFiles[2] != "real-values.yaml" {
+		t.Errorf("Expected third valueFile to be unchanged, got %q", l.valueFiles[2])
+	}
+
+	data, err := os.ReadFile(l.valueFiles[0])
+	if err != nil {
+		t.Fatalf("Failed to read temp file: %v", err)
+	}
+	if string(data) != stdinContent {
+		t.Errorf("Expected temp file to contain stdin content %q, got %q", stdinContent, string(data))
+	}
+
+	cleanup()
+
+	if _, err := os.Stat(l.valueFiles[0]); !os.IsNotExist(err) {
+		t.Errorf("Expected temp file %q to be removed after cleanup", l.valueFiles[0])
+	}
+}
+
+func TestPrepareStdinValuesNoStdin(t *testing.T) {
+	l := &local{
+		valueFiles: valueFiles{"values1.yaml", "values2.yaml"},
+	}
+
+	cleanup, err := l.prepareStdinValues()
+	if err != nil {
+		t.Fatalf("Expected no error but got: %v", err)
+	}
+	if cleanup != nil {
+		t.Error("Expected nil cleanup function when no stdin values")
+	}
+	if l.valueFiles[0] != "values1.yaml" || l.valueFiles[1] != "values2.yaml" {
+		t.Errorf("Expected valueFiles to be unchanged, got %v", l.valueFiles)
 	}
 }
 

@@ -119,12 +119,12 @@ func (l *local) run() error {
 
 	manifest1, err := l.renderChart(l.chart1)
 	if err != nil {
-		return fmt.Errorf("failed to render chart %s: %w", l.chart1, err)
+		return fmt.Errorf("failed to render chart %q: %w", l.chart1, err)
 	}
 
 	manifest2, err := l.renderChart(l.chart2)
 	if err != nil {
-		return fmt.Errorf("failed to render chart %s: %w", l.chart2, err)
+		return fmt.Errorf("failed to render chart %q: %w", l.chart2, err)
 	}
 
 	excludes := []string{manifest.Helm3TestHook, manifest.Helm2TestSuccessHook}
@@ -134,6 +134,8 @@ func (l *local) run() error {
 
 	specs1 := manifest.Parse(manifest1, l.namespace, l.normalizeManifests, excludes...)
 	specs2 := manifest.Parse(manifest2, l.namespace, l.normalizeManifests, excludes...)
+	manifest1 = nil
+	manifest2 = nil
 
 	seenAnyChanges := diff.Manifests(specs1, specs2, &l.Options, os.Stdout)
 
@@ -165,10 +167,12 @@ func (l *local) prepareStdinValues() (func(), error) {
 
 				if _, err := tmpfile.Write(data); err != nil {
 					_ = tmpfile.Close()
+					_ = os.Remove(tmpfile.Name())
 					return nil, err
 				}
 
 				if err := tmpfile.Close(); err != nil {
+					_ = os.Remove(tmpfile.Name())
 					return nil, err
 				}
 
