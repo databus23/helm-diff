@@ -132,10 +132,13 @@ func (l *local) run() error {
 		excludes = []string{}
 	}
 
-	specs1 := manifest.Parse(manifest1, l.namespace, l.normalizeManifests, excludes...)
-	specs2 := manifest.Parse(manifest2, l.namespace, l.normalizeManifests, excludes...)
-	manifest1 = nil
-	manifest2 = nil
+	var specs1, specs2 map[string]*manifest.MappingResult
+	func() {
+		specs1 = manifest.Parse(manifest1, l.namespace, l.normalizeManifests, excludes...)
+		specs2 = manifest.Parse(manifest2, l.namespace, l.normalizeManifests, excludes...)
+		manifest1 = nil
+		manifest2 = nil
+	}()
 
 	seenAnyChanges := diff.Manifests(specs1, specs2, &l.Options, os.Stdout)
 
