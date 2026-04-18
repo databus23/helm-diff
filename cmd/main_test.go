@@ -7,8 +7,18 @@ import (
 	"testing"
 )
 
+func shouldRunFakeHelm() bool {
+	if os.Getenv("HELM_DIFF_FAKE_HELM") != "1" {
+		return false
+	}
+	if len(os.Args) < 2 {
+		return false
+	}
+	return !strings.HasPrefix(os.Args[1], "-test.")
+}
+
 func TestMain(m *testing.M) {
-	if os.Getenv("HELM_DIFF_FAKE_HELM") == "1" {
+	if shouldRunFakeHelm() {
 		mode := os.Getenv("HELM_DIFF_FAKE_HELM_MODE")
 		switch mode {
 		case "error":

@@ -117,25 +117,23 @@ func (l *local) run() error {
 		defer cleanup()
 	}
 
-	manifest1, err := l.renderChart(l.chart1)
-	if err != nil {
-		return fmt.Errorf("failed to render chart %q: %w", l.chart1, err)
-	}
-
-	manifest2, err := l.renderChart(l.chart2)
-	if err != nil {
-		return fmt.Errorf("failed to render chart %q: %w", l.chart2, err)
-	}
-
 	excludes := []string{manifest.Helm3TestHook, manifest.Helm2TestSuccessHook}
 	if l.includeTests {
 		excludes = []string{}
 	}
 
+	manifest1, err := l.renderChart(l.chart1)
+	if err != nil {
+		return fmt.Errorf("failed to render chart %q: %w", l.chart1, err)
+	}
 	specs1 := manifest.Parse(manifest1, l.namespace, l.normalizeManifests, excludes...)
+	manifest1 = nil //nolint:ineffassign // nil to allow GC to reclaim raw bytes before rendering the second chart
+
+	manifest2, err := l.renderChart(l.chart2)
+	if err != nil {
+		return fmt.Errorf("failed to render chart %q: %w", l.chart2, err)
+	}
 	specs2 := manifest.Parse(manifest2, l.namespace, l.normalizeManifests, excludes...)
-	manifest1 = nil //nolint:ineffassign // nil to allow GC to reclaim raw bytes before diff computation
-	manifest2 = nil //nolint:ineffassign // nil to allow GC to reclaim raw bytes before diff computation
 
 	seenAnyChanges := diff.Manifests(specs1, specs2, &l.Options, os.Stdout)
 
