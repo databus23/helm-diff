@@ -87,13 +87,16 @@ data:
 	chart2 := t.TempDir()
 
 	oldStdout := os.Stdout
-	r, w, _ := os.Pipe()
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("Failed to create pipe: %v", err)
+	}
 	os.Stdout = w
 
 	cmd := localCmd()
 	cmd.SetArgs([]string{chart1, chart2})
 
-	err := cmd.Execute()
+	err = cmd.Execute()
 	w.Close()
 	os.Stdout = oldStdout
 
@@ -102,7 +105,10 @@ data:
 	}
 
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	if _, err := buf.ReadFrom(r); err != nil {
+		t.Fatalf("Failed to read from pipe: %v", err)
+	}
+	r.Close()
 	if buf.String() != "" {
 		t.Errorf("Expected no output when charts are identical, got: %q", buf.String())
 	}
@@ -133,13 +139,16 @@ data:
 	chart2 := t.TempDir()
 
 	oldStdout := os.Stdout
-	r, w, _ := os.Pipe()
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("Failed to create pipe: %v", err)
+	}
 	os.Stdout = w
 
 	cmd := localCmd()
 	cmd.SetArgs([]string{chart1, chart2})
 
-	err := cmd.Execute()
+	err = cmd.Execute()
 	w.Close()
 	os.Stdout = oldStdout
 
@@ -148,7 +157,10 @@ data:
 	}
 
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	if _, err := buf.ReadFrom(r); err != nil {
+		t.Fatalf("Failed to read from pipe: %v", err)
+	}
+	r.Close()
 	output := buf.String()
 
 	if !strings.Contains(output, "value1") || !strings.Contains(output, "value2") {
@@ -244,7 +256,10 @@ data:
 		t.Fatalf("Expected no error but got: %v", err)
 	}
 
-	args1, _ := os.ReadFile(argsFile)
+	args1, err := os.ReadFile(argsFile)
+	if err != nil {
+		t.Fatalf("Expected fake helm args file to be readable, but got: %v", err)
+	}
 	if !strings.Contains(string(args1), "--namespace myns") {
 		t.Errorf("Expected --namespace myns in helm template args, got: %q", string(args1))
 	}

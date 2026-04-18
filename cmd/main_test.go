@@ -16,13 +16,23 @@ func TestMain(m *testing.M) {
 			os.Exit(1)
 		case "dual":
 			countFile := os.Getenv("HELM_DIFF_FAKE_COUNT_FILE")
-			data, _ := os.ReadFile(countFile)
+			data, err := os.ReadFile(countFile)
+			if err != nil && !os.IsNotExist(err) {
+				fmt.Fprintf(os.Stderr, "failed to read count file %q: %v\n", countFile, err)
+				os.Exit(1)
+			}
 			count := 0
 			if len(data) > 0 {
-				fmt.Sscanf(string(data), "%d", &count)
+				if _, err := fmt.Sscanf(string(data), "%d", &count); err != nil {
+					fmt.Fprintf(os.Stderr, "failed to parse count from %q: %v\n", string(data), err)
+					os.Exit(1)
+				}
 			}
 			count++
-			os.WriteFile(countFile, []byte(fmt.Sprintf("%d", count)), 0644)
+			if err := os.WriteFile(countFile, []byte(fmt.Sprintf("%d", count)), 0644); err != nil {
+				fmt.Fprintf(os.Stderr, "failed to write count file %q: %v\n", countFile, err)
+				os.Exit(1)
+			}
 			if count == 1 {
 				fmt.Print(os.Getenv("HELM_DIFF_FAKE_OUTPUT_1"))
 			} else {
@@ -31,7 +41,10 @@ func TestMain(m *testing.M) {
 		case "capture_args":
 			argsFile := os.Getenv("HELM_DIFF_FAKE_ARGS_FILE")
 			if argsFile != "" {
-				os.WriteFile(argsFile, []byte(strings.Join(os.Args[1:], " ")), 0644)
+				if err := os.WriteFile(argsFile, []byte(strings.Join(os.Args[1:], " ")), 0644); err != nil {
+					fmt.Fprintf(os.Stderr, "failed to write fake helm args file %q: %v\n", argsFile, err)
+					os.Exit(1)
+				}
 			}
 			fmt.Print(os.Getenv("HELM_DIFF_FAKE_OUTPUT"))
 		default:

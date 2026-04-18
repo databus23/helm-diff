@@ -64,13 +64,7 @@ func localCmd() *cobra.Command {
 			"  helm diff local /path/to/chart-a /path/to/chart-b --set replicas=3",
 		}, "\n"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Suppress the command usage on error. See #77 for more info
 			cmd.SilenceUsage = true
-
-			if v, _ := cmd.Flags().GetBool("version"); v {
-				fmt.Println(Version)
-				return nil
-			}
 
 			if err := checkArgsLength(len(args), "chart1 path", "chart2 path"); err != nil {
 				return err
@@ -154,31 +148,39 @@ func (l *local) run() error {
 }
 
 func (l *local) prepareStdinValues() (func(), error) {
+	var name string
+
 	for i, valueFile := range l.valueFiles {
 		if strings.TrimSpace(valueFile) == "-" {
-			data, err := io.ReadAll(os.Stdin)
-			if err != nil {
-				return nil, err
+			if name == "" {
+				data, err := io.ReadAll(os.Stdin)
+				if err != nil {
+					return nil, err
+				}
+
+				tmpfile, err := os.CreateTemp("", "helm-diff-stdin-values")
+				if err != nil {
+					return nil, err
+				}
+
+				if _, err := tmpfile.Write(data); err != nil {
+					_ = tmpfile.Close()
+					return nil, err
+				}
+
+				if err := tmpfile.Close(); err != nil {
+					return nil, err
+				}
+
+				name = tmpfile.Name()
 			}
 
-			tmpfile, err := os.CreateTemp("", "helm-diff-stdin-values")
-			if err != nil {
-				return nil, err
-			}
-
-			if _, err := tmpfile.Write(data); err != nil {
-				_ = tmpfile.Close()
-				return nil, err
-			}
-
-			if err := tmpfile.Close(); err != nil {
-				return nil, err
-			}
-
-			l.valueFiles[i] = tmpfile.Name()
-			name := tmpfile.Name()
-			return func() { _ = os.Remove(name) }, nil
+			l.valueFiles[i] = name
 		}
+	}
+
+	if name != "" {
+		return func() { _ = os.Remove(name) }, nil
 	}
 	return nil, nil
 }
