@@ -32,6 +32,8 @@ type Options struct {
 	SuppressedOutputLineRegex []string
 }
 
+const kindSecret = "Secret"
+
 // StructuredOutput returns true when the structured JSON output is requested.
 func (o *Options) StructuredOutput() bool {
 	return o != nil && o.OutputFormat == "structured"
@@ -213,7 +215,7 @@ func contentSearch(report *Report, possiblyRemoved []string, oldIndex map[string
 			// Skip the length-ratio filter for Secrets: their raw content length can
 			// differ greatly from the post-processed (redacted/decoded) length, so the
 			// ratio would be an unreliable predictor of content similarity.
-			if oldContent.Kind != "Secret" {
+			if oldContent.Kind != kindSecret {
 				ratio := float32(oldLen) / float32(newLen)
 				if ratio < renameDetectionMinLengthRatio || ratio > renameDetectionMaxLengthRatio {
 					continue
@@ -351,7 +353,7 @@ func preHandleSecrets(old, new *manifest.MappingResult) (v1.Secret, v1.Secret, e
 
 // redactSecrets redacts secrets from the diff output.
 func redactSecrets(old, new *manifest.MappingResult) {
-	if (old != nil && old.Kind != "Secret") || (new != nil && new.Kind != "Secret") {
+	if (old != nil && old.Kind != kindSecret) || (new != nil && new.Kind != kindSecret) {
 		return
 	}
 	serializer := json.NewYAMLSerializer(json.DefaultMetaFactory, scheme.Scheme, scheme.Scheme)
@@ -402,7 +404,7 @@ func redactSecrets(old, new *manifest.MappingResult) {
 
 // decodeSecrets decodes secrets from the diff output.
 func decodeSecrets(old, new *manifest.MappingResult) {
-	if (old != nil && old.Kind != "Secret") || (new != nil && new.Kind != "Secret") {
+	if (old != nil && old.Kind != kindSecret) || (new != nil && new.Kind != kindSecret) {
 		return
 	}
 	serializer := json.NewYAMLSerializer(json.DefaultMetaFactory, scheme.Scheme, scheme.Scheme)

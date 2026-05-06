@@ -352,7 +352,7 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 				// Note: dryRunMode="true" behaves like "client" (no cluster access).
 				// Note: dryRunMode="false" behaves like "none" (no dry-run flag at all).
 				// See https://github.com/databus23/helm-diff/issues/894
-				if !slices.Contains([]string{"client", "true", "false"}, d.dryRunMode) {
+				if !slices.Contains([]string{dryRunNoOptDefVal, envTrue, envFalse}, d.dryRunMode) {
 					flags = append(flags, "--dry-run=server")
 				}
 			} else {
@@ -383,10 +383,10 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 			// additional dry-run flag here. In all other cases (Helm v3 or d.dryRunMode is "client"/"true"),
 			// we add the appropriate dry-run mode below.
 			// Note: dryRunMode="false" means no dry-run flag at all.
-			if d.dryRunMode == "false" {
+			if d.dryRunMode == envFalse {
 				// "false" means no dry-run, skip adding any dry-run flag
-			} else if !(isHelmV4 && !slices.Contains([]string{"client", "true"}, d.dryRunMode)) {
-				if d.dryRunMode == "server" {
+			} else if !(isHelmV4 && !slices.Contains([]string{dryRunNoOptDefVal, envTrue}, d.dryRunMode)) {
+				if d.dryRunMode == dryRunServer {
 					// This is for security reasons!
 					//
 					// We give helm-template the additional cluster access for the helm `lookup` function

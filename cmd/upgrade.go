@@ -23,12 +23,15 @@ import (
 )
 
 var (
-	validDryRunValues = []string{"server", "client", "true", "false"}
+	validDryRunValues = []string{dryRunServer, dryRunNoOptDefVal, envTrue, envFalse}
 )
 
 const (
 	dryRunNoOptDefVal = "client"
+	dryRunNone        = "none"
+	dryRunServer      = "server"
 	envTrue           = "true"
+	envFalse          = "false"
 )
 
 type diffCmd struct {
@@ -102,7 +105,7 @@ func (d *diffCmd) isAllowUnreleased() bool {
 //
 // See also https://github.com/helm/helm/pull/9426#discussion_r1181397259
 func (d *diffCmd) clusterAccessAllowed() bool {
-	return d.dryRunMode == "none" || d.dryRunMode == "false" || d.dryRunMode == "server"
+	return d.dryRunMode == dryRunNone || d.dryRunMode == envFalse || d.dryRunMode == dryRunServer
 }
 
 const globalUsage = `Show a diff explaining what a helm upgrade would change.
@@ -158,9 +161,9 @@ func newChartCommand() *cobra.Command {
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if diff.dryRunMode == "" {
-				diff.dryRunMode = "none"
+				diff.dryRunMode = dryRunNone
 			} else if !slices.Contains(validDryRunValues, diff.dryRunMode) {
-				return fmt.Errorf("flag %q must take a bool value or either %q or %q, but got %q", "dry-run", "client", "server", diff.dryRunMode)
+				return fmt.Errorf("flag %q must take a bool value or either %q or %q, but got %q", "dry-run", dryRunNoOptDefVal, dryRunServer, diff.dryRunMode)
 			}
 
 			// Suppress the command usage on error. See #77 for more info

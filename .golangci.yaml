@@ -147,6 +147,7 @@ linters:
           - dupl
           - errcheck
           - funlen
+          - goconst
           - gocyclo
           - gosec
         path: _test\.go
