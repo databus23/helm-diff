@@ -145,8 +145,8 @@ github.com/gonvenience/bunt v1.4.3 h1:MLd8YWu1Vl1tiL+XfXJvVA9kL71yQT0N+x7gXVH9H7
 github.com/gonvenience/bunt v1.4.3/go.mod h1:ggA6odP6FNOh50mGxxytSSJTs2Ghy5Veq9wIVSbuoAw=
 github.com/gonvenience/idem v0.0.3 h1:rZ2f17JU5GHa3b5M5R2fClz0dYN3EFGhHHGo3AZz/1U=
 github.com/gonvenience/idem v0.0.3/go.mod h1:ChZ+RP8e30+uCBcCIzN/0di6lTO2PucjemgKfzQUQEw=
-github.com/gonvenience/neat v1.3.18 h1:WxWoXhsTHA6CStNrGgSEjGTt5MwIm+7Xs+VZmQIuXZA=
-github.com/gonvenience/neat v1.3.18/go.mod h1:DTaEyHIOjSkMa066EoZZl3k5KCG/rFGE67n0cjm/9qk=
+github.com/gonvenience/neat v1.3.20 h1:KdevSy5GLb3h1U5AYGw3NwW9FAAU2MWfrtsDHzYaKOg=
+github.com/gonvenience/neat v1.3.20/go.mod h1:GbVes855L3QYFkDg9pnxHe/FQVsr1Tl+ME0fyOZO4Lg=
 github.com/gonvenience/term v1.0.5 h1:PYfBH7FB1V+tuuJl4KYrqG/tzAOUnvTy8IFa9YqYrJY=
 github.com/gonvenience/term v1.0.5/go.mod h1:CYvcU7H3nE6eOP0gvGfYz4BjGJzM1GeNp+fx4IBWKLs=
 github.com/gonvenience/text v1.0.10 h1:QRqtC/KMk57K7y4jHi4HjLxf8u+tg+/tIRCS5afywNE=
@@ -178,8 +178,8 @@ github.com/hashicorp/golang-lru/arc/v2 v2.0.5 h1:l2zaLDubNhW4XO3LnliVj0GXO3+/CGN
 github.com/hashicorp/golang-lru/arc/v2 v2.0.5/go.mod h1:ny6zBSQZi2JxIeYcv7kt2sH2PXJtirBN7RDhRpxPkxU=
 github.com/hashicorp/golang-lru/v2 v2.0.5 h1:wW7h1TG88eUIJ2i69gaE3uNVtEPIagzhGvHgwfx2Vm4=
 github.com/hashicorp/golang-lru/v2 v2.0.5/go.mod h1:QeFd9opnmA6QUJc5vARoKUSoFhyfM2/ZepoAG6RGpeM=
-github.com/homeport/dyff v1.11.3 h1:frSTXugUi/kfgjG2FwSAor6njXgK0Jd7R6SeRj1jLmg=
-github.com/homeport/dyff v1.11.3/go.mod h1:fu9MGb46CJAva05aAYSQdlh5NDJj4LSkecTQummTzS0=
+github.com/homeport/dyff v1.12.0 h1:1d4T2vdY0hYeWtAxjMLIX9bI8OijBfOuKH3wzfdYZT8=
+github.com/homeport/dyff v1.12.0/go.mod h1:ArdUQcX099hp+uQ7pnimwU0Xgk2ba7E7nqdFv3WBRr8=
 github.com/huandu/xstrings v1.5.0 h1:2ag3IFq9ZDANvthTwTiqSSZLjDc+BedvHPAp5tJy2TI=
 github.com/huandu/xstrings v1.5.0/go.mod h1:y5/lhBue+AyNmUVz9RLU9xbLR0o4KIIExikq4ovT0aE=
 github.com/ianlancetaylor/demangle v0.0.0-20251118225945-96ee0021ea0f h1:Fnl4pzx8SR7k7JuzyW8lEtSFH6EQ8xgcypgIn8pcGIE=

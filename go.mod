@@ -9,7 +9,7 @@ require (
 	github.com/gonvenience/bunt v1.4.3
 	github.com/gonvenience/ytbx v1.5.0
 	github.com/google/go-cmp v0.7.0
-	github.com/homeport/dyff v1.11.3
+	github.com/homeport/dyff v1.12.0
 	github.com/json-iterator/go v1.1.12
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
 	github.com/spf13/cobra v1.10.2
@@ -69,7 +69,7 @@ require (
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/gofrs/flock v0.13.0 // indirect
 	github.com/gonvenience/idem v0.0.3 // indirect
-	github.com/gonvenience/neat v1.3.18 // indirect
+	github.com/gonvenience/neat v1.3.20 // indirect
 	github.com/gonvenience/term v1.0.5 // indirect
 	github.com/gonvenience/text v1.0.10 // indirect
 	github.com/google/btree v1.1.3 // indirect
