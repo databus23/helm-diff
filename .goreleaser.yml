@@ -52,6 +52,27 @@ archives:
     - README.md
     - plugin.yaml
     - LICENSE
+
+signs:
+  - id: plugin-provenance
+    artifacts: archive
+    signature: "${artifact}.prov"
+    cmd: sh
+    args:
+      - -ec
+      - |
+        artifact="$1"
+        signature="$2"
+        filename="$(basename "$artifact")"
+        digest="$(sha256sum "$artifact" | cut -d' ' -f1)"
+        {
+          cat plugin.yaml
+          printf '\n...\n'
+          printf 'files:\n  %s: "sha256:%s"\n' "$filename" "$digest"
+        } | gpg --batch --yes --armor --pinentry-mode loopback --passphrase "${GPG_PASSPHRASE:-}" --local-user "$GPG_FINGERPRINT" --clearsign --output "$signature"
+      - --
+      - ${artifact}
+      - ${signature}
 changelog:
   use: github-native
 

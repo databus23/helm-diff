@@ -43,11 +43,7 @@ The install script will skip the GitHub download and instead install from the `.
 
 **For Helm 4 users:**
 
-Helm 4 requires plugin verification by default. Since this plugin does not yet provide provenance artifacts, you need to use the `--verify=false` flag:
-
-```shell
-helm plugin install https://github.com/databus23/helm-diff --verify=false
-```
+Helm 4 verifies plugin provenance by default. This project publishes release provenance artifacts (`.prov`) alongside release tarballs to support verification.
 
 For more information about Helm 4's plugin verification, see:
 - [Helm 4 Overview](https://helm.sh/docs/overview)
