@@ -71,7 +71,7 @@ signs:
         chmod 600 "$passphrase_file"
         {
           cat plugin.yaml
-          printf '\n...\n'
+          printf '...\n'
           printf 'files:\n  %s: "sha256:%s"\n' "$filename" "$digest"
         } | gpg --batch --yes --armor --pinentry-mode loopback --passphrase-file "$passphrase_file" --local-user "$GPG_FINGERPRINT" --clearsign --output "$signature"
       - --

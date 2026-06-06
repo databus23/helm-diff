@@ -43,7 +43,7 @@ The install script will skip the GitHub download and instead install from the `.
 
 **For Helm 4 users:**
 
-Helm 4 verifies plugin provenance by default. This project publishes release provenance artifacts (`.prov`) alongside release tarballs to support verification.
+Helm 4 verifies plugin provenance by default. This project publishes GPG-signed provenance artifacts (`.prov`) alongside release tarballs. To verify, import the project's public key into your keyring before running `helm plugin install`.
 
 For more information about Helm 4's plugin verification, see:
 - [Helm 4 Overview](https://helm.sh/docs/overview)

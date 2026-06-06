@@ -1,3 +1,15 @@
+# Release workflow
+#
+# Prerequisites (configure in Settings > Secrets and variables > Actions):
+#   - GPG_PRIVATE_KEY: base64-encoded GPG private key for signing release artifacts
+#   - GPG_FINGERPRINT: Fingerprint of the GPG key
+#   - GPG_PASSPHRASE: Passphrase for the GPG private key
+#
+# Key management notes:
+#   - Use a key with no expiration or set a calendar reminder before expiry
+#   - To rotate: generate a new keypair, update all three secrets, and verify
+#     with a test release (see the test-provenance-sign-dry job)
+
 name: Release
 
 on:
@@ -11,6 +23,7 @@ on:
     branches:
       - 'main'
       - 'master'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -35,7 +48,9 @@ jobs:
       -
         name: Import GPG key
         if: ${{ startsWith(github.ref, 'refs/tags/v') }}
-        run: echo "${{ secrets.GPG_PRIVATE_KEY }}" | base64 --decode | gpg --batch --import
+        run: |
+          gpgconf --launch gpg-agent
+          echo "${{ secrets.GPG_PRIVATE_KEY }}" | base64 --decode | gpg --batch --import
       -
         name: Set GPG environment for signing
         if: ${{ startsWith(github.ref, 'refs/tags/v') }}
@@ -51,3 +66,63 @@ jobs:
           args: release --clean ${{ env.flags }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  provenance-smoke-test:
+    runs-on: ubuntu-latest
+    if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v6
+      -
+        name: Test provenance signing with disposable key
+        run: |
+          export GNUPGHOME="$(mktemp -d)"
+          chmod 700 "$GNUPGHOME"
+          trap 'rm -rf "$GNUPGHOME"' EXIT
+
+          GPG_FINGERPRINT=$(gpg --batch --passphrase '' --quick-generate-key \
+            "helm-diff-test" ed25519 sign 0 2>&1 \
+            | grep -o '[A-F0-9]\{40\}' | head -1)
+          export GPG_FINGERPRINT
+          export GPG_PASSPHRASE=""
+
+          tmpdir="$(mktemp -d)"
+          echo "dummy binary" > "$tmpdir/bin"
+          tar czf "$tmpdir/helm-diff-linux-amd64.tgz" -C "$tmpdir" bin
+
+          artifact="$tmpdir/helm-diff-linux-amd64.tgz"
+          signature="${artifact}.prov"
+          filename="$(basename "$artifact")"
+          digest="$(sha256sum "$artifact" | cut -d' ' -f1)"
+          passphrase_file="$(mktemp)"
+          trap 'rm -f "$passphrase_file"' EXIT
+          printf '%s' "${GPG_PASSPHRASE:-}" > "$passphrase_file"
+          chmod 600 "$passphrase_file"
+          {
+            cat plugin.yaml
+            printf '...\n'
+            printf 'files:\n  %s: "sha256:%s"\n' "$filename" "$digest"
+          } | gpg --batch --yes --armor --pinentry-mode loopback \
+              --passphrase-file "$passphrase_file" \
+              --local-user "$GPG_FINGERPRINT" \
+              --clearsign --output "$signature"
+
+          if [ ! -f "$signature" ]; then
+            echo "ERROR: provenance file was not created"
+            exit 1
+          fi
+
+          echo "=== gpg --verify ==="
+          gpg --verify "$signature"
+
+          echo ""
+          echo "=== Signed .prov content ==="
+          cat "$signature"
+
+          echo ""
+          echo "=== Parsed provenance block ==="
+          gpg --batch --output - "$signature" 2>/dev/null
+
+          echo ""
+          echo "Provenance signing dry-run test passed"
