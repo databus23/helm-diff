@@ -27,6 +27,9 @@ chmod 600 "$passphrase_file"
   cat "$plugin_yaml"
   printf '...\n'
   printf 'files:\n  %s: "sha256:%s"\n' "$filename" "$digest"
+  # NOTE: The ...\n separator is required by Helm's provenance parser.
+  # See helm/helm pkg/provenance/sign.go: parseMessageBlock splits on "\n...\n"
+  # and messageBlock writes the same separator between metadata and checksums.
 } | gpg --batch --yes --armor --pinentry-mode loopback \
     --passphrase-file "$passphrase_file" \
     --local-user "$GPG_FINGERPRINT" \
