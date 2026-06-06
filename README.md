@@ -50,6 +50,12 @@ gpg --keyserver hkps://keys.openpgp.org --recv-keys <KEY_FINGERPRINT>
 helm plugin install https://github.com/databus23/helm-diff
 ```
 
+For offline/airgapped environments, download the public key from the GitHub release assets on a connected machine, transfer it, and import it locally:
+
+```shell
+gpg --import <public-key.asc>
+```
+
 The public key fingerprint is published in the notes for each GitHub release.
 
 For more information about Helm 4's plugin verification, see:
