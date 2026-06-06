@@ -43,11 +43,20 @@ The install script will skip the GitHub download and instead install from the `.
 
 **For Helm 4 users:**
 
-Helm 4 requires plugin verification by default. Since this plugin does not yet provide provenance artifacts, you need to use the `--verify=false` flag:
+Helm 4 verifies plugin provenance by default. This project publishes GPG-signed provenance artifacts (`.prov`) alongside release tarballs. To verify, import the project's public key into your keyring before running `helm plugin install`:
 
 ```shell
-helm plugin install https://github.com/databus23/helm-diff --verify=false
+gpg --keyserver hkps://keys.openpgp.org --recv-keys <KEY_FINGERPRINT>
+helm plugin install https://github.com/databus23/helm-diff
 ```
+
+For offline/airgapped environments, download the public key from the GitHub release assets on a connected machine, transfer it, and import it locally:
+
+```shell
+gpg --import <public-key.asc>
+```
+
+The public key fingerprint is published in the notes for each GitHub release.
 
 For more information about Helm 4's plugin verification, see:
 - [Helm 4 Overview](https://helm.sh/docs/overview)

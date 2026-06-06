@@ -52,6 +52,15 @@ archives:
     - README.md
     - plugin.yaml
     - LICENSE
+
+signs:
+  - id: plugin-provenance
+    artifacts: archive
+    signature: "${artifact}.prov"
+    cmd: ./scripts/sign-provenance.sh
+    args:
+      - ${artifact}
+      - ${signature}
 changelog:
   use: github-native
 
