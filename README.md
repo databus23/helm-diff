@@ -50,7 +50,7 @@ gpg --keyserver hkps://keys.openpgp.org --recv-keys <KEY_FINGERPRINT>
 helm plugin install https://github.com/databus23/helm-diff
 ```
 
-The public key fingerprint is published in each GitHub release notes.
+The public key fingerprint is published in the notes for each GitHub release.
 
 For more information about Helm 4's plugin verification, see:
 - [Helm 4 Overview](https://helm.sh/docs/overview)
