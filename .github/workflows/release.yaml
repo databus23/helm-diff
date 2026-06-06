@@ -50,7 +50,7 @@ jobs:
         if: ${{ startsWith(github.ref, 'refs/tags/v') }}
         run: |
           gpgconf --launch gpg-agent
-          echo "${{ secrets.GPG_PRIVATE_KEY }}" | base64 --decode | gpg --batch --import
+          printf '%s' "${{ secrets.GPG_PRIVATE_KEY }}" | base64 --decode | gpg --batch --import
       -
         name: Set GPG environment for signing
         if: ${{ startsWith(github.ref, 'refs/tags/v') }}
@@ -83,9 +83,10 @@ jobs:
           trap 'rm -rf "$GNUPGHOME" "$tmpdir"; rm -f "$passphrase_file"' EXIT
           chmod 700 "$GNUPGHOME"
 
-          GPG_FINGERPRINT=$(gpg --batch --passphrase '' --quick-generate-key \
-            "helm-diff-test" ed25519 sign 0 2>&1 \
-            | grep -o '[A-F0-9]\{40\}' | head -1)
+          gpg --batch --pinentry-mode loopback --passphrase '' \
+            --quick-generate-key "helm-diff-test" ed25519 sign 0
+          GPG_FINGERPRINT=$(gpg --batch --with-colons --list-secret-keys "helm-diff-test" \
+            | grep '^fpr:' | head -1 | cut -d: -f10)
           export GPG_FINGERPRINT
           export GPG_PASSPHRASE=""
 
