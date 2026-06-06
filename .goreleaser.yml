@@ -65,6 +65,10 @@ signs:
         signature="$2"
         filename="$(basename "$artifact")"
         digest="$(sha256sum "$artifact" | cut -d' ' -f1)"
+        if [ -z "${GPG_FINGERPRINT:-}" ]; then
+          echo "ERROR: GPG_FINGERPRINT is not set. Cannot sign provenance artifact."
+          exit 1
+        fi
         passphrase_file="$(mktemp)"
         trap 'rm -f "$passphrase_file"' EXIT
         printf '%s' "${GPG_PASSPHRASE:-}" > "$passphrase_file"

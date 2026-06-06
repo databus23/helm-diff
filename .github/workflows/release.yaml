@@ -8,7 +8,7 @@
 # Key management notes:
 #   - Use a key with no expiration or set a calendar reminder before expiry
 #   - To rotate: generate a new keypair, update all three secrets, and verify
-#     with a test release (see the test-provenance-sign-dry job)
+#     with a test release (see the provenance-smoke-test job)
 
 name: Release
 
@@ -78,8 +78,10 @@ jobs:
         name: Test provenance signing with disposable key
         run: |
           export GNUPGHOME="$(mktemp -d)"
+          tmpdir="$(mktemp -d)"
+          passphrase_file="$(mktemp)"
+          trap 'rm -rf "$GNUPGHOME" "$tmpdir"; rm -f "$passphrase_file"' EXIT
           chmod 700 "$GNUPGHOME"
-          trap 'rm -rf "$GNUPGHOME"' EXIT
 
           GPG_FINGERPRINT=$(gpg --batch --passphrase '' --quick-generate-key \
             "helm-diff-test" ed25519 sign 0 2>&1 \
@@ -87,7 +89,6 @@ jobs:
           export GPG_FINGERPRINT
           export GPG_PASSPHRASE=""
 
-          tmpdir="$(mktemp -d)"
           echo "dummy binary" > "$tmpdir/bin"
           tar czf "$tmpdir/helm-diff-linux-amd64.tgz" -C "$tmpdir" bin
 
@@ -95,8 +96,6 @@ jobs:
           signature="${artifact}.prov"
           filename="$(basename "$artifact")"
           digest="$(sha256sum "$artifact" | cut -d' ' -f1)"
-          passphrase_file="$(mktemp)"
-          trap 'rm -f "$passphrase_file"' EXIT
           printf '%s' "${GPG_PASSPHRASE:-}" > "$passphrase_file"
           chmod 600 "$passphrase_file"
           {
