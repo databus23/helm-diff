@@ -66,6 +66,14 @@ jobs:
           args: release --clean ${{ env.flags }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      -
+        name: Export and upload public key
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        run: |
+          gpg --export --armor "${{ secrets.GPG_FINGERPRINT }}" > pubkey.asc
+          gh release upload ${{ github.ref_name }} pubkey.asc
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   provenance-smoke-test:
     runs-on: ubuntu-latest

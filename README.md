@@ -53,7 +53,8 @@ helm plugin install https://github.com/databus23/helm-diff/releases/latest/downl
 For offline/airgapped environments, download the public key from the GitHub release assets on a connected machine, transfer it, and import it locally:
 
 ```shell
-gpg --import <public-key.asc>
+curl -sL https://github.com/databus23/helm-diff/releases/latest/download/pubkey.asc -o pubkey.asc
+gpg --import pubkey.asc
 ```
 
 The public key fingerprint is published in the notes for each GitHub release.
