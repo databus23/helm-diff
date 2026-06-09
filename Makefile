@@ -65,7 +65,8 @@ dist: export CGO_ENABLED=0
 dist:
 	rm -rf build/diff/* release/*
 	mkdir -p build/diff/bin release/
-	cp README.md LICENSE plugin.yaml build/diff
+	cp README.md LICENSE build/diff
+	awk '/^hooks:/ { in_hooks = 1; next } in_hooks && /^[^[:space:]]/ { in_hooks = 0 } !in_hooks { print }' plugin.yaml > build/diff/plugin.yaml
 	GOOS=linux GOARCH=amd64 $(GO) build -o build/diff/bin/diff -trimpath -ldflags="$(LDFLAGS)"
 	tar -C build/ -zcvf $(CURDIR)/release/helm-diff-linux-amd64.tgz diff/
 	GOOS=linux GOARCH=arm64 $(GO) build -o build/diff/bin/diff -trimpath -ldflags="$(LDFLAGS)"
