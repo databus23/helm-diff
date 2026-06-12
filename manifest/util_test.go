@@ -10,7 +10,7 @@ func Test_deleteStatusAndTidyMetadata(t *testing.T) {
 	tests := []struct {
 		name    string
 		obj     []byte
-		want    map[string]interface{}
+		want    map[string]any
 		wantErr bool
 	}{
 		{
@@ -18,6 +18,12 @@ func Test_deleteStatusAndTidyMetadata(t *testing.T) {
 			obj:     []byte("notvalid"),
 			want:    nil,
 			wantErr: true,
+		},
+		{
+			name:    "null json",
+			obj:     []byte("null"),
+			want:    nil,
+			wantErr: false,
 		},
 		{
 			name: "valid json",
@@ -57,21 +63,21 @@ func Test_deleteStatusAndTidyMetadata(t *testing.T) {
     }
 }
 `),
-			want: map[string]interface{}{
+			want: map[string]any{
 				"apiVersion": "apps/v1",
 				"kind":       "Deployment",
-				"metadata": map[string]interface{}{
-					"annotations": map[string]interface{}{
+				"metadata": map[string]any{
+					"annotations": map[string]any{
 						"other-annot": "value",
 					},
 					"name":      "nginx-deployment",
 					"namespace": "test-ns",
 				},
-				"spec": map[string]interface{}{
-					"template": map[string]interface{}{
-						"spec": map[string]interface{}{
-							"containers": []interface{}{
-								map[string]interface{}{
+				"spec": map[string]any{
+					"template": map[string]any{
+						"spec": map[string]any{
+							"containers": []any{
+								map[string]any{
 									"image":           "nginx:1.14.2",
 									"imagePullPolicy": "IfNotPresent",
 									"name":            "nginx",
