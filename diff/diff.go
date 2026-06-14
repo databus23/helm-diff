@@ -467,7 +467,7 @@ func diffMappingResults(oldContent *manifest.MappingResult, newContent *manifest
 }
 
 func diffStrings(before, after string, stripTrailingCR bool) []difflib.DiffRecord {
-	return difflib.Diff(split(before, stripTrailingCR), split(after, stripTrailingCR))
+	return diffLines(split(before, stripTrailingCR), split(after, stripTrailingCR))
 }
 
 func split(value string, stripTrailingCR bool) []string {
