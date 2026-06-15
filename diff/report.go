@@ -1,6 +1,7 @@
 package diff
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -19,18 +20,21 @@ import (
 
 // Report to store report data and format
 type Report struct {
-	format  ReportFormat
-	entries []ReportEntry
+	format      ReportFormat
+	Entries     []ReportEntry
+	mode        string
+	findRenames float32
 }
 
 // ReportEntry to store changes between releases
 type ReportEntry struct {
-	key             string
-	suppressedKinds []string
-	kind            string
-	context         int
-	diffs           []difflib.DiffRecord
-	changeType      string
+	Key             string
+	SuppressedKinds []string
+	Kind            string
+	Context         int
+	Diffs           []difflib.DiffRecord
+	ChangeType      string
+	Structured      *StructuredEntry
 }
 
 // ReportFormat to the context to make a changes report
@@ -56,6 +60,7 @@ type ReportTemplateSpec struct {
 
 // setupReportFormat: process output argument.
 func (r *Report) setupReportFormat(format string) {
+	r.mode = format
 	switch format {
 	case "simple":
 		setupSimpleReport(r)
@@ -63,6 +68,8 @@ func (r *Report) setupReportFormat(format string) {
 		setupTemplateReport(r)
 	case "json":
 		setupJSONReport(r)
+	case "structured":
+		setupStructuredReport(r)
 	case "dyff":
 		setupDyffReport(r)
 	default:
@@ -84,10 +91,10 @@ func printDyffReport(r *Report, to io.Writer) {
 		_ = os.Remove(newFile.Name())
 	}()
 
-	for _, entry := range r.entries {
+	for _, entry := range r.Entries {
 		_, _ = currentFile.WriteString("---\n")
 		_, _ = newFile.WriteString("---\n")
-		for _, record := range entry.diffs {
+		for _, record := range entry.Diffs {
 			switch record.Delta {
 			case difflib.Common:
 				_, _ = currentFile.WriteString(record.Payload + "\n")
@@ -104,7 +111,15 @@ func printDyffReport(r *Report, to io.Writer) {
 
 	currentInputFile, newInputFile, _ := ytbx.LoadFiles(currentFile.Name(), newFile.Name())
 
-	report, _ := dyff.CompareInputFiles(currentInputFile, newInputFile)
+	var compareOptions []dyff.CompareOption
+	compareOptions = append(compareOptions,
+		dyff.IgnoreWhitespaceChanges(true),
+		dyff.KubernetesEntityDetection(true),
+	)
+	if r.findRenames > 0 {
+		compareOptions = append(compareOptions, dyff.DetectRenames(true))
+	}
+	report, _ := dyff.CompareInputFiles(currentInputFile, newInputFile, compareOptions...)
 	reportWriter := &dyff.HumanReport{
 		Report:               report,
 		OmitHeader:           true,
@@ -114,7 +129,7 @@ func printDyffReport(r *Report, to io.Writer) {
 }
 
 // addEntry: stores diff changes.
-func (r *Report) addEntry(key string, suppressedKinds []string, kind string, context int, diffs []difflib.DiffRecord, changeType string) {
+func (r *Report) addEntry(key string, suppressedKinds []string, kind string, context int, diffs []difflib.DiffRecord, changeType string, structured *StructuredEntry) {
 	entry := ReportEntry{
 		key,
 		suppressedKinds,
@@ -122,8 +137,9 @@ func (r *Report) addEntry(key string, suppressedKinds []string, kind string, con
 		context,
 		diffs,
 		changeType,
+		structured,
 	}
-	r.entries = append(r.entries, entry)
+	r.Entries = append(r.Entries, entry)
 }
 
 // print: prints entries added to the report.
@@ -133,7 +149,7 @@ func (r *Report) print(to io.Writer) {
 
 // clean: needed for testing
 func (r *Report) clean() {
-	r.entries = nil
+	r.Entries = nil
 }
 
 // setup report for default output: diff
@@ -143,13 +159,20 @@ func setupDiffReport(r *Report) {
 	r.format.changestyles["ADD"] = ChangeStyle{color: "green", message: "has been added:"}
 	r.format.changestyles["REMOVE"] = ChangeStyle{color: "red", message: "has been removed:"}
 	r.format.changestyles["MODIFY"] = ChangeStyle{color: "yellow", message: "has changed:"}
+	r.format.changestyles["OWNERSHIP"] = ChangeStyle{color: "magenta", message: "changed ownership:"}
+	r.format.changestyles["MODIFY_SUPPRESSED"] = ChangeStyle{color: "blue+h", message: "has changed, but diff is empty after suppression."}
 }
 
 // print report for default output: diff
 func printDiffReport(r *Report, to io.Writer) {
-	for _, entry := range r.entries {
-		fmt.Fprintf(to, ansi.Color("%s %s", "yellow")+"\n", entry.key, r.format.changestyles[entry.changeType].message)
-		printDiffRecords(entry.suppressedKinds, entry.kind, entry.context, entry.diffs, to)
+	for _, entry := range r.Entries {
+		_, _ = fmt.Fprintf(
+			to,
+			ansi.Color("%s %s", r.format.changestyles[entry.ChangeType].color)+"\n",
+			entry.Key,
+			r.format.changestyles[entry.ChangeType].message,
+		)
+		printDiffRecords(entry.SuppressedKinds, entry.Kind, entry.Context, entry.Diffs, to)
 	}
 }
 
@@ -160,28 +183,32 @@ func setupSimpleReport(r *Report) {
 	r.format.changestyles["ADD"] = ChangeStyle{color: "green", message: "to be added."}
 	r.format.changestyles["REMOVE"] = ChangeStyle{color: "red", message: "to be removed."}
 	r.format.changestyles["MODIFY"] = ChangeStyle{color: "yellow", message: "to be changed."}
+	r.format.changestyles["OWNERSHIP"] = ChangeStyle{color: "magenta", message: "to change ownership."}
+	r.format.changestyles["MODIFY_SUPPRESSED"] = ChangeStyle{color: "blue+h", message: "has changed, but diff is empty after suppression."}
 }
 
 // print report for simple output
 func printSimpleReport(r *Report, to io.Writer) {
-	var summary = map[string]int{
-		"ADD":    0,
-		"REMOVE": 0,
-		"MODIFY": 0,
+	summary := map[string]int{
+		"ADD":               0,
+		"REMOVE":            0,
+		"MODIFY":            0,
+		"OWNERSHIP":         0,
+		"MODIFY_SUPPRESSED": 0,
 	}
-	for _, entry := range r.entries {
-		fmt.Fprintf(to, ansi.Color("%s %s", r.format.changestyles[entry.changeType].color)+"\n",
-			entry.key,
-			r.format.changestyles[entry.changeType].message,
+	for _, entry := range r.Entries {
+		_, _ = fmt.Fprintf(to, ansi.Color("%s %s", r.format.changestyles[entry.ChangeType].color)+"\n",
+			entry.Key,
+			r.format.changestyles[entry.ChangeType].message,
 		)
-		summary[entry.changeType]++
+		summary[entry.ChangeType]++
 	}
-	fmt.Fprintf(to, "Plan: %d to add, %d to change, %d to destroy.\n", summary["ADD"], summary["MODIFY"], summary["REMOVE"])
+	_, _ = fmt.Fprintf(to, "Plan: %d to add, %d to change, %d to destroy, %d to change ownership.\n", summary["ADD"], summary["MODIFY"], summary["REMOVE"], summary["OWNERSHIP"])
 }
 
 func newTemplate(name string) *template.Template {
 	// Prepare template functions
-	var funcsMap = template.FuncMap{
+	funcsMap := template.FuncMap{
 		"last": func(x int, a interface{}) bool {
 			return x == reflect.ValueOf(a).Len()-1
 		},
@@ -202,6 +229,8 @@ func setupJSONReport(r *Report) {
 	r.format.changestyles["ADD"] = ChangeStyle{color: "green", message: ""}
 	r.format.changestyles["REMOVE"] = ChangeStyle{color: "red", message: ""}
 	r.format.changestyles["MODIFY"] = ChangeStyle{color: "yellow", message: ""}
+	r.format.changestyles["OWNERSHIP"] = ChangeStyle{color: "magenta", message: ""}
+	r.format.changestyles["MODIFY_SUPPRESSED"] = ChangeStyle{color: "blue+h", message: ""}
 }
 
 // setup report for template output
@@ -232,6 +261,35 @@ func setupTemplateReport(r *Report) {
 	r.format.changestyles["ADD"] = ChangeStyle{color: "green", message: ""}
 	r.format.changestyles["REMOVE"] = ChangeStyle{color: "red", message: ""}
 	r.format.changestyles["MODIFY"] = ChangeStyle{color: "yellow", message: ""}
+	r.format.changestyles["OWNERSHIP"] = ChangeStyle{color: "magenta", message: ""}
+	r.format.changestyles["MODIFY_SUPPRESSED"] = ChangeStyle{color: "blue+h", message: ""}
+}
+
+func setupStructuredReport(r *Report) {
+	r.format.output = printStructuredReport
+}
+
+func printStructuredReport(r *Report, to io.Writer) {
+	entries := make([]StructuredEntry, 0, len(r.Entries))
+	for _, entry := range r.Entries {
+		if entry.Structured != nil {
+			structuredCopy := *entry.Structured
+			if structuredCopy.ChangeType == "" {
+				structuredCopy.ChangeType = entry.ChangeType
+			}
+			entries = append(entries, structuredCopy)
+			continue
+		}
+		entries = append(entries, StructuredEntry{
+			Name:       entry.Key,
+			ChangeType: entry.ChangeType,
+		})
+	}
+	encoder := json.NewEncoder(to)
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(entries); err != nil {
+		log.Printf("Error encoding structured diff output: %v\n", err)
+	}
 }
 
 // report with template output will only have access to ReportTemplateSpec.
@@ -254,13 +312,13 @@ func templateReportPrinter(t *template.Template) func(r *Report, to io.Writer) {
 	return func(r *Report, to io.Writer) {
 		var templateDataArray []ReportTemplateSpec
 
-		for _, entry := range r.entries {
+		for _, entry := range r.Entries {
 			templateData := ReportTemplateSpec{}
-			err := templateData.loadFromKey(entry.key)
+			err := templateData.loadFromKey(entry.Key)
 			if err != nil {
 				log.Println("error processing report entry")
 			} else {
-				templateData.Change = entry.changeType
+				templateData.Change = entry.ChangeType
 				templateDataArray = append(templateDataArray, templateData)
 			}
 		}

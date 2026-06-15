@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"os"
 
 	_ "k8s.io/client-go/plugin/pkg/client/auth/azure"
@@ -13,9 +14,10 @@ import (
 
 func main() {
 	if err := cmd.New().Execute(); err != nil {
-		switch e := err.(type) {
-		case cmd.Error:
-			os.Exit(e.Code)
+		var cmdErr cmd.Error
+		switch {
+		case errors.As(err, &cmdErr):
+			os.Exit(cmdErr.Code)
 		default:
 			os.Exit(1)
 		}

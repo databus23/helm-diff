@@ -4,23 +4,28 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"io"
 	"log"
 	"strings"
 
+	jsoniter "github.com/json-iterator/go"
 	"gopkg.in/yaml.v2"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 const (
-	hookAnnotation = "helm.sh/hook"
+	hookAnnotation           = "helm.sh/hook"
+	resourcePolicyAnnotation = "helm.sh/resource-policy"
 )
 
 var yamlSeparator = []byte("\n---\n")
 
 // MappingResult to store result of diff
 type MappingResult struct {
-	Name    string
-	Kind    string
-	Content string
+	Name           string
+	Kind           string
+	Content        string
+	ResourcePolicy string
 }
 
 type metadata struct {
@@ -64,10 +69,9 @@ func scanYamlSpecs(data []byte, atEOF bool) (advance int, token []byte, err erro
 	return 0, nil, nil
 }
 
-// Parse parses manifest strings into MappingResult
-func Parse(manifest string, defaultNamespace string, normalizeManifests bool, excludedHooks ...string) map[string]*MappingResult {
-	// Ensure we have a newline in front of the yaml separator
-	scanner := bufio.NewScanner(strings.NewReader("\n" + manifest))
+// Parse parses manifest bytes into MappingResult
+func Parse(manifest []byte, defaultNamespace string, normalizeManifests bool, excludedHooks ...string) map[string]*MappingResult {
+	scanner := bufio.NewScanner(io.MultiReader(strings.NewReader("\n"), bytes.NewReader(manifest)))
 	scanner.Split(scanYamlSpecs)
 	// Allow for tokens (specs) up to 10MiB in size
 	scanner.Buffer(make([]byte, bufio.MaxScanTokenSize), 10485760)
@@ -75,8 +79,8 @@ func Parse(manifest string, defaultNamespace string, normalizeManifests bool, ex
 	result := make(map[string]*MappingResult)
 
 	for scanner.Scan() {
-		content := strings.TrimSpace(scanner.Text())
-		if content == "" {
+		content := bytes.TrimSpace(scanner.Bytes())
+		if len(content) == 0 {
 			continue
 		}
 
@@ -101,9 +105,51 @@ func Parse(manifest string, defaultNamespace string, normalizeManifests bool, ex
 	return result
 }
 
-func parseContent(content string, defaultNamespace string, normalizeManifests bool, excludedHooks ...string) ([]*MappingResult, error) {
+func ParseObject(object runtime.Object, defaultNamespace string, excludedHooks ...string) (*MappingResult, string, error) {
+	json, _ := jsoniter.ConfigCompatibleWithStandardLibrary.Marshal(object)
+	var objectMap map[string]interface{}
+	err := jsoniter.Unmarshal(json, &objectMap)
+	if err != nil {
+		return nil, "", fmt.Errorf("could not unmarshal byte sequence: %w", err)
+	}
+
+	metadata := objectMap["metadata"].(map[string]interface{})
+	var oldRelease string
+	if a := metadata["annotations"]; a != nil {
+		annotations := a.(map[string]interface{})
+		if releaseNs, ok := annotations["meta.helm.sh/release-namespace"].(string); ok {
+			oldRelease += releaseNs + "/"
+		}
+		if releaseName, ok := annotations["meta.helm.sh/release-name"].(string); ok {
+			oldRelease += releaseName
+		}
+	}
+
+	// Clean namespace metadata as it exists in Kubernetes but not in Helm manifest
+	purgedObj, _ := deleteStatusAndTidyMetadata(json)
+
+	content, err := yaml.Marshal(purgedObj)
+	if err != nil {
+		return nil, "", err
+	}
+
+	result, err := parseContent(content, defaultNamespace, true, excludedHooks...)
+	if err != nil {
+		return nil, "", err
+	}
+
+	if len(result) != 1 {
+		return nil, "", fmt.Errorf("failed to parse content of Kubernetes resource %s", metadata["name"])
+	}
+
+	result[0].Content = strings.TrimSuffix(result[0].Content, "\n")
+
+	return result[0], oldRelease, nil
+}
+
+func parseContent(content []byte, defaultNamespace string, normalizeManifests bool, excludedHooks ...string) ([]*MappingResult, error) {
 	var parsedMetadata metadata
-	if err := yaml.Unmarshal([]byte(content), &parsedMetadata); err != nil {
+	if err := yaml.Unmarshal(content, &parsedMetadata); err != nil {
 		log.Fatalf("YAML unmarshal error: %s\nCan't unmarshal %s", err, content)
 	}
 
@@ -113,14 +159,14 @@ func parseContent(content string, defaultNamespace string, normalizeManifests bo
 		return nil, nil
 	}
 
-	if parsedMetadata.Kind == "List" {
+	if strings.HasSuffix(parsedMetadata.Kind, "List") {
 		type ListV1 struct {
 			Items []yaml.MapSlice `yaml:"items"`
 		}
 
 		var list ListV1
 
-		if err := yaml.Unmarshal([]byte(content), &list); err != nil {
+		if err := yaml.Unmarshal(content, &list); err != nil {
 			log.Fatalf("YAML unmarshal error: %s\nCan't unmarshal %s", err, content)
 		}
 
@@ -132,9 +178,9 @@ func parseContent(content string, defaultNamespace string, normalizeManifests bo
 				log.Printf("YAML marshal error: %s\nCan't marshal %v", err, item)
 			}
 
-			subs, err := parseContent(string(subcontent), defaultNamespace, normalizeManifests, excludedHooks...)
+			subs, err := parseContent(subcontent, defaultNamespace, normalizeManifests, excludedHooks...)
 			if err != nil {
-				return nil, fmt.Errorf("Parsing YAML list item: %v", err)
+				return nil, fmt.Errorf("Parsing YAML list item: %w", err)
 			}
 
 			result = append(result, subs...)
@@ -162,27 +208,27 @@ func parseContent(content string, defaultNamespace string, normalizeManifests bo
 	name := parsedMetadata.String()
 	return []*MappingResult{
 		{
-			Name:    name,
-			Kind:    parsedMetadata.Kind,
-			Content: content,
+			Name:           name,
+			Kind:           parsedMetadata.Kind,
+			Content:        string(content),
+			ResourcePolicy: parsedMetadata.Metadata.Annotations[resourcePolicyAnnotation],
 		},
 	}, nil
 }
 
-func ContentNormalizeManifests(content string) (string, error) {
+func ContentNormalizeManifests(content []byte) ([]byte, error) {
 	// Unmarshal and marshal again content to normalize yaml structure
 	// This avoids style differences to show up as diffs but it can
 	// make the output different from the original template (since it is in normalized form)
-	log.Printf("Normalizing content: \n%s", content)
 	var object map[interface{}]interface{}
-	if err := yaml.Unmarshal([]byte(content), &object); err != nil {
-		return "", err
+	if err := yaml.Unmarshal(content, &object); err != nil {
+		return nil, err
 	}
 	normalizedContent, err := yaml.Marshal(object)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return string(normalizedContent), nil
+	return normalizedContent, nil
 }
 
 func isHook(metadata metadata, hooks ...string) bool {

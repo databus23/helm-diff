@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"os"
 	"regexp"
 	"sort"
 	"strings"
@@ -25,16 +26,55 @@ type Options struct {
 	OutputContext             int
 	StripTrailingCR           bool
 	ShowSecrets               bool
+	ShowSecretsDecoded        bool
 	SuppressedKinds           []string
 	FindRenames               float32
 	SuppressedOutputLineRegex []string
 }
 
+const kindSecret = "Secret"
+
+// StructuredOutput returns true when the structured JSON output is requested.
+func (o *Options) StructuredOutput() bool {
+	return o != nil && o.OutputFormat == "structured"
+}
+
+type OwnershipDiff struct {
+	OldRelease string
+	NewRelease string
+}
+
 // Manifests diff on manifests
 func Manifests(oldIndex, newIndex map[string]*manifest.MappingResult, options *Options, to io.Writer) bool {
-	report := Report{}
+	return ManifestsOwnership(oldIndex, newIndex, nil, options, to)
+}
+
+func ManifestsOwnership(oldIndex, newIndex map[string]*manifest.MappingResult, newOwnedReleases map[string]OwnershipDiff, options *Options, to io.Writer) bool {
+	seenAnyChanges, report, err := generateReport(oldIndex, newIndex, newOwnedReleases, options)
+	if err != nil {
+		panic(err)
+	}
+
+	report.print(to)
+	report.clean()
+	return seenAnyChanges
+}
+
+func ManifestReport(oldIndex, newIndex map[string]*manifest.MappingResult, options *Options) (*Report, error) {
+	_, report, err := generateReport(oldIndex, newIndex, nil, options)
+
+	return report, err
+}
+
+func generateReport(oldIndex, newIndex map[string]*manifest.MappingResult, newOwnedReleases map[string]OwnershipDiff, options *Options) (bool, *Report, error) {
+	report := Report{findRenames: options.FindRenames}
 	report.setupReportFormat(options.OutputFormat)
 	var possiblyRemoved []string
+
+	for name, diff := range newOwnedReleases {
+		diff := diffStrings(diff.OldRelease, diff.NewRelease, true)
+		report.addEntry(name, options.SuppressedKinds, "", 0, diff, "OWNERSHIP", nil)
+	}
 
 	for _, key := range sortedKeys(oldIndex) {
 		oldContent := oldIndex[key]
@@ -58,7 +98,9 @@ func Manifests(oldIndex, newIndex map[string]*manifest.MappingResult, options *O
 
 	for _, key := range removed {
 		oldContent := oldIndex[key]
-		doDiff(&report, key, oldContent, nil, options)
+		if oldContent.ResourcePolicy != "keep" {
+			doDiff(&report, key, oldContent, nil, options)
+		}
 	}
 
 	for _, key := range added {
@@ -66,26 +108,23 @@ func Manifests(oldIndex, newIndex map[string]*manifest.MappingResult, options *O
 		doDiff(&report, key, nil, newContent, options)
 	}
 
-	seenAnyChanges := len(report.entries) > 0
+	seenAnyChanges := len(report.Entries) > 0
 
 	report, err := doSuppress(report, options.SuppressedOutputLineRegex)
-	if err != nil {
-		panic(err)
-	}
 
-	report.print(to)
-	report.clean()
-	return seenAnyChanges
+	return seenAnyChanges, &report, err
 }
 
 func doSuppress(report Report, suppressedOutputLineRegex []string) (Report, error) {
-	if len(report.entries) == 0 || len(suppressedOutputLineRegex) == 0 {
+	if len(report.Entries) == 0 || len(suppressedOutputLineRegex) == 0 {
 		return report, nil
 	}
 
-	filteredReport := Report{}
+	filteredReport := Report{
+		findRenames: report.findRenames,
+	}
 	filteredReport.format = report.format
-	filteredReport.entries = []ReportEntry{}
+	filteredReport.Entries = []ReportEntry{}
 
 	var suppressOutputRegexes []*regexp.Regexp
 
@@ -98,11 +137,11 @@ func doSuppress(report Report, suppressedOutputLineRegex []string) (Report, erro
 		suppressOutputRegexes = append(suppressOutputRegexes, regex)
 	}
 
-	for _, entry := range report.entries {
+	for _, entry := range report.Entries {
 		var diffs []difflib.DiffRecord
 
 	DIFFS:
-		for _, diff := range entry.diffs {
+		for _, diff := range entry.Diffs {
 			for _, suppressOutputRegex := range suppressOutputRegexes {
 				if suppressOutputRegex.MatchString(diff.Payload) {
 					continue DIFFS
@@ -122,11 +161,15 @@ func doSuppress(report Report, suppressedOutputLineRegex []string) (Report, erro
 			}
 		}
 
-		if containsDiff {
-			filteredReport.addEntry(entry.key, entry.suppressedKinds, entry.kind, entry.context, diffs, entry.changeType)
-		} else {
-			filteredReport.addEntry(entry.key, entry.suppressedKinds, entry.kind, entry.context, []difflib.DiffRecord{}, entry.changeType)
+		diffRecords := []difflib.DiffRecord{}
+		switch {
+		case containsDiff:
+			diffRecords = diffs
+		case entry.ChangeType == "MODIFY":
+			entry.ChangeType = "MODIFY_SUPPRESSED"
 		}
+
+		filteredReport.addEntry(entry.Key, entry.SuppressedKinds, entry.Kind, entry.Context, diffRecords, entry.ChangeType, entry.Structured)
 	}
 
 	return filteredReport, nil
@@ -141,6 +184,11 @@ func actualChanges(diff []difflib.DiffRecord) int {
 	}
 	return changes
 }
+
+const (
+	renameDetectionMinLengthRatio float32 = 0.1
+	renameDetectionMaxLengthRatio float32 = 10.0
+)
 
 func contentSearch(report *Report, possiblyRemoved []string, oldIndex map[string]*manifest.MappingResult, possiblyAdded []string, newIndex map[string]*manifest.MappingResult, options *Options) ([]string, []string) {
 	if options.FindRenames <= 0 {
@@ -159,14 +207,32 @@ func contentSearch(report *Report, possiblyRemoved []string, oldIndex map[string
 				continue
 			}
 
-			if !options.ShowSecrets {
+			oldLen := len(oldContent.Content)
+			newLen := len(newContent.Content)
+			if oldLen == 0 || newLen == 0 {
+				continue
+			}
+			// Skip the length-ratio filter for Secrets: their raw content length can
+			// differ greatly from the post-processed (redacted/decoded) length, so the
+			// ratio would be an unreliable predictor of content similarity.
+			if oldContent.Kind != kindSecret {
+				ratio := float32(oldLen) / float32(newLen)
+				if ratio < renameDetectionMinLengthRatio || ratio > renameDetectionMaxLengthRatio {
+					continue
+				}
+			}
+
+			switch {
+			case options.ShowSecretsDecoded:
+				decodeSecrets(oldContent, newContent)
+			case !options.ShowSecrets:
 				redactSecrets(oldContent, newContent)
 			}
 
 			diff := diffMappingResults(oldContent, newContent, options.StripTrailingCR)
 			delta := actualChanges(diff)
 			if delta == 0 || len(diff) == 0 {
-				continue // Should never happen, but better safe than sorry
+				continue
 			}
 			fraction := float32(delta) / float32(len(diff))
 			if fraction > 0 && fraction < smallestFraction {
@@ -192,63 +258,109 @@ func doDiff(report *Report, key string, oldContent *manifest.MappingResult, newC
 	if oldContent != nil && newContent != nil && oldContent.Content == newContent.Content {
 		return
 	}
-
-	if !options.ShowSecrets {
+	switch {
+	case options.ShowSecretsDecoded:
+		decodeSecrets(oldContent, newContent)
+	case !options.ShowSecrets:
 		redactSecrets(oldContent, newContent)
 	}
 
-	if oldContent == nil {
-		emptyMapping := &manifest.MappingResult{}
-		diffs := diffMappingResults(emptyMapping, newContent, options.StripTrailingCR)
-		report.addEntry(key, options.SuppressedKinds, newContent.Kind, options.OutputContext, diffs, "ADD")
-	} else if newContent == nil {
-		emptyMapping := &manifest.MappingResult{}
-		diffs := diffMappingResults(oldContent, emptyMapping, options.StripTrailingCR)
-		report.addEntry(key, options.SuppressedKinds, oldContent.Kind, options.OutputContext, diffs, "REMOVE")
-	} else {
-		diffs := diffMappingResults(oldContent, newContent, options.StripTrailingCR)
-		if actualChanges(diffs) > 0 {
-			report.addEntry(key, options.SuppressedKinds, oldContent.Kind, options.OutputContext, diffs, "MODIFY")
+	var changeType string
+	var subjectKind string
+	var diffs []difflib.DiffRecord
+	switch {
+	case oldContent == nil:
+		changeType = "ADD"
+		if newContent != nil {
+			subjectKind = newContent.Kind
+		}
+		if !options.StructuredOutput() && newContent != nil {
+			emptyMapping := &manifest.MappingResult{}
+			diffs = diffMappingResults(emptyMapping, newContent, options.StripTrailingCR)
+		}
+	case newContent == nil:
+		changeType = "REMOVE"
+		subjectKind = oldContent.Kind
+		if !options.StructuredOutput() {
+			emptyMapping := &manifest.MappingResult{}
+			diffs = diffMappingResults(oldContent, emptyMapping, options.StripTrailingCR)
+		}
+	default:
+		changeType = "MODIFY"
+		subjectKind = oldContent.Kind
+		if !options.StructuredOutput() {
+			diffs = diffMappingResults(oldContent, newContent, options.StripTrailingCR)
+			if actualChanges(diffs) == 0 {
+				return
+			}
 		}
 	}
+
+	var structured *StructuredEntry
+	if options.StructuredOutput() {
+		entry, err := buildStructuredEntry(key, changeType, subjectKind, options.SuppressedKinds, oldContent, newContent)
+		if err != nil {
+			// Log warning and omit field-level changes for this entry
+			// printStructuredReport() will still output a basic entry with name and changeType
+			fmt.Fprintf(os.Stderr, "Warning: failed to build structured entry for %s (kind: %s, changeType: %s): %v\n",
+				key, subjectKind, changeType, err)
+		} else {
+			if changeType == "MODIFY" && !entry.ChangesSuppressed && len(entry.Changes) == 0 {
+				return
+			}
+			structured = entry
+		}
+	}
+
+	report.addEntry(key, options.SuppressedKinds, subjectKind, options.OutputContext, diffs, changeType, structured)
 }
 
-func redactSecrets(old, new *manifest.MappingResult) {
-	if (old != nil && old.Kind != "Secret") || (new != nil && new.Kind != "Secret") {
-		return
-	}
-	serializer := json.NewYAMLSerializer(json.DefaultMetaFactory, scheme.Scheme,
-		scheme.Scheme)
+func preHandleSecrets(old, new *manifest.MappingResult) (v1.Secret, v1.Secret, error, error) {
+	var oldSecretDecodeErr, newSecretDecodeErr error
 	var oldSecret, newSecret v1.Secret
-
 	if old != nil {
-		if err := yaml.NewYAMLToJSONDecoder(bytes.NewBufferString(old.Content)).Decode(&oldSecret); err != nil {
-			old.Content = fmt.Sprintf("Error parsing old secret: %s", err)
-		}
-		//if we have a Secret containing `stringData`, apply the same
-		//transformation that the apiserver would do with it (this protects
-		//stringData keys from being overwritten down below)
-		if len(oldSecret.StringData) > 0 && oldSecret.Data == nil {
-			oldSecret.Data = make(map[string][]byte, len(oldSecret.StringData))
-		}
-		for k, v := range oldSecret.StringData {
-			oldSecret.Data[k] = []byte(v)
+		oldSecretDecodeErr = yaml.NewYAMLToJSONDecoder(bytes.NewBufferString(old.Content)).Decode(&oldSecret)
+		if oldSecretDecodeErr != nil {
+			old.Content = fmt.Sprintf("Error parsing old secret: %s", oldSecretDecodeErr)
+		} else {
+			// if we have a Secret containing `stringData`, apply the same
+			// transformation that the apiserver would do with it (this protects
+			// stringData keys from being overwritten down below)
+			if len(oldSecret.StringData) > 0 && oldSecret.Data == nil {
+				oldSecret.Data = make(map[string][]byte, len(oldSecret.StringData))
+			}
+			for k, v := range oldSecret.StringData {
+				oldSecret.Data[k] = []byte(v)
+			}
 		}
 	}
 	if new != nil {
-		if err := yaml.NewYAMLToJSONDecoder(bytes.NewBufferString(new.Content)).Decode(&newSecret); err != nil {
-			new.Content = fmt.Sprintf("Error parsing new secret: %s", err)
-		}
-		//same as above
-		if len(newSecret.StringData) > 0 && newSecret.Data == nil {
-			newSecret.Data = make(map[string][]byte, len(newSecret.StringData))
-		}
-		for k, v := range newSecret.StringData {
-			newSecret.Data[k] = []byte(v)
+		newSecretDecodeErr = yaml.NewYAMLToJSONDecoder(bytes.NewBufferString(new.Content)).Decode(&newSecret)
+		if newSecretDecodeErr != nil {
+			new.Content = fmt.Sprintf("Error parsing new secret: %s", newSecretDecodeErr)
+		} else {
+			// same as above
+			if len(newSecret.StringData) > 0 && newSecret.Data == nil {
+				newSecret.Data = make(map[string][]byte, len(newSecret.StringData))
+			}
+			for k, v := range newSecret.StringData {
+				newSecret.Data[k] = []byte(v)
+			}
 		}
 	}
+	return oldSecret, newSecret, oldSecretDecodeErr, newSecretDecodeErr
+}
 
-	if old != nil {
+// redactSecrets redacts secrets from the diff output.
+func redactSecrets(old, new *manifest.MappingResult) {
+	if (old != nil && old.Kind != kindSecret) || (new != nil && new.Kind != kindSecret) {
+		return
+	}
+	serializer := json.NewYAMLSerializer(json.DefaultMetaFactory, scheme.Scheme, scheme.Scheme)
+
+	oldSecret, newSecret, oldSecretDecodeErr, newSecretDecodeErr := preHandleSecrets(old, new)
+
+	if old != nil && oldSecretDecodeErr == nil {
 		oldSecret.StringData = make(map[string]string, len(oldSecret.Data))
 		for k, v := range oldSecret.Data {
 			if new != nil && bytes.Equal(v, newSecret.Data[k]) {
@@ -258,7 +370,7 @@ func redactSecrets(old, new *manifest.MappingResult) {
 			}
 		}
 	}
-	if new != nil {
+	if new != nil && newSecretDecodeErr == nil {
 		newSecret.StringData = make(map[string]string, len(newSecret.Data))
 		for k, v := range newSecret.Data {
 			if old != nil && bytes.Equal(v, oldSecret.Data[k]) {
@@ -270,21 +382,66 @@ func redactSecrets(old, new *manifest.MappingResult) {
 	}
 
 	// remove Data field now that we are using StringData for serialization
-	var buf bytes.Buffer
-	if old != nil {
+	if old != nil && oldSecretDecodeErr == nil {
+		oldSecretBuf := bytes.NewBuffer(nil)
 		oldSecret.Data = nil
-		if err := serializer.Encode(&oldSecret, &buf); err != nil {
+		if err := serializer.Encode(&oldSecret, oldSecretBuf); err != nil {
 			new.Content = fmt.Sprintf("Error encoding new secret: %s", err)
 		}
-		old.Content = getComment(old.Content) + strings.Replace(strings.Replace(buf.String(), "stringData", "data", 1), "  creationTimestamp: null\n", "", 1)
-		buf.Reset() //reuse buffer for new secret
+		old.Content = getComment(old.Content) + strings.Replace(strings.Replace(oldSecretBuf.String(), "stringData", "data", 1), "  creationTimestamp: null\n", "", 1)
+		oldSecretBuf.Reset()
 	}
-	if new != nil {
+	if new != nil && newSecretDecodeErr == nil {
+		newSecretBuf := bytes.NewBuffer(nil)
 		newSecret.Data = nil
-		if err := serializer.Encode(&newSecret, &buf); err != nil {
+		if err := serializer.Encode(&newSecret, newSecretBuf); err != nil {
 			new.Content = fmt.Sprintf("Error encoding new secret: %s", err)
 		}
-		new.Content = getComment(new.Content) + strings.Replace(strings.Replace(buf.String(), "stringData", "data", 1), "  creationTimestamp: null\n", "", 1)
+		new.Content = getComment(new.Content) + strings.Replace(strings.Replace(newSecretBuf.String(), "stringData", "data", 1), "  creationTimestamp: null\n", "", 1)
+		newSecretBuf.Reset()
+	}
+}
+
+// decodeSecrets decodes secrets from the diff output.
+func decodeSecrets(old, new *manifest.MappingResult) {
+	if (old != nil && old.Kind != kindSecret) || (new != nil && new.Kind != kindSecret) {
+		return
+	}
+	serializer := json.NewYAMLSerializer(json.DefaultMetaFactory, scheme.Scheme, scheme.Scheme)
+
+	oldSecret, newSecret, oldSecretDecodeErr, newSecretDecodeErr := preHandleSecrets(old, new)
+
+	if old != nil && oldSecretDecodeErr == nil {
+		oldSecret.StringData = make(map[string]string, len(oldSecret.Data))
+		for k, v := range oldSecret.Data {
+			oldSecret.StringData[k] = string(v)
+		}
+	}
+	if new != nil && newSecretDecodeErr == nil {
+		newSecret.StringData = make(map[string]string, len(newSecret.Data))
+		for k, v := range newSecret.Data {
+			newSecret.StringData[k] = string(v)
+		}
+	}
+
+	// remove Data field now that we are using StringData for serialization
+	if old != nil && oldSecretDecodeErr == nil {
+		oldSecretBuf := bytes.NewBuffer(nil)
+		oldSecret.Data = nil
+		if err := serializer.Encode(&oldSecret, oldSecretBuf); err != nil {
+			new.Content = fmt.Sprintf("Error encoding new secret: %s", err)
+		}
+		old.Content = getComment(old.Content) + strings.Replace(oldSecretBuf.String(), "  creationTimestamp: null\n", "", 1)
+		oldSecretBuf.Reset()
+	}
+	if new != nil && newSecretDecodeErr == nil {
+		newSecretBuf := bytes.NewBuffer(nil)
+		newSecret.Data = nil
+		if err := serializer.Encode(&newSecret, newSecretBuf); err != nil {
+			new.Content = fmt.Sprintf("Error encoding new secret: %s", err)
+		}
+		new.Content = getComment(new.Content) + strings.Replace(newSecretBuf.String(), "  creationTimestamp: null\n", "", 1)
+		newSecretBuf.Reset()
 	}
 }
 
@@ -330,7 +487,7 @@ func printDiffRecords(suppressedKinds []string, kind string, context int, diffs 
 	for _, ckind := range suppressedKinds {
 		if ckind == kind {
 			str := fmt.Sprintf("+ Changes suppressed on sensitive content of type %s\n", kind)
-			fmt.Fprint(to, ansi.Color(str, "yellow"))
+			_, _ = fmt.Fprint(to, ansi.Color(str, "yellow"))
 			return
 		}
 	}
@@ -341,7 +498,7 @@ func printDiffRecords(suppressedKinds []string, kind string, context int, diffs 
 		for i, diff := range diffs {
 			if distances[i] > context {
 				if !omitting {
-					fmt.Fprintln(to, "...")
+					_, _ = fmt.Fprintln(to, "...")
 					omitting = true
 				}
 			} else {
@@ -361,14 +518,14 @@ func printDiffRecord(diff difflib.DiffRecord, to io.Writer) {
 
 	switch diff.Delta {
 	case difflib.RightOnly:
-		fmt.Fprintf(to, "%s\n", ansi.Color("+ "+text, "green"))
+		_, _ = fmt.Fprintf(to, "%s\n", ansi.Color("+ "+text, "green"))
 	case difflib.LeftOnly:
-		fmt.Fprintf(to, "%s\n", ansi.Color("- "+text, "red"))
+		_, _ = fmt.Fprintf(to, "%s\n", ansi.Color("- "+text, "red"))
 	case difflib.Common:
 		if text == "" {
-			fmt.Fprintln(to)
+			_, _ = fmt.Fprintln(to)
 		} else {
-			fmt.Fprintf(to, "%s\n", "  "+text)
+			_, _ = fmt.Fprintf(to, "%s\n", "  "+text)
 		}
 	}
 }

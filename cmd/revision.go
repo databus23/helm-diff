@@ -14,6 +14,7 @@ import (
 
 type revision struct {
 	release            string
+	kubeContext        string
 	detailedExitCode   bool
 	revisions          []string
 	includeTests       bool
@@ -70,6 +71,7 @@ func revisionCmd() *cobra.Command {
 	revisionCmd.Flags().BoolVar(&diff.detailedExitCode, "detailed-exitcode", false, "return a non-zero exit code when there are changes")
 	revisionCmd.Flags().BoolVar(&diff.includeTests, "include-tests", false, "enable the diffing of the helm test hooks")
 	revisionCmd.Flags().BoolVar(&diff.normalizeManifests, "normalize-manifests", false, "normalize manifests before running diff to exclude style differences from the output")
+	revisionCmd.Flags().StringVar(&diff.kubeContext, "kube-context", "", "name of the kubeconfig context to use")
 	AddDiffOptions(revisionCmd.Flags(), &diff.Options)
 
 	revisionCmd.SuggestionsMinimumDistance = 1
@@ -79,27 +81,32 @@ func revisionCmd() *cobra.Command {
 
 func (d *revision) differentiateHelm3() error {
 	namespace := os.Getenv("HELM_NAMESPACE")
-	excludes := []string{helm3TestHook, helm2TestSuccessHook}
+	excludes := []string{manifest.Helm3TestHook, manifest.Helm2TestSuccessHook}
 	if d.includeTests {
 		excludes = []string{}
 	}
 	switch len(d.revisions) {
 	case 1:
-		releaseResponse, err := getRelease(d.release, namespace)
+		releaseResponse, err := getRelease(d.release, namespace, d.kubeContext)
 
 		if err != nil {
 			return err
 		}
 
 		revision, _ := strconv.Atoi(d.revisions[0])
-		revisionResponse, err := getRevision(d.release, revision, namespace)
+		revisionResponse, err := getRevision(d.release, revision, namespace, d.kubeContext)
 		if err != nil {
 			return err
 		}
 
+		oldSpecs := manifest.Parse(revisionResponse, namespace, d.normalizeManifests, excludes...)
+		newSpecs := manifest.Parse(releaseResponse, namespace, d.normalizeManifests, excludes...)
+		revisionResponse = nil //nolint:ineffassign // nil to allow GC to reclaim raw bytes before diff computation
+		releaseResponse = nil  //nolint:ineffassign // nil to allow GC to reclaim raw bytes before diff computation
+
 		diff.Manifests(
-			manifest.Parse(string(revisionResponse), namespace, d.normalizeManifests, excludes...),
-			manifest.Parse(string(releaseResponse), namespace, d.normalizeManifests, excludes...),
+			oldSpecs,
+			newSpecs,
 			&d.Options,
 			os.Stdout)
 
@@ -110,19 +117,24 @@ func (d *revision) differentiateHelm3() error {
 			revision1, revision2 = revision2, revision1
 		}
 
-		revisionResponse1, err := getRevision(d.release, revision1, namespace)
+		revisionResponse1, err := getRevision(d.release, revision1, namespace, d.kubeContext)
 		if err != nil {
 			return err
 		}
 
-		revisionResponse2, err := getRevision(d.release, revision2, namespace)
+		revisionResponse2, err := getRevision(d.release, revision2, namespace, d.kubeContext)
 		if err != nil {
 			return err
 		}
+
+		oldSpecs := manifest.Parse(revisionResponse1, namespace, d.normalizeManifests, excludes...)
+		newSpecs := manifest.Parse(revisionResponse2, namespace, d.normalizeManifests, excludes...)
+		revisionResponse1 = nil //nolint:ineffassign // nil to allow GC to reclaim raw bytes before diff computation
+		revisionResponse2 = nil //nolint:ineffassign // nil to allow GC to reclaim raw bytes before diff computation
 
 		seenAnyChanges := diff.Manifests(
-			manifest.Parse(string(revisionResponse1), namespace, d.normalizeManifests, excludes...),
-			manifest.Parse(string(revisionResponse2), namespace, d.normalizeManifests, excludes...),
+			oldSpecs,
+			newSpecs,
 			&d.Options,
 			os.Stdout)
 

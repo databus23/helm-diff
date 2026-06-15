@@ -13,13 +13,10 @@ jobs:
     if: "!contains(github.event.head_commit.message, '[ci skip]')"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
         with:
-          go-version-file: 'go.mod'
-
-      - name: Install dependencies
-        run: make bootstrap
+          go-version-file: "go.mod"
 
       - name: Run unit tests
         run: make test
@@ -41,36 +38,49 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        shell: [ default ]
-        experimental: [ false ]
-        helm-version: [ v3.13.3, v3.14.3 ]
+        shell: [default]
+        experimental: [false]
+        helm-version: [v3.18.6, v3.21.0, v4.2.0]
         include:
           - os: windows-latest
             shell: wsl
             experimental: false
-            helm-version: v3.13.3
+            helm-version: v3.18.6
           - os: windows-latest
             shell: cygwin
             experimental: false
-            helm-version: v3.13.3
+            helm-version: v3.18.6
           - os: ubuntu-latest
             container: alpine
             shell: sh
             experimental: false
-            helm-version: v3.13.3
+            helm-version: v3.18.6
           - os: windows-latest
             shell: wsl
             experimental: false
-            helm-version: v3.14.3
+            helm-version: v3.21.0
           - os: windows-latest
             shell: cygwin
             experimental: false
-            helm-version: v3.14.3
+            helm-version: v3.21.0
           - os: ubuntu-latest
             container: alpine
             shell: sh
             experimental: false
-            helm-version: v3.14.3
+            helm-version: v3.21.0
+          - os: windows-latest
+            shell: wsl
+            experimental: false
+            helm-version: v4.2.0
+          - os: windows-latest
+            shell: cygwin
+            experimental: false
+            helm-version: v4.2.0
+          - os: ubuntu-latest
+            container: alpine
+            shell: sh
+            experimental: false
+            helm-version: v4.2.0
 
     steps:
       - name: Disable autocrlf
@@ -79,25 +89,23 @@ jobs:
           git config --global core.autocrlf false
           git config --global core.eol lf
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup Helm
-        uses: azure/setup-helm@v4
+        uses: azure/setup-helm@v5
         with:
-          version: ${{ matrix.helm-version }}
+          version: "${{ matrix.helm-version }}"
 
       - name: Setup WSL
         if: "contains(matrix.shell, 'wsl')"
-        uses: Vampire/setup-wsl@v3
+        uses: Vampire/setup-wsl@v7
 
       - name: Setup Cygwin
         if: "contains(matrix.shell, 'cygwin')"
         uses: egor-tensin/setup-cygwin@v4
-        with:
-          platform: x64
 
       - name: helm plugin install
-        run: helm plugin install .
+        run: helm plugin install --debug .
 
   integration-tests:
     name: Integration Tests
@@ -110,22 +118,26 @@ jobs:
           # Helm maintains the latest minor version only and therefore each Helmfile version supports 2 Helm minor versions.
           # That's why we cover only 2 Helm minor versions in this matrix.
           # See https://github.com/helmfile/helmfile/pull/286#issuecomment-1250161182 for more context.
-          - helm-version: v3.13.3
-          - helm-version: v3.14.3
+          - helm-version: v3.18.6
+          - helm-version: v3.21.0
+          - helm-version: v4.2.0
     steps:
-      - uses: engineerd/setup-kind@v0.5.0
+      - uses: engineerd/setup-kind@v0.6.2
         with:
-          version: "v0.11.1"
+          skipClusterLogsExport: true
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup Helm
-        uses: azure/setup-helm@v4
+        uses: azure/setup-helm@v5
         with:
           version: ${{ matrix.helm-version }}
 
+      - name: Helm Version
+        run: helm version
+
       - name: helm plugin install
-        run: helm plugin install .
+        run: make install/helm
 
       - name: helm create helm-diff
         run: helm create helm-diff

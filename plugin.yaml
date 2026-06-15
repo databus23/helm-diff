@@ -1,11 +1,27 @@
-name: "diff"
+name: diff
 # Version is the version of Helm plus the number of official builds for this
 # plugin
-version: "3.9.5"
+version: "3.15.8"
 usage: "Preview helm upgrade changes as a diff"
 description: "Preview helm upgrade changes as a diff"
 useTunnel: true
-command: "$HELM_PLUGIN_DIR/bin/diff"
-hooks:
-  install: "$HELM_PLUGIN_DIR/install-binary.sh"
-  update: "$HELM_PLUGIN_DIR/install-binary.sh -u"
+platformCommand:
+  - command: ${HELM_PLUGIN_DIR}/bin/diff
+
+platformHooks:
+  install:
+    - command: ${HELM_PLUGIN_DIR}/install-binary.sh
+    - os: windows
+      command: pwsh
+      args:
+        - -Command
+        - "& (Join-Path -Path (Get-ChildItem env:HELM_PLUGIN_DIR).value -ChildPath 'install-binary.ps1')"
+  update:
+    - command: ${HELM_PLUGIN_DIR}/install-binary.sh
+      args:
+        - -u
+    - os: windows
+      command: pwsh
+      args:
+        - -Command
+        - "& (Join-Path -Path (Get-ChildItem env:HELM_PLUGIN_DIR).value -ChildPath 'install-binary.ps1') -Update"

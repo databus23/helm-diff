@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 
 	. "github.com/databus23/helm-diff/v3/manifest"
 )
@@ -25,7 +27,7 @@ func TestPod(t *testing.T) {
 
 	require.Equal(t,
 		[]string{"default, nginx, Pod (v1)"},
-		foundObjects(Parse(string(spec), "default", false)),
+		foundObjects(Parse(spec, "default", false)),
 	)
 }
 
@@ -35,7 +37,7 @@ func TestPodNamespace(t *testing.T) {
 
 	require.Equal(t,
 		[]string{"batcave, nginx, Pod (v1)"},
-		foundObjects(Parse(string(spec), "default", false)),
+		foundObjects(Parse(spec, "default", false)),
 	)
 }
 
@@ -45,17 +47,17 @@ func TestPodHook(t *testing.T) {
 
 	require.Equal(t,
 		[]string{"default, nginx, Pod (v1)"},
-		foundObjects(Parse(string(spec), "default", false)),
+		foundObjects(Parse(spec, "default", false)),
 	)
 
 	require.Equal(t,
 		[]string{"default, nginx, Pod (v1)"},
-		foundObjects(Parse(string(spec), "default", false, "test-success")),
+		foundObjects(Parse(spec, "default", false, "test-success")),
 	)
 
 	require.Equal(t,
 		[]string{},
-		foundObjects(Parse(string(spec), "default", false, "test")),
+		foundObjects(Parse(spec, "default", false, "test")),
 	)
 }
 
@@ -65,7 +67,7 @@ func TestDeployV1(t *testing.T) {
 
 	require.Equal(t,
 		[]string{"default, nginx, Deployment (apps)"},
-		foundObjects(Parse(string(spec), "default", false)),
+		foundObjects(Parse(spec, "default", false)),
 	)
 }
 
@@ -75,7 +77,7 @@ func TestDeployV1Beta1(t *testing.T) {
 
 	require.Equal(t,
 		[]string{"default, nginx, Deployment (apps)"},
-		foundObjects(Parse(string(spec), "default", false)),
+		foundObjects(Parse(spec, "default", false)),
 	)
 }
 
@@ -88,7 +90,33 @@ func TestList(t *testing.T) {
 			"default, prometheus-operator-example, PrometheusRule (monitoring.coreos.com)",
 			"default, prometheus-operator-example2, PrometheusRule (monitoring.coreos.com)",
 		},
-		foundObjects(Parse(string(spec), "default", false)),
+		foundObjects(Parse(spec, "default", false)),
+	)
+}
+
+func TestConfigMapList(t *testing.T) {
+	spec, err := os.ReadFile("testdata/configmaplist_v1.yaml")
+	require.NoError(t, err)
+
+	require.Equal(t,
+		[]string{
+			"default, configmap-2-1, ConfigMap (v1)",
+			"default, configmap-2-2, ConfigMap (v1)",
+		},
+		foundObjects(Parse(spec, "default", false)),
+	)
+}
+
+func TestSecretList(t *testing.T) {
+	spec, err := os.ReadFile("testdata/secretlist_v1.yaml")
+	require.NoError(t, err)
+
+	require.Equal(t,
+		[]string{
+			"default, my-secret-1, Secret (v1)",
+			"default, my-secret-2, Secret (v1)",
+		},
+		foundObjects(Parse(spec, "default", false)),
 	)
 }
 
@@ -98,7 +126,7 @@ func TestEmpty(t *testing.T) {
 
 	require.Equal(t,
 		[]string{},
-		foundObjects(Parse(string(spec), "default", false)),
+		foundObjects(Parse(spec, "default", false)),
 	)
 }
 
@@ -108,27 +136,27 @@ func TestBaseNameAnnotation(t *testing.T) {
 
 	require.Equal(t,
 		[]string{"default, bat-secret, Secret (v1)"},
-		foundObjects(Parse(string(spec), "default", false)),
+		foundObjects(Parse(spec, "default", false)),
 	)
 }
 func TestContentNormalizeManifests(t *testing.T) {
 	tests := []struct {
 		name           string
-		content        string
-		expectedOutput string
+		content        []byte
+		expectedOutput []byte
 		expectedError  error
 	}{
 		{
 			name: "Valid content",
-			content: `apiVersion: v1
+			content: []byte(`apiVersion: v1
 kind: Pod
 metadata:
   name: my-pod
 spec:
   containers:
   - name: my-container
-    image: nginx`,
-			expectedOutput: `apiVersion: v1
+    image: nginx`),
+			expectedOutput: []byte(`apiVersion: v1
 kind: Pod
 metadata:
   name: my-pod
@@ -136,13 +164,13 @@ spec:
   containers:
   - image: nginx
     name: my-container
-`,
+`),
 			expectedError: nil,
 		},
 		{
 			name:           "Empty content",
-			content:        "",
-			expectedOutput: "{}\n",
+			content:        []byte(""),
+			expectedOutput: []byte("{}\n"),
 			expectedError:  nil,
 		},
 	}
@@ -151,7 +179,47 @@ spec:
 		t.Run(tt.name, func(t *testing.T) {
 			output, err := ContentNormalizeManifests(tt.content)
 			require.Equal(t, tt.expectedError, err)
-			require.Equal(t, tt.expectedOutput, output)
+			require.Equal(t, string(tt.expectedOutput), string(output))
+		})
+	}
+}
+
+func TestParseObject(t *testing.T) {
+	for _, tt := range []struct {
+		name        string
+		filename    string
+		releaseName string
+		kind        string
+		oldRelease  string
+	}{
+		{
+			name:        "no release info",
+			filename:    "testdata/pod_no_release_annotations.yaml",
+			releaseName: "testNS, nginx, Pod (v1)",
+			kind:        "Pod",
+			oldRelease:  "",
+		},
+		{
+			name:        "get old release info",
+			filename:    "testdata/pod_release_annotations.yaml",
+			releaseName: "testNS, nginx, Pod (v1)",
+			kind:        "Pod",
+			oldRelease:  "oldNS/oldReleaseName",
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			spec, err := os.ReadFile(tt.filename)
+			require.NoError(t, err)
+
+			obj, _, err := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme).Decode(spec, nil, nil)
+			require.NoError(t, err)
+
+			release, oldRelease, err := ParseObject(obj, "testNS")
+			require.NoError(t, err)
+
+			require.Equal(t, tt.releaseName, release.Name)
+			require.Equal(t, tt.kind, release.Kind)
+			require.Equal(t, tt.oldRelease, oldRelease)
 		})
 	}
 }

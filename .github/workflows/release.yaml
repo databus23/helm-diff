@@ -1,9 +1,29 @@
+# Release workflow
+#
+# Prerequisites (configure in Settings > Secrets and variables > Actions):
+#   - GPG_PRIVATE_KEY: base64-encoded GPG private key for signing release artifacts
+#   - GPG_FINGERPRINT: Fingerprint of the GPG key
+#   - GPG_PASSPHRASE: Passphrase for the GPG private key
+#
+# Key management notes:
+#   - Use a key with no expiration or set a calendar reminder before expiry
+#   - To rotate: generate a new keypair, update all three secrets, and verify
+#     with a test release (see the provenance-smoke-test job)
+
 name: Release
 
 on:
   push:
     tags:
       - '*'
+    branches:
+      - 'main'
+      - 'master'
+  pull_request:
+    branches:
+      - 'main'
+      - 'master'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -14,24 +34,89 @@ jobs:
     steps:
       -
         if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
-        run: echo "flags=--snapshot" >> $GITHUB_ENV
+        run: echo "flags=--snapshot --skip=sign" >> $GITHUB_ENV
       -
         name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
       -
         name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: 'go.mod'
-          cache: true
+      -
+        name: Import GPG key
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        run: |
+          gpgconf --launch gpg-agent
+          printf '%s' "${{ secrets.GPG_PRIVATE_KEY }}" | base64 --decode | gpg --batch --import
+      -
+        name: Set GPG environment for signing
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        run: |
+          echo "GPG_FINGERPRINT=${{ secrets.GPG_FINGERPRINT }}" >> "$GITHUB_ENV"
+          echo "GPG_PASSPHRASE=${{ secrets.GPG_PASSPHRASE }}" >> "$GITHUB_ENV"
       -
         name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v5
+        uses: goreleaser/goreleaser-action@v7
         with:
           distribution: goreleaser
-          version: latest
+          version: '~> v1'
           args: release --clean ${{ env.flags }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      -
+        name: Export and upload public key
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        run: |
+          gpg --export --armor "${{ secrets.GPG_FINGERPRINT }}" > pubkey.asc
+          gh release upload ${{ github.ref_name }} pubkey.asc
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  provenance-smoke-test:
+    runs-on: ubuntu-latest
+    if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v6
+      -
+        name: Test provenance signing with disposable key
+        run: |
+          export GNUPGHOME="$(mktemp -d)"
+          tmpdir="$(mktemp -d)"
+          trap 'rm -rf "$GNUPGHOME" "$tmpdir"' EXIT
+          chmod 700 "$GNUPGHOME"
+
+          gpg --batch --pinentry-mode loopback --passphrase '' \
+            --quick-generate-key "helm-diff-test" ed25519 sign 0
+          GPG_FINGERPRINT=$(gpg --batch --with-colons --list-secret-keys "helm-diff-test" \
+            | grep '^fpr:' | head -1 | cut -d: -f10)
+          export GPG_FINGERPRINT
+          export GPG_PASSPHRASE=""
+
+          echo "dummy binary" > "$tmpdir/bin"
+          tar czf "$tmpdir/helm-diff-linux-amd64.tgz" -C "$tmpdir" bin
+
+          ./scripts/sign-provenance.sh "$tmpdir/helm-diff-linux-amd64.tgz" "$tmpdir/helm-diff-linux-amd64.tgz.prov"
+
+          if [ ! -f "$tmpdir/helm-diff-linux-amd64.tgz.prov" ]; then
+            echo "ERROR: provenance file was not created"
+            exit 1
+          fi
+
+          echo "=== gpg --verify ==="
+          gpg --verify "$tmpdir/helm-diff-linux-amd64.tgz.prov"
+
+          echo ""
+          echo "=== Signed .prov content ==="
+          cat "$tmpdir/helm-diff-linux-amd64.tgz.prov"
+
+          echo ""
+          echo "=== Parsed provenance block ==="
+          gpg --batch --output - "$tmpdir/helm-diff-linux-amd64.tgz.prov" 2>/dev/null
+
+          echo ""
+          echo "Provenance smoke test passed"
