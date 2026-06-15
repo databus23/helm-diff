@@ -67,6 +67,27 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       -
+        name: Verify archives bundle plugin files (snapshot only)
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        run: |
+          set -e
+          missing=0
+          for f in dist/helm-diff-*.tgz; do
+            echo "== $f =="
+            tar tzf "$f"
+            for member in diff/plugin.yaml diff/install-binary.sh diff/install-binary.ps1 diff/bin/diff; do
+              if ! tar tzf "$f" | grep -q "^${member}$"; then
+                echo "ERROR: ${member} missing from ${f}"
+                missing=1
+              fi
+            done
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo "Smoke test failed: required plugin files missing from one or more archives"
+            exit 1
+          fi
+          echo "Smoke test passed: all archives bundle plugin.yaml, install scripts, and binary"
+      -
         name: Export and upload public key
         if: ${{ startsWith(github.ref, 'refs/tags/v') }}
         run: |

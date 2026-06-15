@@ -154,6 +154,17 @@ exit_trap() {
   exit $result
 }
 
+# alreadyInstalled returns 0 when the platform binary is already staged in
+# the plugin dir. This is the case when installing from a release archive
+# (which bundles the correct platform binary), so the redundant download
+# can be skipped. Update mode always re-downloads.
+alreadyInstalled() {
+  [ "$SCRIPT_MODE" = "install" ] || return 1
+  bin="$HELM_PLUGIN_DIR/bin/diff"
+  [ "$OS" = "windows" ] && bin="$bin.exe"
+  [ -x "$bin" ]
+}
+
 # --- Execution ---
 # Stop execution on any error
 trap "exit_trap" EXIT
@@ -162,6 +173,13 @@ set -e
 initArch
 initOS
 verifySupported
+
+if alreadyInstalled; then
+  echo "Binary already present at $HELM_PLUGIN_DIR/bin/diff, skipping download"
+  trap - EXIT
+  exit 0
+fi
+
 getDownloadURL
 mkTempDir
 downloadFile

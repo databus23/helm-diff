@@ -56,6 +56,17 @@ $ErrorActionPreference = "Stop"
 
 $archiveName = "helm-diff.tgz"
 $arch = Get-Architecture
+
+# If installing (not updating) and the binary is already staged in the
+# plugin dir (e.g. installing from a release archive that bundles the
+# correct platform binary), skip the redundant download. Update mode
+# always re-downloads.
+$pluginBin = Join-Path $env:HELM_PLUGIN_DIR "bin" "diff.exe"
+if (-not $Update -and (Test-Path $pluginBin -PathType Leaf)) {
+    Write-Host "Binary already present at $pluginBin, skipping download"
+    exit 0
+}
+
 $tmpDir = New-TemporaryDirectory
 trap {   Remove-Item -path $tmpDir -Recurse -Force }
 $output = Join-Path $tmpDir $archiveName

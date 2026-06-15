@@ -25,6 +25,17 @@ helm plugin install https://github.com/databus23/helm-diff
 
 If installing this in an offline/airgapped environment, download the platform-specific binary archive (e.g., `helm-diff-linux-amd64.tgz` or `helm-diff-windows-amd64.tgz`) from [releases](https://github.com/databus23/helm-diff/releases). Make sure to select the correct `.tgz` file for your operating system and architecture.
 
+The release archives include everything needed to install the plugin (binary, `plugin.yaml`, and the install scripts). The simplest way to install offline is to extract the archive and point `helm plugin install` at the extracted directory:
+
+```
+tar xzf helm-diff-linux-amd64.tgz   # extracts into a ./diff directory
+helm plugin install ./diff
+```
+
+The install script detects that the binary is already bundled and skips the GitHub download.
+
+Alternatively, if you keep a separate local checkout of the plugin source, you can point the installer at a downloaded `.tgz` via the `HELM_DIFF_BIN_TGZ` environment variable.
+
 Set `HELM_DIFF_BIN_TGZ` to the absolute path to the downloaded binary archive:
 
 **POSIX shell:**
