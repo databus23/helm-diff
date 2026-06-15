@@ -40,7 +40,22 @@ function Get-Url {
 
 function Download-Plugin {
   param ([Parameter(Mandatory=$true)][string] $Url, [Parameter(Mandatory=$true)][string] $Output)
-  Invoke-WebRequest -OutFile $Output $Url
+  # Retry with backoff to absorb transient failures, e.g. a release window
+  # where the "latest" asset is already published but not fully uploaded yet.
+  $maxAttempts = 5
+  for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+    try {
+      Invoke-WebRequest -OutFile $Output $Url
+      return
+    } catch {
+      if ($attempt -eq $maxAttempts) {
+        throw "Failed to download $Url after $maxAttempts attempts: $_"
+      }
+      $backoff = $attempt * 3
+      Write-Host "Download failed (attempt $attempt/$maxAttempts), retrying in ${backoff}s..."
+      Start-Sleep -Seconds $backoff
+    }
+  }
 }
 
 function Install-Plugin {

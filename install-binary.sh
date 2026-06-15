@@ -123,10 +123,33 @@ downloadFile() {
   fi
 
   echo "Downloading $DOWNLOAD_URL"
-  if command -v curl >/dev/null 2>&1; then
-    curl -sSf -L "$DOWNLOAD_URL" >"$PLUGIN_TMP_FILE"
-  elif command -v wget >/dev/null 2>&1; then
-    wget -q -O - "$DOWNLOAD_URL" >"$PLUGIN_TMP_FILE"
+  # Retry with backoff to absorb transient failures, e.g. a release window
+  # where the "latest" asset is already published but not fully uploaded yet.
+  dl_attempts=5
+  dl_attempt=1
+  dl_ok=0
+  while [ "$dl_attempt" -le "$dl_attempts" ]; do
+    if command -v curl >/dev/null 2>&1; then
+      if curl -sSfL "$DOWNLOAD_URL" >"$PLUGIN_TMP_FILE"; then
+        dl_ok=1
+        break
+      fi
+    elif command -v wget >/dev/null 2>&1; then
+      if wget -q -O "$PLUGIN_TMP_FILE" "$DOWNLOAD_URL"; then
+        dl_ok=1
+        break
+      fi
+    else
+      echo "Either curl or wget is required"
+      exit 1
+    fi
+    echo "Download failed (attempt $dl_attempt/$dl_attempts), retrying in $((dl_attempt * 3))s..."
+    sleep "$((dl_attempt * 3))"
+    dl_attempt=$((dl_attempt + 1))
+  done
+  if [ "$dl_ok" -ne 1 ]; then
+    echo "Error: failed to download $DOWNLOAD_URL after $dl_attempts attempts"
+    exit 1
   fi
 }
 
