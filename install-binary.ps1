@@ -40,7 +40,22 @@ function Get-Url {
 
 function Download-Plugin {
   param ([Parameter(Mandatory=$true)][string] $Url, [Parameter(Mandatory=$true)][string] $Output)
-  Invoke-WebRequest -OutFile $Output $Url
+  # Retry with backoff to absorb transient failures, e.g. a release window
+  # where the "latest" asset is already published but not fully uploaded yet.
+  $maxAttempts = 5
+  for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+    try {
+      Invoke-WebRequest -OutFile $Output $Url
+      return
+    } catch {
+      if ($attempt -eq $maxAttempts) {
+        throw "Failed to download $Url after $maxAttempts attempts: $_"
+      }
+      $backoff = $attempt * 3
+      Write-Host "Download failed (attempt $attempt/$maxAttempts), retrying in ${backoff}s..."
+      Start-Sleep -Seconds $backoff
+    }
+  }
 }
 
 function Install-Plugin {
@@ -56,6 +71,17 @@ $ErrorActionPreference = "Stop"
 
 $archiveName = "helm-diff.tgz"
 $arch = Get-Architecture
+
+# If installing (not updating) and the binary is already staged in the
+# plugin dir (e.g. installing from a release archive that bundles the
+# correct platform binary), skip the redundant download. Update mode
+# always re-downloads.
+$pluginBin = Join-Path $env:HELM_PLUGIN_DIR "bin" "diff.exe"
+if (-not $Update -and (Test-Path $pluginBin -PathType Leaf)) {
+    Write-Host "Binary already present at $pluginBin, skipping download"
+    exit 0
+}
+
 $tmpDir = New-TemporaryDirectory
 trap {   Remove-Item -path $tmpDir -Recurse -Force }
 $output = Join-Path $tmpDir $archiveName
