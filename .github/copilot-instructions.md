@@ -8,7 +8,7 @@ Always reference these instructions first and fallback to search or bash command
 
 **Prerequisites:**
 - Go >= 1.21 (currently uses Go 1.24.5)
-- Helm v3 (tested with v3.17.4 and v3.18.6)
+- Helm v3/v4 (tested with v3.21.0 and v4.2.0)
 
 **Build Process:**
 - Build the plugin: `make build` - includes linting and compiles the binary.
