@@ -75,12 +75,17 @@ jobs:
           for f in dist/helm-diff-*.tgz; do
             echo "== $f =="
             tar tzf "$f"
-            for member in diff/plugin.yaml diff/install-binary.sh diff/install-binary.ps1 diff/bin/diff; do
+            for member in diff/plugin.yaml diff/install-binary.sh diff/install-binary.ps1; do
               if ! tar tzf "$f" | grep -q "^${member}$"; then
                 echo "ERROR: ${member} missing from ${f}"
                 missing=1
               fi
             done
+            # the binary has a .exe suffix on windows archives
+            if ! tar tzf "$f" | grep -qE '^diff/bin/diff(\.exe)?$'; then
+              echo "ERROR: diff/bin/diff missing from ${f}"
+              missing=1
+            fi
           done
           if [ "$missing" -ne 0 ]; then
             echo "Smoke test failed: required plugin files missing from one or more archives"
