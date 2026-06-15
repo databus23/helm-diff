@@ -93,6 +93,34 @@ jobs:
           fi
           echo "Smoke test passed: all archives bundle plugin.yaml, install scripts, and binary"
       -
+        name: Set up Helm
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        uses: azure/setup-helm@v5
+        with:
+          version: v3.18.6
+      -
+        name: End-to-end archive install test (snapshot only)
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        run: |
+          set -e
+          # Reproduce issue #504: extract a release archive and install from it.
+          mkdir -p /tmp/archive-test
+          tar xzf dist/helm-diff-linux-amd64.tgz -C /tmp/archive-test
+          echo "Extracted archive layout:"
+          find /tmp/archive-test/diff -maxdepth 2 -type f | sort
+
+          out="$(helm plugin install /tmp/archive-test/diff 2>&1)"
+          echo "$out"
+          # The install hook must find the bundled binary already staged in
+          # HELM_PLUGIN_DIR and skip the network download.
+          echo "$out" | grep -q "skipping download" || {
+            echo "ERROR: install hook did not skip the download."
+            echo "Archive install must not hit the network (binary is already bundled)."
+            exit 1
+          }
+          helm diff version
+          echo "End-to-end archive install test passed: installed from archive without downloading"
+      -
         name: Export and upload public key
         if: ${{ startsWith(github.ref, 'refs/tags/v') }}
         run: |
