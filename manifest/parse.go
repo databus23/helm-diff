@@ -191,7 +191,7 @@ func parseContent(content []byte, defaultNamespace string, normalizeManifests bo
 
 	if normalizeManifests {
 		var normalizeErr error
-		content, normalizeErr = ContentNormalizeManifests(content)
+		content, normalizeErr = normalizeContent(content)
 		if normalizeErr != nil {
 			log.Fatalf("Error normalizing manifests: %v", normalizeErr)
 		}
@@ -216,7 +216,7 @@ func parseContent(content []byte, defaultNamespace string, normalizeManifests bo
 	}, nil
 }
 
-func ContentNormalizeManifests(content []byte) ([]byte, error) {
+func normalizeContent(content []byte) ([]byte, error) {
 	// Unmarshal and marshal again content to normalize yaml structure
 	// This avoids style differences to show up as diffs but it can
 	// make the output different from the original template (since it is in normalized form)
