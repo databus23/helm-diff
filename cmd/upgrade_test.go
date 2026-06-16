@@ -3,6 +3,7 @@ package cmd
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 )
 
@@ -180,4 +181,27 @@ func TestPrepareEnvSettings_ConfigFlagsPointToCorrectFields(t *testing.T) {
 			t.Errorf("env.KubeConfig = %q, want %q", env.KubeConfig, "/tmp/single-config")
 		}
 	})
+}
+
+func TestServerSideFlagValidation(t *testing.T) {
+	cases := []struct {
+		name      string
+		value     string
+		expectErr bool
+	}{
+		{name: "true", value: "true", expectErr: false},
+		{name: "false", value: "false", expectErr: false},
+		{name: "auto", value: "auto", expectErr: false},
+		{name: "invalid", value: "yes", expectErr: true},
+		{name: "empty", value: "", expectErr: true},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			valid := slices.Contains(validServerSideVals, tc.value)
+			if valid == tc.expectErr {
+				t.Errorf("value %q: expected valid=%v, got valid=%v", tc.value, !tc.expectErr, valid)
+			}
+		})
+	}
 }

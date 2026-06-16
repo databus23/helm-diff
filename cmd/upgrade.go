@@ -23,7 +23,8 @@ import (
 )
 
 var (
-	validDryRunValues = []string{dryRunServer, dryRunNoOptDefVal, envTrue, envFalse}
+	validDryRunValues   = []string{dryRunServer, dryRunNoOptDefVal, envTrue, envFalse}
+	validServerSideVals = []string{envTrue, envFalse, serverSideAuto}
 )
 
 const (
@@ -32,6 +33,7 @@ const (
 	dryRunServer      = "server"
 	envTrue           = "true"
 	envFalse          = "false"
+	serverSideAuto    = "auto"
 )
 
 type diffCmd struct {
@@ -66,6 +68,7 @@ type diffCmd struct {
 	normalizeManifests       bool
 	takeOwnership            bool
 	threeWayMerge            bool
+	serverSide               string
 	extraAPIs                []string
 	kubeVersion              string
 	useUpgradeDryRun         bool
@@ -166,6 +169,10 @@ func newChartCommand() *cobra.Command {
 				return fmt.Errorf("flag %q must take a bool value or either %q or %q, but got %q", "dry-run", dryRunNoOptDefVal, dryRunServer, diff.dryRunMode)
 			}
 
+			if !slices.Contains(validServerSideVals, diff.serverSide) {
+				return fmt.Errorf("flag %q must be %q, %q or %q, but got %q", "server-side", envTrue, envFalse, serverSideAuto, diff.serverSide)
+			}
+
 			// Suppress the command usage on error. See #77 for more info
 			cmd.SilenceUsage = true
 
@@ -252,6 +259,7 @@ func newChartCommand() *cobra.Command {
 	f.BoolVar(&diff.insecureSkipTLSVerify, "insecure-skip-tls-verify", false, "skip tls certificate checks for the chart download")
 	f.BoolVar(&diff.normalizeManifests, "normalize-manifests", false, "normalize manifests before running diff to exclude style differences from the output")
 	f.BoolVar(&diff.takeOwnership, "take-ownership", false, "if set, upgrade will ignore the check for helm annotations and take ownership of the existing resources")
+	f.StringVar(&diff.serverSide, "server-side", serverSideAuto, `must be "true", "false" or "auto". Object updates run in the server instead of the client ("auto" defaults the value from the previous chart release's method)`)
 
 	AddDiffOptions(f, &diff.Options)
 

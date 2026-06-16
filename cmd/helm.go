@@ -307,6 +307,26 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 		flags = append(flags, "--take-ownership")
 	}
 
+	// Forward --server-side to helm. This flag is Helm v4 only.
+	// - `helm upgrade` registers it as a string accepting "true", "false", "auto".
+	// - `helm template` registers it as a bool (default true); "auto" is rejected.
+	// - The flag has no effect on manifest rendering in dry-run mode — both
+	//   `helm template` and `helm upgrade --dry-run` bail out before the apply
+	//   step where ServerSideApply is actually consulted. It is forwarded purely
+	//   for semantic correctness and so that helm-diff can be used as a drop-in
+	//   wrapper around `helm upgrade` with the same flags.
+	if isHelmV4, err := isHelmVersionGreaterThanEqual(helmV4Version); err == nil && isHelmV4 {
+		switch {
+		case d.useUpgradeDryRun:
+			// `helm upgrade`: forward all values including "auto".
+			flags = append(flags, "--server-side="+d.serverSide)
+		case d.serverSide == envTrue || d.serverSide == envFalse:
+			// `helm template`: forward only bool-compatible values.
+			// "auto" is skipped — template's default (true) is reasonable.
+			flags = append(flags, "--server-side="+d.serverSide)
+		}
+	}
+
 	var (
 		subcmd string
 		filter func([]byte) []byte
