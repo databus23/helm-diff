@@ -164,6 +164,7 @@ Flags:
       --reset-then-reuse-values                  reset the values to the ones built into the chart, apply the last release's values and merge in any new values. If '--reset-values' or '--reuse-values' is specified, this is ignored
       --reset-values                             reset the values to the ones built into the chart and merge in any new values
       --reuse-values                             reuse the last release's values and merge in any new values. If '--reset-values' is specified, this is ignored
+      --server-side string                       must be "true", "false" or "auto". Object updates run in the server instead of the client ("auto" defaults the value from the previous chart release's method) (default "auto")
       --set stringArray                          set values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)
       --set-file stringArray                     set values from respective files specified via the command line (can specify multiple or separate values with commas: key1=path1,key2=path2)
       --set-json stringArray                     set JSON values on the command line (can specify multiple or separate values with commas: key1=jsonval1,key2=jsonval2)
@@ -344,6 +345,7 @@ Flags:
       --reset-then-reuse-values                  reset the values to the ones built into the chart, apply the last release's values and merge in any new values. If '--reset-values' or '--reuse-values' is specified, this is ignored
       --reset-values                             reset the values to the ones built into the chart and merge in any new values
       --reuse-values                             reuse the last release's values and merge in any new values. If '--reset-values' is specified, this is ignored
+      --server-side string                       must be "true", "false" or "auto". Object updates run in the server instead of the client ("auto" defaults the value from the previous chart release's method) (default "auto")
       --set stringArray                          set values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)
       --set-file stringArray                     set values from respective files specified via the command line (can specify multiple or separate values with commas: key1=path1,key2=path2)
       --set-json stringArray                     set JSON values on the command line (can specify multiple or separate values with commas: key1=jsonval1,key2=jsonval2)

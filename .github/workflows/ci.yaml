@@ -122,9 +122,9 @@ jobs:
           - helm-version: v3.21.1
           - helm-version: v4.2.1
     steps:
-      - uses: engineerd/setup-kind@v0.6.2
+      - uses: helm/kind-action@v1.14.0
         with:
-          skipClusterLogsExport: true
+          cluster_name: kind
 
       - uses: actions/checkout@v6
 

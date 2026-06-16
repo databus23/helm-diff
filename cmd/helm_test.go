@@ -245,6 +245,82 @@ func TestGetTemplateDryRunFlagsBoolModes(t *testing.T) {
 	}
 }
 
+func TestServerSideFlags(t *testing.T) {
+	cases := []struct {
+		name             string
+		isHelmV4         bool
+		useUpgradeDryRun bool
+		serverSide       string
+		expected         []string
+	}{
+		{
+			name:             "helm v4 template with server-side=true",
+			isHelmV4:         true,
+			useUpgradeDryRun: false,
+			serverSide:       "true",
+			expected:         []string{"--server-side=true"},
+		},
+		{
+			name:             "helm v4 template with server-side=false",
+			isHelmV4:         true,
+			useUpgradeDryRun: false,
+			serverSide:       "false",
+			expected:         []string{"--server-side=false"},
+		},
+		{
+			name:             "helm v4 template with server-side=auto skips flag",
+			isHelmV4:         true,
+			useUpgradeDryRun: false,
+			serverSide:       "auto",
+			expected:         nil,
+		},
+		{
+			name:             "helm v4 upgrade dry-run with server-side=auto passes flag",
+			isHelmV4:         true,
+			useUpgradeDryRun: true,
+			serverSide:       "auto",
+			expected:         []string{"--server-side=auto"},
+		},
+		{
+			name:             "helm v4 upgrade dry-run with server-side=true",
+			isHelmV4:         true,
+			useUpgradeDryRun: true,
+			serverSide:       "true",
+			expected:         []string{"--server-side=true"},
+		},
+		{
+			name:             "helm v4 upgrade dry-run with server-side=false",
+			isHelmV4:         true,
+			useUpgradeDryRun: true,
+			serverSide:       "false",
+			expected:         []string{"--server-side=false"},
+		},
+		{
+			name:             "helm v3 never gets server-side flag",
+			isHelmV4:         false,
+			useUpgradeDryRun: false,
+			serverSide:       "true",
+			expected:         nil,
+		},
+		{
+			name:             "helm v3 upgrade dry-run never gets server-side flag",
+			isHelmV4:         false,
+			useUpgradeDryRun: true,
+			serverSide:       "auto",
+			expected:         nil,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			actual := serverSideFlags(tc.isHelmV4, tc.useUpgradeDryRun, tc.serverSide)
+			if !reflect.DeepEqual(actual, tc.expected) {
+				t.Errorf("Expected %v, got %v", tc.expected, actual)
+			}
+		})
+	}
+}
+
 func TestExtractManifestFromHelmUpgradeDryRunOutput(t *testing.T) {
 	type testdata struct {
 		description string
