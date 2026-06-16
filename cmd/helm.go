@@ -307,25 +307,8 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 		flags = append(flags, "--take-ownership")
 	}
 
-	// Forward --server-side to helm. This flag is Helm v4 only.
-	// - `helm upgrade` registers it as a string accepting "true", "false", "auto".
-	// - `helm template` registers it as a bool (default true); "auto" is rejected.
-	// - The flag has no effect on manifest rendering in dry-run mode — both
-	//   `helm template` and `helm upgrade --dry-run` bail out before the apply
-	//   step where ServerSideApply is actually consulted. It is forwarded purely
-	//   for semantic correctness and so that helm-diff can be used as a drop-in
-	//   wrapper around `helm upgrade` with the same flags.
-	if isHelmV4, err := isHelmVersionGreaterThanEqual(helmV4Version); err == nil && isHelmV4 {
-		switch {
-		case d.useUpgradeDryRun:
-			// `helm upgrade`: forward all values including "auto".
-			flags = append(flags, "--server-side="+d.serverSide)
-		case d.serverSide == envTrue || d.serverSide == envFalse:
-			// `helm template`: forward only bool-compatible values.
-			// "auto" is skipped — template's default (true) is reasonable.
-			flags = append(flags, "--server-side="+d.serverSide)
-		}
-	}
+	isHelmV4, _ := isHelmVersionGreaterThanEqual(helmV4Version)
+	flags = append(flags, serverSideFlags(isHelmV4, d.useUpgradeDryRun, d.serverSide)...)
 
 	var (
 		subcmd string
@@ -509,4 +492,32 @@ func extractManifestFromHelmUpgradeDryRunOutput(s []byte, noHooks bool) []byte {
 	r = append(r, hooks...)
 
 	return r
+}
+
+// serverSideFlags returns the --server-side flag(s) to forward to helm.
+//
+// The flag is Helm v4 only:
+//   - `helm upgrade` registers it as a string accepting "true", "false", "auto".
+//   - `helm template` registers it as a bool (default true); "auto" is rejected.
+//
+// The flag has no effect on manifest rendering in dry-run mode — both
+// `helm template` and `helm upgrade --dry-run` bail out before the apply
+// step where ServerSideApply is actually consulted. It is forwarded purely
+// for semantic correctness and so that helm-diff can be used as a drop-in
+// wrapper around `helm upgrade` with the same flags.
+func serverSideFlags(isHelmV4 bool, useUpgradeDryRun bool, serverSide string) []string {
+	if !isHelmV4 {
+		return nil
+	}
+	switch {
+	case useUpgradeDryRun:
+		// `helm upgrade`: forward all values including "auto".
+		return []string{"--server-side=" + serverSide}
+	case serverSide == envTrue || serverSide == envFalse:
+		// `helm template`: forward only bool-compatible values.
+		// "auto" is skipped — template's default (true) is reasonable.
+		return []string{"--server-side=" + serverSide}
+	default:
+		return nil
+	}
 }

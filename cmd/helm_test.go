@@ -245,23 +245,7 @@ func TestGetTemplateDryRunFlagsBoolModes(t *testing.T) {
 	}
 }
 
-// getServerSideFlags mirrors the --server-side flag-passing logic in
-// (*diffCmd).template() for a given Helm version, subcommand and value.
-func getServerSideFlags(isHelmV4 bool, useUpgradeDryRun bool, serverSide string) []string {
-	if !isHelmV4 {
-		return nil
-	}
-	switch {
-	case useUpgradeDryRun:
-		return []string{"--server-side=" + serverSide}
-	case serverSide == "true" || serverSide == "false":
-		return []string{"--server-side=" + serverSide}
-	default:
-		return nil
-	}
-}
-
-func TestGetServerSideFlags(t *testing.T) {
+func TestServerSideFlags(t *testing.T) {
 	cases := []struct {
 		name             string
 		isHelmV4         bool
@@ -329,7 +313,7 @@ func TestGetServerSideFlags(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			actual := getServerSideFlags(tc.isHelmV4, tc.useUpgradeDryRun, tc.serverSide)
+			actual := serverSideFlags(tc.isHelmV4, tc.useUpgradeDryRun, tc.serverSide)
 			if !reflect.DeepEqual(actual, tc.expected) {
 				t.Errorf("Expected %v, got %v", tc.expected, actual)
 			}
