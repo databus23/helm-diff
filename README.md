@@ -57,15 +57,19 @@ The install script will skip the GitHub download and instead install from the `.
 Helm 4 verifies plugin provenance by default. This project publishes GPG-signed provenance artifacts (`.prov`) alongside release tarballs. To verify, import the project's public key into your keyring and install from a direct tarball URL (git repo URLs do not support provenance verification):
 
 ```shell
-gpg --keyserver hkps://keys.openpgp.org --recv-keys 6D1B9CFF340869384450267300A28D1CC7CD8D7A
+curl -sL https://github.com/databus23.gpg | gpg --import
+gpg --list-keys --with-fingerprint EA17A2A206AFF8CD
+# Expected fingerprint: C5645EF4 7482257A 1F806D2B EA17A2A2 06AFF8CD
 helm plugin install https://github.com/databus23/helm-diff/releases/latest/download/helm-diff-linux-amd64.tgz
 ```
 
-For offline/airgapped environments, download the public key from the GitHub release assets on a connected machine, transfer it, and import it locally:
+For offline/airgapped environments, download the public key from the maintainer's GitHub profile on a connected machine, transfer it, and import it locally:
 
 ```shell
-curl -sL https://github.com/databus23/helm-diff/releases/latest/download/pubkey.asc -o pubkey.asc
+curl -sL https://github.com/databus23.gpg -o pubkey.asc
 gpg --import pubkey.asc
+gpg --list-keys --with-fingerprint EA17A2A206AFF8CD
+# Expected fingerprint: C5645EF4 7482257A 1F806D2B EA17A2A2 06AFF8CD
 ```
 
 The public key fingerprint is published in the notes for each GitHub release.
