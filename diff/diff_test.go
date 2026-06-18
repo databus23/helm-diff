@@ -602,6 +602,15 @@ spec:
       containers:
       - name: app
         image: demo:v1
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: node-type
+                operator: In
+                values:
+                - standard
 `
 	newManifest := `
 apiVersion: apps/v1
@@ -616,6 +625,15 @@ spec:
       containers:
       - name: app
         image: demo:v2
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: node-type
+                operator: In
+                values:
+                - dedicated
 `
 	oldIndex := manifest.Parse([]byte(oldManifest), "prod", true)
 	newIndex := manifest.Parse([]byte(newManifest), "prod", true)
