@@ -651,7 +651,7 @@ spec:
 	require.Equal(t, "Deployment", entry.Kind)
 	require.Equal(t, "prod", entry.Namespace)
 	require.Equal(t, "web", entry.Name)
-	require.Len(t, entry.Changes, 2)
+	require.Len(t, entry.Changes, 3)
 	replicasChange, ok := findChange(entry.Changes, "spec", "replicas")
 	require.True(t, ok)
 	require.InDelta(t, float64(2), replicasChange.OldValue, 0.001)
@@ -661,6 +661,11 @@ spec:
 	require.True(t, ok)
 	require.Equal(t, "demo:v1", imageChange.OldValue)
 	require.Equal(t, "demo:v2", imageChange.NewValue)
+
+	affinityChange, ok := findChange(entry.Changes, "spec.template.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].values", "0")
+	require.True(t, ok)
+	require.Equal(t, "standard", affinityChange.OldValue)
+	require.Equal(t, "dedicated", affinityChange.NewValue)
 }
 
 func TestStructuredOutputAddAndRemove(t *testing.T) {
