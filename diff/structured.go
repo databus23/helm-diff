@@ -271,6 +271,20 @@ func diffArrayNodes(changes *[]FieldChange, tokens []string, oldNode, newNode in
 			if reflect.DeepEqual(oldVal, newVal) {
 				continue
 			}
+			// If both oldVal and newVal are strings, we can directly record the change without further recursion.
+			if oldStr, ok := oldVal.(string); ok {
+				if newStr, ok := newVal.(string); ok {
+					path, field := splitTokens(next)
+					*changes = append(*changes, FieldChange{
+						Path:     path,
+						Field:    field,
+						Change:   "replace",
+						OldValue: oldStr,
+						NewValue: newStr,
+					})
+					continue
+				}
+			}
 			subPatch, err := createNodePatch(oldVal, newVal)
 			if err != nil {
 				return err
