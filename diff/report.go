@@ -91,7 +91,9 @@ func printDyffReport(r *Report, to io.Writer) {
 		_ = os.Remove(newFile.Name())
 	}()
 
+	context := -1
 	for _, entry := range r.Entries {
+		context = entry.Context
 		_, _ = currentFile.WriteString("---\n")
 		_, _ = newFile.WriteString("---\n")
 		for _, record := range entry.Diffs {
@@ -125,6 +127,11 @@ func printDyffReport(r *Report, to io.Writer) {
 		OmitHeader:           true,
 		MinorChangeThreshold: 0.1,
 	}
+
+	if context != -1 {
+		reportWriter.MultilineContextLines = context
+	}
+
 	_ = reportWriter.WriteReport(to)
 }
 
