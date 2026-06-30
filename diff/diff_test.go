@@ -602,6 +602,15 @@ spec:
       containers:
       - name: app
         image: demo:v1
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: node-type
+                operator: In
+                values:
+                - standard
 `
 	newManifest := `
 apiVersion: apps/v1
@@ -616,6 +625,15 @@ spec:
       containers:
       - name: app
         image: demo:v2
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: node-type
+                operator: In
+                values:
+                - dedicated
 `
 	oldIndex := manifest.Parse([]byte(oldManifest), "prod", true)
 	newIndex := manifest.Parse([]byte(newManifest), "prod", true)
@@ -633,7 +651,7 @@ spec:
 	require.Equal(t, "Deployment", entry.Kind)
 	require.Equal(t, "prod", entry.Namespace)
 	require.Equal(t, "web", entry.Name)
-	require.Len(t, entry.Changes, 2)
+	require.Len(t, entry.Changes, 3)
 	replicasChange, ok := findChange(entry.Changes, "spec", "replicas")
 	require.True(t, ok)
 	require.InDelta(t, float64(2), replicasChange.OldValue, 0.001)
@@ -643,6 +661,11 @@ spec:
 	require.True(t, ok)
 	require.Equal(t, "demo:v1", imageChange.OldValue)
 	require.Equal(t, "demo:v2", imageChange.NewValue)
+
+	affinityChange, ok := findChange(entry.Changes, "spec.template.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].values", "0")
+	require.True(t, ok)
+	require.Equal(t, "standard", affinityChange.OldValue)
+	require.Equal(t, "dedicated", affinityChange.NewValue)
 }
 
 func TestStructuredOutputAddAndRemove(t *testing.T) {
