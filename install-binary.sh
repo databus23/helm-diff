@@ -16,7 +16,7 @@ if command -v cygpath >/dev/null 2>&1; then
 fi
 
 [ -z "$HELM_BIN" ] && HELM_BIN=$(command -v helm)
-[ -z "$HELM_HOME" ] && HELM_HOME=$(helm env | grep 'HELM_DATA_HOME' | cut -d '=' -f2 | tr -d '"')
+[ -z "$HELM_HOME" ] && HELM_HOME=$($HELM_BIN env | grep 'HELM_DATA_HOME' | cut -d '=' -f2 | tr -d '"')
 mkdir -p "$HELM_HOME"
 : "${HELM_PLUGIN_DIR:="$HELM_HOME/plugins/helm-diff"}"
 
