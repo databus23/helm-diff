@@ -20,7 +20,7 @@ require (
 	helm.sh/helm/v4 v4.2.3
 	k8s.io/api v0.36.2
 	k8s.io/apiextensions-apiserver v0.36.2
-	k8s.io/apimachinery v0.36.2
+	k8s.io/apimachinery v0.36.3
 	k8s.io/cli-runtime v0.36.2
 	k8s.io/client-go v0.36.2
 	sigs.k8s.io/yaml v1.6.0
@@ -141,5 +141,5 @@ require (
 	sigs.k8s.io/kustomize/api v0.21.1 // indirect
 	sigs.k8s.io/kustomize/kyaml v0.21.1 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
-	sigs.k8s.io/structured-merge-diff/v6 v6.3.2 // indirect
+	sigs.k8s.io/structured-merge-diff/v6 v6.3.3 // indirect
 )
