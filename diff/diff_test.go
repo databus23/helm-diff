@@ -611,6 +611,10 @@ spec:
                 operator: In
                 values:
                 - standard
+      priorities:
+      - 1
+      enabled:
+      - true
 `
 	newManifest := `
 apiVersion: apps/v1
@@ -634,6 +638,10 @@ spec:
                 operator: In
                 values:
                 - dedicated
+      priorities:
+      - 2
+      enabled:
+      - false
 `
 	oldIndex := manifest.Parse([]byte(oldManifest), "prod", true)
 	newIndex := manifest.Parse([]byte(newManifest), "prod", true)
@@ -651,7 +659,7 @@ spec:
 	require.Equal(t, "Deployment", entry.Kind)
 	require.Equal(t, "prod", entry.Namespace)
 	require.Equal(t, "web", entry.Name)
-	require.Len(t, entry.Changes, 3)
+	require.Len(t, entry.Changes, 5)
 	replicasChange, ok := findChange(entry.Changes, "spec", "replicas")
 	require.True(t, ok)
 	require.InDelta(t, float64(2), replicasChange.OldValue, 0.001)
@@ -666,6 +674,16 @@ spec:
 	require.True(t, ok)
 	require.Equal(t, "standard", affinityChange.OldValue)
 	require.Equal(t, "dedicated", affinityChange.NewValue)
+
+	priorityChange, ok := findChange(entry.Changes, "spec.template.spec.priorities", "0")
+	require.True(t, ok)
+	require.InDelta(t, float64(1), priorityChange.OldValue, 0.001)
+	require.InDelta(t, float64(2), priorityChange.NewValue, 0.001)
+
+	enabledChange, ok := findChange(entry.Changes, "spec.template.spec.enabled", "0")
+	require.True(t, ok)
+	require.Equal(t, true, enabledChange.OldValue)
+	require.Equal(t, false, enabledChange.NewValue)
 }
 
 func TestStructuredOutputAddAndRemove(t *testing.T) {
@@ -677,7 +695,20 @@ kind: Job
 metadata:
   name: migrate
   namespace: ops
-spec: {}
+spec:
+  restartPolicy: "Never"
+  containers:
+  - name: app
+    image: demo:v1
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+          - matchExpressions:
+            - key: node-type
+              operator: In
+              values:
+              - standard
 `
 	newIndex := manifest.Parse([]byte(newManifest), "ops", true)
 
@@ -688,6 +719,7 @@ spec: {}
 	var entries []StructuredEntry
 	require.NoError(t, json.Unmarshal(buf.Bytes(), &entries))
 	require.Len(t, entries, 1)
+
 	require.Equal(t, "ADD", entries[0].ChangeType)
 	require.True(t, entries[0].ResourceStatus.NewExists)
 	require.False(t, entries[0].ResourceStatus.OldExists)

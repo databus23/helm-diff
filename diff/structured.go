@@ -271,19 +271,17 @@ func diffArrayNodes(changes *[]FieldChange, tokens []string, oldNode, newNode in
 			if reflect.DeepEqual(oldVal, newVal) {
 				continue
 			}
-			// If both oldVal and newVal are strings, we can directly record the change without further recursion.
-			if oldStr, ok := oldVal.(string); ok {
-				if newStr, ok := newVal.(string); ok {
-					path, field := splitTokens(next)
-					*changes = append(*changes, FieldChange{
-						Path:     path,
-						Field:    field,
-						Change:   "replace",
-						OldValue: oldStr,
-						NewValue: newStr,
-					})
-					continue
-				}
+			// createNodePatch only supports JSON objects; handle scalar values directly
+			if isScalarValue(oldVal) && isScalarValue(newVal) {
+				path, field := splitTokens(next)
+				*changes = append(*changes, FieldChange{
+					Path:     path,
+					Field:    field,
+					Change:   "replace",
+					OldValue: oldVal,
+					NewValue: newVal,
+				})
+				continue
 			}
 			subPatch, err := createNodePatch(oldVal, newVal)
 			if err != nil {
@@ -323,6 +321,18 @@ func diffArrayNodes(changes *[]FieldChange, tokens []string, oldNode, newNode in
 	}
 
 	return nil
+}
+
+func isScalarValue(value interface{}) bool {
+	switch value.(type) {
+	case string, bool,
+		float32, float64,
+		int, int8, int16, int32, int64,
+		uint, uint8, uint16, uint32, uint64:
+		return true
+	default:
+		return false
+	}
 }
 
 func createNodePatch(oldNode, newNode interface{}) (interface{}, error) {
