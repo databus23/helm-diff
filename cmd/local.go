@@ -250,5 +250,6 @@ func (l *local) renderChart(chartPath string) ([]byte, error) {
 		helmBin = "helm"
 	}
 	cmd := exec.Command(helmBin, args...)
-	return outputWithRichError(cmd)
+	out, err := outputWithRichError(cmd)
+	return stripOCIPullProgress(out), err
 }

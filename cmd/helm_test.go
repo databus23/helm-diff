@@ -8,6 +8,78 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
+func TestStripOCIPullProgress(t *testing.T) {
+	manifest := `---
+# Source: karpenter/templates/cm.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: karpenter
+  namespace: karpenter
+data:
+  Pulled: preserved
+  Digest: preserved
+---
+# Source: karpenter/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: karpenter
+  namespace: karpenter
+`
+
+	cases := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{
+			name: "strips OCI pull progress prepended to manifests",
+			in: "Pulled: public.ecr.aws/karpenter/karpenter:1.9.0\n" +
+				"Digest: sha256:8e3952caafd208cb888fbf97467cd04a4a024a3fba64c84af73039040cc6a371\n" +
+				manifest,
+			want: manifest,
+		},
+		{
+			name: "strips Pulling/Pulled/Digest progress lines",
+			in: "Pulling: public.ecr.aws/karpenter/karpenter:1.9.0\n" +
+				"Pulled: public.ecr.aws/karpenter/karpenter:1.9.0\n" +
+				"Digest: sha256:abc123\n" +
+				manifest,
+			want: manifest,
+		},
+		{
+			name: "does not modify output without OCI progress",
+			in:   manifest,
+			want: manifest,
+		},
+		{
+			name: "preserves indented Pulled/Digest keys inside manifests",
+			in:   manifest,
+			want: manifest,
+		},
+		{
+			name: "strips OCI progress even with no trailing manifests",
+			in:   "Pulled: registry.example.com/chart:1.0.0\nDigest: sha256:deadbeef\n",
+			want: "",
+		},
+		{
+			name: "returns empty for empty input",
+			in:   "",
+			want: "",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := stripOCIPullProgress([]byte(tc.in))
+			if d := cmp.Diff(tc.want, string(got)); d != "" {
+				t.Errorf("unexpected diff: %s", d)
+			}
+		})
+	}
+}
+
 type dryRunFlagsConfig struct {
 	isHelmV4             bool
 	supportsDryRunLookup bool
