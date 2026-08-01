@@ -412,7 +412,7 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 		subcmd = "template"
 
 		filter = func(s []byte) []byte {
-			return s
+			return stripOCIPullProgress(s)
 		}
 	}
 
@@ -492,6 +492,36 @@ func extractManifestFromHelmUpgradeDryRunOutput(s []byte, noHooks bool) []byte {
 	r = append(r, hooks...)
 
 	return r
+}
+
+// ociPullProgressRE matches Helm's OCI chart pull progress lines that Helm writes
+// to stdout before the rendered manifests when the chart, or one of its subcharts,
+// is pulled from an OCI registry.
+//
+// The lines reported in the wild are "Pulled: ..." and "Digest: ...";
+// "Pulling: ..." is matched defensively too.
+//
+// These lines are emitted at the start of a line and are not valid Kubernetes
+// manifests, so they are safe to strip. Top-level manifest keys are
+// apiVersion/kind/metadata/spec and never "Pulled", "Digest" or "Pulling";
+// any homonymous keys inside a manifest are indented and therefore not matched.
+//
+// See https://github.com/databus23/helm-diff/issues/1040
+var ociPullProgressRE = regexp.MustCompile(`(?m)^(?:Pulled|Digest|Pulling):[^\n]*\n?`)
+
+// stripOCIPullProgress removes Helm's OCI chart pull progress output that leaks
+// into the rendered manifest buffer when the chart (or a subchart) is pulled
+// from an OCI registry.
+//
+// Without this, the progress lines (e.g. "Pulled: ...", "Digest: ...") are
+// parsed as a YAML document lacking a Kind and break the downstream three-way
+// merge / kubeclient.Build():
+//
+//	unable to decode "": Object 'Kind' is missing in '{"Digest":"...","Pulled":"..."}'
+//
+// See https://github.com/databus23/helm-diff/issues/1040
+func stripOCIPullProgress(s []byte) []byte {
+	return ociPullProgressRE.ReplaceAll(s, []byte(""))
 }
 
 // serverSideFlags returns the --server-side flag(s) to forward to helm.
