@@ -613,8 +613,12 @@ spec:
                 - standard
       priorities:
       - 1
-      enabled:
+      booleanArrayField:
       - true
+      multiTypeField:
+      - 3
+      - true
+      - "string"
 `
 	newManifest := `
 apiVersion: apps/v1
@@ -640,8 +644,12 @@ spec:
                 - dedicated
       priorities:
       - 2
-      enabled:
+      booleanArrayField:
       - false
+      multiTypeField:
+      - false
+      - "new-string"
+      - 2
 `
 	oldIndex := manifest.Parse([]byte(oldManifest), "prod", true)
 	newIndex := manifest.Parse([]byte(newManifest), "prod", true)
@@ -659,7 +667,7 @@ spec:
 	require.Equal(t, "Deployment", entry.Kind)
 	require.Equal(t, "prod", entry.Namespace)
 	require.Equal(t, "web", entry.Name)
-	require.Len(t, entry.Changes, 5)
+	require.Len(t, entry.Changes, 8)
 	replicasChange, ok := findChange(entry.Changes, "spec", "replicas")
 	require.True(t, ok)
 	require.InDelta(t, float64(2), replicasChange.OldValue, 0.001)
@@ -680,10 +688,25 @@ spec:
 	require.InDelta(t, float64(1), priorityChange.OldValue, 0.001)
 	require.InDelta(t, float64(2), priorityChange.NewValue, 0.001)
 
-	enabledChange, ok := findChange(entry.Changes, "spec.template.spec.enabled", "0")
+	booleanArrayFieldChange, ok := findChange(entry.Changes, "spec.template.spec.booleanArrayField", "0")
 	require.True(t, ok)
-	require.Equal(t, true, enabledChange.OldValue)
-	require.Equal(t, false, enabledChange.NewValue)
+	require.Equal(t, true, booleanArrayFieldChange.OldValue)
+	require.Equal(t, false, booleanArrayFieldChange.NewValue)
+
+	multiTypeFieldChange0, ok := findChange(entry.Changes, "spec.template.spec.multiTypeField", "0")
+	require.True(t, ok)
+	require.InDelta(t, float64(3), multiTypeFieldChange0.OldValue, 0.001)
+	require.Equal(t, false, multiTypeFieldChange0.NewValue)
+
+	multiTypeFieldChange1, ok := findChange(entry.Changes, "spec.template.spec.multiTypeField", "1")
+	require.True(t, ok)
+	require.Equal(t, true, multiTypeFieldChange1.OldValue)
+	require.Equal(t, "new-string", multiTypeFieldChange1.NewValue)
+
+	multiTypeFieldChange2, ok := findChange(entry.Changes, "spec.template.spec.multiTypeField", "2")
+	require.True(t, ok)
+	require.Equal(t, "string", multiTypeFieldChange2.OldValue)
+	require.InDelta(t, float64(2), multiTypeFieldChange2.NewValue, 0.001)
 }
 
 func TestStructuredOutputAddAndRemove(t *testing.T) {
