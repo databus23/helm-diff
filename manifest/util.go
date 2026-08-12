@@ -35,6 +35,15 @@ func deleteStatusAndTidyMetadata(obj []byte) (map[string]interface{}, error) {
 			delete(metadata, "annotations")
 		}
 	}
+	
+	if a := metadata["labels"]; a != nil {
+		labels := a.(map[string]interface{})
+		delete(labels, "app.kubernetes.io/managed-by")
+
+		if len(annotations) == 0 {
+			delete(labels, "annotations")
+		}
+	}
 
 	return objectMap, nil
 }
