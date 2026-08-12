@@ -40,8 +40,8 @@ func deleteStatusAndTidyMetadata(obj []byte) (map[string]interface{}, error) {
 		labels := a.(map[string]interface{})
 		delete(labels, "app.kubernetes.io/managed-by")
 
-		if len(annotations) == 0 {
-			delete(labels, "annotations")
+		if len(labels) == 0 {
+			delete(metadata, "labels")
 		}
 	}
 
