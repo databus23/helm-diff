@@ -30,13 +30,22 @@ type Options struct {
 	SuppressedKinds           []string
 	FindRenames               float32
 	SuppressedOutputLineRegex []string
+	DiffToolCommand           string
 }
 
 const kindSecret = "Secret"
 
-// StructuredOutput returns true when the structured JSON output is requested.
+// StructuredOutput returns true when the structured JSON output is requested
+// except when using a diff tool, whose input is the line diffs that structured
+// output skips.
 func (o *Options) StructuredOutput() bool {
-	return o != nil && o.OutputFormat == "structured"
+	return o != nil && o.OutputFormat == "structured" && !o.DiffTool()
+}
+
+// DiffTool reports whether the diff is rendered by an external tool. Configuring a
+// command is the only way to ask for it, and it overrides the built-in outputs.
+func (o *Options) DiffTool() bool {
+	return o != nil && diffToolCommand(o.DiffToolCommand) != ""
 }
 
 type OwnershipDiff struct {
@@ -67,8 +76,13 @@ func ManifestReport(oldIndex, newIndex map[string]*manifest.MappingResult, optio
 }
 
 func generateReport(oldIndex, newIndex map[string]*manifest.MappingResult, newOwnedReleases map[string]OwnershipDiff, options *Options) (bool, *Report, error) {
-	report := Report{findRenames: options.FindRenames}
-	report.setupReportFormat(options.OutputFormat)
+	report := Report{findRenames: options.FindRenames, diffToolCommand: options.DiffToolCommand}
+	if options.DiffTool() {
+		// A configured diff tool replaces whatever built-in output was selected.
+		setupDiffToolReport(&report)
+	} else {
+		report.setupReportFormat(options.OutputFormat)
+	}
 	var possiblyRemoved []string
 
 	for name, diff := range newOwnedReleases {
@@ -121,7 +135,8 @@ func doSuppress(report Report, suppressedOutputLineRegex []string) (Report, erro
 	}
 
 	filteredReport := Report{
-		findRenames: report.findRenames,
+		findRenames:     report.findRenames,
+		diffToolCommand: report.diffToolCommand,
 	}
 	filteredReport.format = report.format
 	filteredReport.Entries = []ReportEntry{}

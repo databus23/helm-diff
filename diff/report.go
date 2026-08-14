@@ -20,10 +20,11 @@ import (
 
 // Report to store report data and format
 type Report struct {
-	format      ReportFormat
-	Entries     []ReportEntry
-	mode        string
-	findRenames float32
+	format          ReportFormat
+	Entries         []ReportEntry
+	mode            string
+	findRenames     float32
+	diffToolCommand string
 }
 
 // ReportEntry to store changes between releases

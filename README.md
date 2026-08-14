@@ -146,6 +146,7 @@ Flags:
   -C, --context int                              output NUM lines of context around changes (default -1)
       --detailed-exitcode                        return a non-zero exit code when there are changes
       --devel                                    use development versions, too. Equivalent to version '>0.0.0-0'. If --version is set, this is ignored.
+      --diff-tool string                         command used to compare the manifests instead of the built-in --output renderers (can also be set via the env var HELM_DIFF_TOOL). The old and the new manifest file paths are appended as the last two arguments
       --disable-openapi-validation               disables rendered templates validation against the Kubernetes OpenAPI Schema
       --disable-validation                       disables rendered templates validation against the Kubernetes cluster you are currently pointing to. This is the same validation performed on an install
       --dry-run string[="client"]                --dry-run, --dry-run=client, or --dry-run=true disables cluster access and show diff as if it was install. Implies --install, --reset-values, and --disable-validation. --dry-run=server enables the cluster access with helm-get and the lookup template function.
@@ -220,6 +221,35 @@ helm diff upgrade prod api ./charts/api --output structured
 
 When a kind is suppressed via `--suppress`, `changesSuppressed` is set to `true` and field details are omitted. Nested metadata such as labels show the container path (`metadata.labels`) and expose the label key through the `field` property (for example `app.kubernetes.io/version`).
 
+### External diff tool
+
+Set `--diff-tool` to a command and helm-diff renders the diff with that command instead of its built-in renderers. It writes the old and the new manifests into two temporary files and appends their paths as the last two arguments:
+
+```shell
+# any tool that accepts two file paths works
+helm diff upgrade api ./charts/api --diff-tool "diff -u -N"
+helm diff upgrade api ./charts/api --diff-tool "difft --language yaml"
+helm diff upgrade api ./charts/api --diff-tool "git --no-pager diff --no-index --color"
+helm diff upgrade api ./charts/api --diff-tool "delta --side-by-side"
+```
+
+The command can also be set through the `HELM_DIFF_TOOL` environment variable, which is convenient in a shell profile:
+
+```shell
+export HELM_DIFF_TOOL="difft --language yaml"
+helm diff upgrade api ./charts/api
+```
+
+`--diff-tool` takes precedence over `HELM_DIFF_TOOL`, and either one overrides `--output`. There is no default command: without one, the built-in `--output` renderer is used.
+
+Notes:
+
+- The command is executed directly, not through a shell, so pipes and shell expansion are not available. Wrap arguments containing spaces in quotes, for example `--diff-tool '"/opt/my tools/diff" -u'`. For anything more involved, point the flag at a wrapper script.
+- The manifests handed to the tool are the ones from the diff report, so `--suppress`, `--suppress-output-line-regex` and secret redaction still apply. Secrets are redacted unless `--show-secrets` is given, and suppressed kinds are replaced by a placeholder on both sides.
+- An exit code of `1` from the tool is treated as "differences found" and ignored. Other failures are reported on stderr without aborting helm-diff.
+- helm-diff's own exit code is unaffected by the tool: `--detailed-exitcode` still returns `2` based on the changes helm-diff detected.
+- `--context`/`-C` is not applied; use the equivalent option of the external tool (for example `diff -U3`).
+
 ## Commands:
 
 ### local:
@@ -249,6 +279,7 @@ Flags:
   -a, --api-versions stringArray                 Kubernetes api versions used for Capabilities.APIVersions
   -C, --context int                              output NUM lines of context around changes (default -1)
       --detailed-exitcode                        return a non-zero exit code when there are changes
+      --diff-tool string                         command used to compare the manifests instead of the built-in --output renderers (can also be set via the env var HELM_DIFF_TOOL). The old and the new manifest file paths are appended as the last two arguments
       --enable-dns                               enable DNS lookups when rendering templates
   -D, --find-renames float32                     Enable rename detection if set to any value greater than 0. If specified, the value denotes the maximum fraction of changed content as lines added + removed compared to total lines in a diff for considering it a rename. Only objects of the same Kind are attempted to be matched
   -h, --help                                     help for local
@@ -329,6 +360,7 @@ Flags:
   -C, --context int                              output NUM lines of context around changes (default -1)
       --detailed-exitcode                        return a non-zero exit code when there are changes
       --devel                                    use development versions, too. Equivalent to version '>0.0.0-0'. If --version is set, this is ignored.
+      --diff-tool string                         command used to compare the manifests instead of the built-in --output renderers (can also be set via the env var HELM_DIFF_TOOL). The old and the new manifest file paths are appended as the last two arguments
       --disable-openapi-validation               disables rendered templates validation against the Kubernetes OpenAPI Schema
       --disable-validation                       disables rendered templates validation against the Kubernetes cluster you are currently pointing to. This is the same validation performed on an install
       --dry-run string[="client"]                --dry-run, --dry-run=client, or --dry-run=true disables cluster access and show diff as if it was install. Implies --install, --reset-values, and --disable-validation. --dry-run=server enables the cluster access with helm-get and the lookup template function.
@@ -396,6 +428,7 @@ Usage:
 Flags:
   -C, --context int                              output NUM lines of context around changes (default -1)
       --detailed-exitcode                        return a non-zero exit code when there are changes
+      --diff-tool string                         command used to compare the manifests instead of the built-in --output renderers (can also be set via the env var HELM_DIFF_TOOL). The old and the new manifest file paths are appended as the last two arguments
   -D, --find-renames float32                     Enable rename detection if set to any value greater than 0. If specified, the value denotes the maximum fraction of changed content as lines added + removed compared to total lines in a diff for considering it a rename. Only objects of the same Kind are attempted to be matched
   -h, --help                                     help for release
       --include-tests                            enable the diffing of the helm test hooks
@@ -438,6 +471,7 @@ Flags:
   -C, --context int                              output NUM lines of context around changes (default -1)
       --show-secrets-decoded                     decode secret values in the output
       --detailed-exitcode                        return a non-zero exit code when there are changes
+      --diff-tool string                         command used to compare the manifests instead of the built-in --output renderers (can also be set via the env var HELM_DIFF_TOOL). The old and the new manifest file paths are appended as the last two arguments
   -D, --find-renames float32                     Enable rename detection if set to any value greater than 0. If specified, the value denotes the maximum fraction of changed content as lines added + removed compared to total lines in a diff for considering it a rename. Only objects of the same Kind are attempted to be matched
   -h, --help                                     help for revision
       --include-tests                            enable the diffing of the helm test hooks
@@ -474,6 +508,7 @@ Examples:
 Flags:
   -C, --context int                              output NUM lines of context around changes (default -1)
       --detailed-exitcode                        return a non-zero exit code when there are changes
+      --diff-tool string                         command used to compare the manifests instead of the built-in --output renderers (can also be set via the env var HELM_DIFF_TOOL). The old and the new manifest file paths are appended as the last two arguments
   -D, --find-renames float32                     Enable rename detection if set to any value greater than 0. If specified, the value denotes the maximum fraction of changed content as lines added + removed compared to total lines in a diff for considering it a rename. Only objects of the same Kind are attempted to be matched
   -h, --help                                     help for rollback
       --include-tests                            enable the diffing of the helm test hooks
