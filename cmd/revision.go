@@ -87,14 +87,14 @@ func (d *revision) differentiateHelm3() error {
 	}
 	switch len(d.revisions) {
 	case 1:
-		releaseResponse, err := getRelease(d.release, namespace, d.kubeContext)
+		releaseResponse, err := getRelease(d.release, 0, namespace, d.kubeContext)
 
 		if err != nil {
 			return err
 		}
 
 		revision, _ := strconv.Atoi(d.revisions[0])
-		revisionResponse, err := getRevision(d.release, revision, namespace, d.kubeContext)
+		revisionResponse, err := getRelease(d.release, revision, namespace, d.kubeContext)
 		if err != nil {
 			return err
 		}
@@ -117,12 +117,12 @@ func (d *revision) differentiateHelm3() error {
 			revision1, revision2 = revision2, revision1
 		}
 
-		revisionResponse1, err := getRevision(d.release, revision1, namespace, d.kubeContext)
+		revisionResponse1, err := getRelease(d.release, revision1, namespace, d.kubeContext)
 		if err != nil {
 			return err
 		}
 
-		revisionResponse2, err := getRevision(d.release, revision2, namespace, d.kubeContext)
+		revisionResponse2, err := getRelease(d.release, revision2, namespace, d.kubeContext)
 		if err != nil {
 			return err
 		}

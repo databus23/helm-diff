@@ -84,7 +84,7 @@ func (d *release) differentiateHelm3() error {
 		namespace1 = strings.Split(release1, "/")[0]
 		release1 = strings.Split(release1, "/")[1]
 	}
-	releaseResponse1, err := getRelease(release1, namespace1, d.kubeContext)
+	releaseResponse1, err := getRelease(release1, 0, namespace1, d.kubeContext)
 	if err != nil {
 		return err
 	}
@@ -99,7 +99,7 @@ func (d *release) differentiateHelm3() error {
 		namespace2 = strings.Split(release2, "/")[0]
 		release2 = strings.Split(release2, "/")[1]
 	}
-	releaseResponse2, err := getRelease(release2, namespace2, d.kubeContext)
+	releaseResponse2, err := getRelease(release2, 0, namespace2, d.kubeContext)
 	if err != nil {
 		return err
 	}
