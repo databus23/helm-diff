@@ -131,44 +131,43 @@ func compatibleHelm3Version() error {
 	return nil
 }
 
-func getRelease(release, namespace, kubeContext string) ([]byte, error) {
-	args := []string{"get", "manifest", release}
+// helmGetSubcmd is the `helm get` subcommand used to read data of a deployed release.
+const helmGetSubcmd = "get"
+
+// helmGetArgs builds the arguments for a `helm get <what> <release>` invocation.
+//
+// A revision of 0 means no --revision flag is passed, so helm defaults to the
+// newest revision of the release regardless of its status.
+func helmGetArgs(what, release string, revision int, namespace, kubeContext string) []string {
+	args := []string{helmGetSubcmd, what, release}
+	if revision > 0 {
+		args = append(args, "--revision", strconv.Itoa(revision))
+	}
 	if namespace != "" {
 		args = append(args, "--namespace", namespace)
 	}
 	if kubeContext != "" {
 		args = append(args, "--kube-context", kubeContext)
 	}
-	cmd := exec.Command(os.Getenv("HELM_BIN"), args...)
+	return args
+}
+
+// getRelease returns the manifest of the given release revision.
+// A revision of 0 means the newest revision.
+func getRelease(release string, revision int, namespace, kubeContext string) ([]byte, error) {
+	cmd := exec.Command(os.Getenv("HELM_BIN"), helmGetArgs("manifest", release, revision, namespace, kubeContext)...)
 	return outputWithRichError(cmd)
 }
 
-func getHooks(release, namespace, kubeContext string) ([]byte, error) {
-	args := []string{"get", "hooks", release}
-	if namespace != "" {
-		args = append(args, "--namespace", namespace)
-	}
-	if kubeContext != "" {
-		args = append(args, "--kube-context", kubeContext)
-	}
-	cmd := exec.Command(os.Getenv("HELM_BIN"), args...)
-	return outputWithRichError(cmd)
-}
-
-func getRevision(release string, revision int, namespace, kubeContext string) ([]byte, error) {
-	args := []string{"get", "manifest", release, "--revision", strconv.Itoa(revision)}
-	if namespace != "" {
-		args = append(args, "--namespace", namespace)
-	}
-	if kubeContext != "" {
-		args = append(args, "--kube-context", kubeContext)
-	}
-	cmd := exec.Command(os.Getenv("HELM_BIN"), args...)
+// getHooks returns the hooks of the given release revision.
+// A revision of 0 means the newest revision.
+func getHooks(release string, revision int, namespace, kubeContext string) ([]byte, error) {
+	cmd := exec.Command(os.Getenv("HELM_BIN"), helmGetArgs("hooks", release, revision, namespace, kubeContext)...)
 	return outputWithRichError(cmd)
 }
 
 func getChart(release, namespace, kubeContext string) (string, error) {
-	args := []string{"get", "all", release, "--template", "{{.Release.Chart.Name}}"}
+	args := []string{helmGetSubcmd, "all", release, "--template", "{{.Release.Chart.Name}}"}
 	if namespace != "" {
 		args = append(args, "--namespace", namespace)
 	}
@@ -425,7 +424,7 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 }
 
 func (d *diffCmd) writeExistingValues(f *os.File, all bool) error {
-	args := []string{"get", "values", d.release, "--output", "yaml"}
+	args := []string{helmGetSubcmd, "values", d.release, "--output", "yaml"}
 	if all {
 		args = append(args, "--all")
 	}

@@ -205,3 +205,31 @@ func TestServerSideFlagValidation(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateRevision(t *testing.T) {
+	cases := []struct {
+		name       string
+		revision   int
+		changed    bool
+		dryRunMode string
+		expectErr  bool
+	}{
+		{name: "unset", revision: 0, changed: false, dryRunMode: dryRunNone, expectErr: false},
+		{name: "positive revision", revision: 2, changed: true, dryRunMode: dryRunNone, expectErr: false},
+		{name: "positive revision with dry-run=server", revision: 2, changed: true, dryRunMode: dryRunServer, expectErr: false},
+		{name: "explicit zero", revision: 0, changed: true, dryRunMode: dryRunNone, expectErr: true},
+		{name: "negative revision", revision: -1, changed: true, dryRunMode: dryRunNone, expectErr: true},
+		{name: "dry-run=client denies cluster access", revision: 2, changed: true, dryRunMode: dryRunNoOptDefVal, expectErr: true},
+		{name: "dry-run=true denies cluster access", revision: 2, changed: true, dryRunMode: envTrue, expectErr: true},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			d := diffCmd{revision: tc.revision, dryRunMode: tc.dryRunMode}
+			err := d.validateRevision(tc.changed)
+			if (err != nil) != tc.expectErr {
+				t.Errorf("expected error=%v, got %v", tc.expectErr, err)
+			}
+		})
+	}
+}

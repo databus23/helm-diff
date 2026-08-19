@@ -522,3 +522,63 @@ To connect to your database directly from outside the K8s cluster:
 		})
 	}
 }
+
+func TestHelmGetArgs(t *testing.T) {
+	cases := []struct {
+		name        string
+		what        string
+		release     string
+		revision    int
+		namespace   string
+		kubeContext string
+		expected    []string
+	}{
+		{
+			name:     "manifest without revision omits the flag",
+			what:     "manifest",
+			release:  "myapp",
+			revision: 0,
+			expected: []string{helmGetSubcmd, "manifest", "myapp"},
+		},
+		{
+			name:     "manifest with revision",
+			what:     "manifest",
+			release:  "myapp",
+			revision: 49,
+			expected: []string{helmGetSubcmd, "manifest", "myapp", "--revision", "49"},
+		},
+		{
+			name:     "hooks with revision",
+			what:     "hooks",
+			release:  "myapp",
+			revision: 49,
+			expected: []string{helmGetSubcmd, "hooks", "myapp", "--revision", "49"},
+		},
+		{
+			name:        "revision with namespace and kube context",
+			what:        "manifest",
+			release:     "myapp",
+			revision:    2,
+			namespace:   "myns",
+			kubeContext: "myctx",
+			expected:    []string{helmGetSubcmd, "manifest", "myapp", "--revision", "2", "--namespace", "myns", "--kube-context", "myctx"},
+		},
+		{
+			name:      "negative revision is treated as unset",
+			what:      "manifest",
+			release:   "myapp",
+			revision:  -1,
+			namespace: "myns",
+			expected:  []string{helmGetSubcmd, "manifest", "myapp", "--namespace", "myns"},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			actual := helmGetArgs(tc.what, tc.release, tc.revision, tc.namespace, tc.kubeContext)
+			if d := cmp.Diff(tc.expected, actual); d != "" {
+				t.Errorf("unexpected diff: %s", d)
+			}
+		})
+	}
+}

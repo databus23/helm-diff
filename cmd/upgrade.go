@@ -72,6 +72,7 @@ type diffCmd struct {
 	extraAPIs                []string
 	kubeVersion              string
 	useUpgradeDryRun         bool
+	revision                 int // 0 = newest, which is what helm returns by default.
 	diff.Options
 
 	// dryRunMode can take the following values:
@@ -109,6 +110,21 @@ func (d *diffCmd) isAllowUnreleased() bool {
 // See also https://github.com/helm/helm/pull/9426#discussion_r1181397259
 func (d *diffCmd) clusterAccessAllowed() bool {
 	return d.dryRunMode == dryRunNone || d.dryRunMode == envFalse || d.dryRunMode == dryRunServer
+}
+
+// validateRevision checks the --revision flag, which is only meaningful when the
+// flag was set and helm-diff is allowed to read the release from the cluster.
+func (d *diffCmd) validateRevision(changed bool) error {
+	if !changed {
+		return nil
+	}
+	if d.revision < 1 {
+		return fmt.Errorf("flag %q must be a positive revision number, but got %d", "revision", d.revision)
+	}
+	if !d.clusterAccessAllowed() {
+		return fmt.Errorf("flag %q requires cluster access, so it cannot be used with --dry-run=%s", "revision", d.dryRunMode)
+	}
+	return nil
 }
 
 const globalUsage = `Show a diff explaining what a helm upgrade would change.
@@ -171,6 +187,10 @@ func newChartCommand() *cobra.Command {
 
 			if !slices.Contains(validServerSideVals, diff.serverSide) {
 				return fmt.Errorf("flag %q must be %q, %q or %q, but got %q", "server-side", envTrue, envFalse, serverSideAuto, diff.serverSide)
+			}
+
+			if err := diff.validateRevision(cmd.Flags().Changed("revision")); err != nil {
+				return err
 			}
 
 			// Suppress the command usage on error. See #77 for more info
@@ -259,6 +279,7 @@ func newChartCommand() *cobra.Command {
 	f.BoolVar(&diff.insecureSkipTLSVerify, "insecure-skip-tls-verify", false, "skip tls certificate checks for the chart download")
 	f.BoolVar(&diff.normalizeManifests, "normalize-manifests", false, "normalize manifests before running diff to exclude style differences from the output")
 	f.BoolVar(&diff.takeOwnership, "take-ownership", false, "if set, upgrade will ignore the check for helm annotations and take ownership of the existing resources")
+	f.IntVar(&diff.revision, "revision", 0, "revision of the release to use as the diff baseline instead of the newest one")
 	f.StringVar(&diff.serverSide, "server-side", serverSideAuto, `must be "true", "false" or "auto". Object updates run in the server instead of the client ("auto" defaults the value from the previous chart release's method)`)
 
 	AddDiffOptions(f, &diff.Options)
@@ -282,11 +303,14 @@ func (d *diffCmd) runHelm3() error {
 	}
 
 	if d.clusterAccessAllowed() {
-		releaseManifest, err = getRelease(d.release, d.namespace, d.kubeContext)
+		releaseManifest, err = getRelease(d.release, d.revision, d.namespace, d.kubeContext)
 	}
 
 	var newInstall bool
 	if err != nil && strings.Contains(err.Error(), "release: not found") {
+		if d.revision > 0 {
+			return fmt.Errorf("Failed to get revision %d of release %s in namespace %s: %w", d.revision, d.release, d.namespace, err)
+		}
 		if d.isAllowUnreleased() {
 			newInstall = true
 			err = nil
@@ -326,7 +350,7 @@ func (d *diffCmd) runHelm3() error {
 	currentSpecs := make(map[string]*manifest.MappingResult)
 	if !newInstall && d.clusterAccessAllowed() {
 		if !d.noHooks && !d.threeWayMerge {
-			hooks, err := getHooks(d.release, d.namespace, d.kubeContext)
+			hooks, err := getHooks(d.release, d.revision, d.namespace, d.kubeContext)
 			if err != nil {
 				return err
 			}

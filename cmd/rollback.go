@@ -76,7 +76,7 @@ func (d *rollback) backcastHelm3() error {
 		excludes = []string{}
 	}
 	// get manifest of the latest release
-	releaseResponse, err := getRelease(d.release, namespace, d.kubeContext)
+	releaseResponse, err := getRelease(d.release, 0, namespace, d.kubeContext)
 
 	if err != nil {
 		return err
@@ -84,7 +84,7 @@ func (d *rollback) backcastHelm3() error {
 
 	// get manifest of the release to rollback
 	revision, _ := strconv.Atoi(d.revisions[0])
-	revisionResponse, err := getRevision(d.release, revision, namespace, d.kubeContext)
+	revisionResponse, err := getRelease(d.release, revision, namespace, d.kubeContext)
 	if err != nil {
 		return err
 	}
