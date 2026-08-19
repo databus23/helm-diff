@@ -131,12 +131,15 @@ func compatibleHelm3Version() error {
 	return nil
 }
 
+// helmGetSubcmd is the `helm get` subcommand used to read data of a deployed release.
+const helmGetSubcmd = "get"
+
 // helmGetArgs builds the arguments for a `helm get <what> <release>` invocation.
 //
 // A revision of 0 means no --revision flag is passed, so helm defaults to the
 // newest revision of the release regardless of its status.
 func helmGetArgs(what, release string, revision int, namespace, kubeContext string) []string {
-	args := []string{"get", what, release}
+	args := []string{helmGetSubcmd, what, release}
 	if revision > 0 {
 		args = append(args, "--revision", strconv.Itoa(revision))
 	}
@@ -164,7 +167,7 @@ func getHooks(release string, revision int, namespace, kubeContext string) ([]by
 }
 
 func getChart(release, namespace, kubeContext string) (string, error) {
-	args := []string{"get", "all", release, "--template", "{{.Release.Chart.Name}}"}
+	args := []string{helmGetSubcmd, "all", release, "--template", "{{.Release.Chart.Name}}"}
 	if namespace != "" {
 		args = append(args, "--namespace", namespace)
 	}
@@ -421,7 +424,7 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 }
 
 func (d *diffCmd) writeExistingValues(f *os.File, all bool) error {
-	args := []string{"get", "values", d.release, "--output", "yaml"}
+	args := []string{helmGetSubcmd, "values", d.release, "--output", "yaml"}
 	if all {
 		args = append(args, "--all")
 	}

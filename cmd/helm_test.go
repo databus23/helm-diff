@@ -538,21 +538,21 @@ func TestHelmGetArgs(t *testing.T) {
 			what:     "manifest",
 			release:  "myapp",
 			revision: 0,
-			expected: []string{"get", "manifest", "myapp"},
+			expected: []string{helmGetSubcmd, "manifest", "myapp"},
 		},
 		{
 			name:     "manifest with revision",
 			what:     "manifest",
 			release:  "myapp",
 			revision: 49,
-			expected: []string{"get", "manifest", "myapp", "--revision", "49"},
+			expected: []string{helmGetSubcmd, "manifest", "myapp", "--revision", "49"},
 		},
 		{
 			name:     "hooks with revision",
 			what:     "hooks",
 			release:  "myapp",
 			revision: 49,
-			expected: []string{"get", "hooks", "myapp", "--revision", "49"},
+			expected: []string{helmGetSubcmd, "hooks", "myapp", "--revision", "49"},
 		},
 		{
 			name:        "revision with namespace and kube context",
@@ -561,7 +561,7 @@ func TestHelmGetArgs(t *testing.T) {
 			revision:    2,
 			namespace:   "myns",
 			kubeContext: "myctx",
-			expected:    []string{"get", "manifest", "myapp", "--revision", "2", "--namespace", "myns", "--kube-context", "myctx"},
+			expected:    []string{helmGetSubcmd, "manifest", "myapp", "--revision", "2", "--namespace", "myns", "--kube-context", "myctx"},
 		},
 		{
 			name:      "negative revision is treated as unset",
@@ -569,7 +569,7 @@ func TestHelmGetArgs(t *testing.T) {
 			release:   "myapp",
 			revision:  -1,
 			namespace: "myns",
-			expected:  []string{"get", "manifest", "myapp", "--namespace", "myns"},
+			expected:  []string{helmGetSubcmd, "manifest", "myapp", "--namespace", "myns"},
 		},
 	}
 
