@@ -35,11 +35,27 @@ type Options struct {
 
 const kindSecret = "Secret"
 
+const (
+	// Output formats accepted by setupReportFormat.
+	outputFormatSimple     = "simple"
+	outputFormatTemplate   = "template"
+	outputFormatJSON       = "json"
+	outputFormatStructured = "structured"
+	outputFormatDyff       = "dyff"
+
+	// Change types recorded on report entries.
+	changeTypeAdd              = "ADD"
+	changeTypeRemove           = "REMOVE"
+	changeTypeModify           = "MODIFY"
+	changeTypeModifySuppressed = "MODIFY_SUPPRESSED"
+	changeTypeOwnership        = "OWNERSHIP"
+)
+
 // StructuredOutput returns true when the structured JSON output is requested
 // except when using a diff tool, whose input is the line diffs that structured
 // output skips.
 func (o *Options) StructuredOutput() bool {
-	return o != nil && o.OutputFormat == "structured" && !o.DiffTool()
+	return o != nil && o.OutputFormat == outputFormatStructured && !o.DiffTool()
 }
 
 // DiffTool reports whether the diff is rendered by an external tool. Configuring a
@@ -87,7 +103,7 @@ func generateReport(oldIndex, newIndex map[string]*manifest.MappingResult, newOw
 
 	for name, diff := range newOwnedReleases {
 		diff := diffStrings(diff.OldRelease, diff.NewRelease, true)
-		report.addEntry(name, options.SuppressedKinds, "", 0, diff, "OWNERSHIP", nil)
+		report.addEntry(name, options.SuppressedKinds, "", 0, diff, changeTypeOwnership, nil)
 	}
 
 	for _, key := range sortedKeys(oldIndex) {
@@ -180,8 +196,8 @@ func doSuppress(report Report, suppressedOutputLineRegex []string) (Report, erro
 		switch {
 		case containsDiff:
 			diffRecords = diffs
-		case entry.ChangeType == "MODIFY":
-			entry.ChangeType = "MODIFY_SUPPRESSED"
+		case entry.ChangeType == changeTypeModify:
+			entry.ChangeType = changeTypeModifySuppressed
 		}
 
 		filteredReport.addEntry(entry.Key, entry.SuppressedKinds, entry.Kind, entry.Context, diffRecords, entry.ChangeType, entry.Structured)
@@ -285,7 +301,7 @@ func doDiff(report *Report, key string, oldContent *manifest.MappingResult, newC
 	var diffs []difflib.DiffRecord
 	switch {
 	case oldContent == nil:
-		changeType = "ADD"
+		changeType = changeTypeAdd
 		if newContent != nil {
 			subjectKind = newContent.Kind
 		}
@@ -294,14 +310,14 @@ func doDiff(report *Report, key string, oldContent *manifest.MappingResult, newC
 			diffs = diffMappingResults(emptyMapping, newContent, options.StripTrailingCR)
 		}
 	case newContent == nil:
-		changeType = "REMOVE"
+		changeType = changeTypeRemove
 		subjectKind = oldContent.Kind
 		if !options.StructuredOutput() {
 			emptyMapping := &manifest.MappingResult{}
 			diffs = diffMappingResults(oldContent, emptyMapping, options.StripTrailingCR)
 		}
 	default:
-		changeType = "MODIFY"
+		changeType = changeTypeModify
 		subjectKind = oldContent.Kind
 		if !options.StructuredOutput() {
 			diffs = diffMappingResults(oldContent, newContent, options.StripTrailingCR)
@@ -320,7 +336,7 @@ func doDiff(report *Report, key string, oldContent *manifest.MappingResult, newC
 			fmt.Fprintf(os.Stderr, "Warning: failed to build structured entry for %s (kind: %s, changeType: %s): %v\n",
 				key, subjectKind, changeType, err)
 		} else {
-			if changeType == "MODIFY" && !entry.ChangesSuppressed && len(entry.Changes) == 0 {
+			if changeType == changeTypeModify && !entry.ChangesSuppressed && len(entry.Changes) == 0 {
 				return
 			}
 			structured = entry
