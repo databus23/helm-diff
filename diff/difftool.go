@@ -18,10 +18,13 @@ const (
 	DiffToolEnvVar = "HELM_DIFF_TOOL"
 )
 
-// diffToolCommand returns the configured command, falling back to the
-// environment variable. There is deliberately no default: helm-diff never picks a
-// diff tool on the user's behalf, so an unset command is a configuration error
-// rather than an invitation to guess.
+// diffToolCommand merges the --diff-tool flag with the HELM_DIFF_TOOL
+// environment variable, the flag winning. Callers that must honor the
+// explicit-flag precedence use Options.configuredDiffToolCommand instead;
+// this free function deliberately knows nothing about that. There is
+// deliberately no default: helm-diff never picks a diff tool on the user's
+// behalf, so an unset command is a configuration error rather than an
+// invitation to guess.
 func diffToolCommand(configured string) string {
 	if strings.TrimSpace(configured) != "" {
 		return configured
@@ -90,7 +93,7 @@ func printDiffToolReport(r *Report, to io.Writer) {
 		return
 	}
 
-	args, err := splitDiffToolCommand(diffToolCommand(r.diffToolCommand))
+	args, err := splitDiffToolCommand(r.diffToolCommand)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		return

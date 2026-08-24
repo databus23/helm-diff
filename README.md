@@ -240,7 +240,7 @@ export HELM_DIFF_TOOL="difft --language yaml"
 helm diff upgrade api ./charts/api
 ```
 
-`--diff-tool` takes precedence over `HELM_DIFF_TOOL`, and either one overrides `--output`. An explicit `--output` (or an explicitly empty `--diff-tool ""`) also wins over `HELM_DIFF_TOOL`, so scripts that parse a specific output format cannot be silently broken by a variable inherited from a shell profile: the environment variable only applies when neither flag is given. There is no default command: without one, the built-in `--output` renderer is used.
+`--diff-tool` overrides both `--output` and `HELM_DIFF_TOOL`. `HELM_DIFF_TOOL` applies only when neither `--output` nor `--diff-tool` is explicitly given, so scripts that parse a specific output format cannot be broken by a variable inherited from a shell profile; an explicitly empty `--diff-tool ""` disables the external tool. There is no default command: without one, the built-in `--output` renderer is used.
 
 Notes:
 

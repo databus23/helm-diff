@@ -71,11 +71,12 @@ func (o *Options) DiffTool() bool {
 	return o != nil && o.configuredDiffToolCommand() != ""
 }
 
-// configuredDiffToolCommand resolves the command the external diff tool runs,
-// in one place, so that the decision to install the tool printer (DiffTool) and
-// the printer itself (via diffToolCommand) cannot drift apart. Once an explicit
-// flag supersedes HELM_DIFF_TOOL the environment is not consulted at all — not
-// even as a fallback for a blank --diff-tool.
+// configuredDiffToolCommand resolves the command for the external diff tool
+// in one place. The resolved value is what installs the tool printer
+// (DiffTool) and what the report carries to print time, so setup and rendering
+// cannot drift apart. Once an explicit flag supersedes HELM_DIFF_TOOL the
+// environment is not consulted at all — not even as a fallback for a blank
+// --diff-tool.
 func (o *Options) configuredDiffToolCommand() string {
 	if o.diffToolEnvIgnored {
 		return strings.TrimSpace(o.DiffToolCommand)
@@ -123,7 +124,7 @@ func ManifestReport(oldIndex, newIndex map[string]*manifest.MappingResult, optio
 }
 
 func generateReport(oldIndex, newIndex map[string]*manifest.MappingResult, newOwnedReleases map[string]OwnershipDiff, options *Options) (bool, *Report, error) {
-	report := Report{findRenames: options.FindRenames, diffToolCommand: options.DiffToolCommand}
+	report := Report{findRenames: options.FindRenames, diffToolCommand: options.configuredDiffToolCommand()}
 	if options.DiffTool() {
 		// A configured diff tool replaces whatever built-in output was selected.
 		setupDiffToolReport(&report)

@@ -20,10 +20,14 @@ import (
 
 // Report to store report data and format
 type Report struct {
-	format          ReportFormat
-	Entries         []ReportEntry
-	mode            string
-	findRenames     float32
+	format      ReportFormat
+	Entries     []ReportEntry
+	mode        string
+	findRenames float32
+	// diffToolCommand is the external diff tool command, resolved once when
+	// the report is generated (Options.configuredDiffToolCommand); it is empty
+	// when the built-in renderers are in use. Printing never re-reads the
+	// process environment.
 	diffToolCommand string
 }
 

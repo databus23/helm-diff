@@ -33,7 +33,27 @@ func diffToolHelperCommand(t *testing.T, behavior string) string {
 	binary, err := os.Executable()
 	require.NoError(t, err)
 
-	return fmt.Sprintf("%q -test.run=^TestDiffToolHelperProcess$ --", binary)
+	// The path is quoted so that spaces survive the tokenizer, but forward
+	// slashes are used on purpose: %q escapes backslashes (Windows paths) while
+	// splitDiffToolCommand strips quotes without unescaping, which would hand
+	// the child process a corrupted path like C:\\Users\\.... Forward slashes
+	// need no escaping and are accepted by the OS on every platform.
+	return fmt.Sprintf("%q -test.run=^TestDiffToolHelperProcess$ --", filepath.ToSlash(binary))
+}
+
+// TestDiffToolHelperCommandRoundTrips guards the contract the helper command
+// relies on: the tokenizer must recover the exact executable path from the
+// quoted command line, on every platform the CI matrix runs on.
+func TestDiffToolHelperCommandRoundTrips(t *testing.T) {
+	command := diffToolHelperCommand(t, "cat")
+
+	args, err := splitDiffToolCommand(command)
+	require.NoError(t, err)
+
+	binary, err := os.Executable()
+	require.NoError(t, err)
+	require.Equal(t, filepath.ToSlash(binary), args[0],
+		"the helper executable path must survive the command tokenizer")
 }
 
 // TestDiffToolHelperProcess is not a real test. It is the implementation of the
@@ -449,6 +469,21 @@ func TestManifestsDiffToolOutput(t *testing.T) {
 			require.Contains(t, buf.String(), "# Change: MODIFY",
 				"output %q must be overridden by the external diff command", format)
 		}
+	})
+
+	t.Run("the resolved command is captured at report time", func(t *testing.T) {
+		// A Report may be printed long after it was generated; rendering must
+		// not re-read the process environment (see Report.diffToolCommand).
+		t.Setenv(DiffToolEnvVar, diffToolHelperCommand(t, "cat"))
+		report, err := ManifestReport(old, updated, &Options{})
+		require.NoError(t, err)
+
+		t.Setenv(DiffToolEnvVar, "")
+
+		var buf bytes.Buffer
+		report.print(&buf)
+		require.Contains(t, buf.String(), "# Change: MODIFY",
+			"the report carries the resolved command; printing is env-independent")
 	})
 
 	t.Run("built-in output is used when no command is configured", func(t *testing.T) {
