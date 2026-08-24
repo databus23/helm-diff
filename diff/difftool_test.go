@@ -379,7 +379,6 @@ func TestPrintDiffToolReportCommandFailure(t *testing.T) {
 	require.Contains(t, stderr, "Error: diff tool", "the failure is reported")
 	require.Contains(t, stderr, "failed")
 	require.Empty(t, buf.String(), "a failed tool produces no report output")
-	require.NotPanics(t, func() {})
 }
 
 func TestPrintDiffToolReportUnclosedQuote(t *testing.T) {

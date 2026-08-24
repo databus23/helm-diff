@@ -168,10 +168,11 @@ func writeDiffToolSides(r *Report, oldPath, newPath string) error {
 			_, _ = current.WriteString(placeholder)
 			_, _ = next.WriteString(placeholder)
 		case len(entry.Diffs) == 0:
-			// Every changed line was removed by --suppress-output-line-regex (such
-			// entries are flipped to MODIFY_SUPPRESSED, or kept as ADD/REMOVE with
-			// empty diffs). Without a placeholder the tool would report no difference
-			// at all while helm-diff still exits with "changes found".
+			// Every changed line was removed by --suppress-output-line-regex: such
+			// entries arrive either flipped to MODIFY_SUPPRESSED or, for the other
+			// change types (ADD/REMOVE/OWNERSHIP are not rewritten), with empty
+			// diffs. Without a placeholder the tool would report no difference at
+			// all while helm-diff still exits with "changes found".
 			placeholder := "# Changes suppressed by --suppress-output-line-regex\n"
 			_, _ = current.WriteString(placeholder)
 			_, _ = next.WriteString(placeholder)

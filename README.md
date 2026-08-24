@@ -245,7 +245,7 @@ helm diff upgrade api ./charts/api
 Notes:
 
 - The command is executed directly, not through a shell, so pipes and shell expansion are not available. Wrap arguments containing spaces in quotes, for example `--diff-tool '"/opt/my tools/diff" -u'`; an unclosed quote is rejected with an error. For anything more involved, point the flag at a wrapper script.
-- Each resource in the temporary files is preceded by a `# Resource:`/`# Change:` header comment (change types: `ADD`, `REMOVE`, `MODIFY`, `OWNERSHIP`), because an external tool would otherwise have no way to show them.
+- Each resource in the temporary files is preceded by a `# Resource:`/`# Change:` header comment (change types: `ADD`, `REMOVE`, `MODIFY`, `OWNERSHIP`, and `MODIFY_SUPPRESSED` when the diff is empty after `--suppress-output-line-regex`), because an external tool would otherwise have no way to show them.
 - The manifests handed to the tool are the ones from the diff report, so `--suppress`, `--suppress-output-line-regex` and secret redaction still apply. Secrets are redacted unless `--show-secrets` is given; suppressed kinds — and entries whose diff is empty after `--suppress-output-line-regex` — are replaced by a placeholder on both sides.
 - The command must block until it has finished reading the two files. GUI tools that return immediately (for example `code --diff`) may find the temporary directory already deleted before they display it; make them wait (for example `code --wait --diff`) or wrap them in a script that waits.
 - There is no timeout around the command: a tool that never exits keeps helm-diff running.

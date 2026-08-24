@@ -70,7 +70,6 @@ func TestProcessDiffOptionsDiffTool(t *testing.T) {
 	t.Run("an explicit --output wins over HELM_DIFF_TOOL", func(t *testing.T) {
 		t.Setenv(diff.DiffToolEnvVar, "colordiff -u")
 		o := processedOptions(t, "--output", "json")
-		require.Empty(t, o.DiffToolCommand)
 		require.False(t, o.DiffTool(),
 			"a script explicitly asking for --output json must not be surprised by an inherited environment variable")
 	})

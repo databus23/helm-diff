@@ -63,16 +63,25 @@ func (o *Options) StructuredOutput() bool {
 	return o != nil && o.OutputFormat == outputFormatStructured && !o.DiffTool()
 }
 
-// DiffTool reports whether the diff is rendered by an external tool. Configuring a
-// command is the only way to ask for it, and it overrides the built-in outputs.
+// DiffTool reports whether the diff is rendered by an external tool, requested
+// either with --diff-tool or through the HELM_DIFF_TOOL environment variable.
+// The external tool overrides the built-in outputs, except that an explicit
+// flag supersedes the environment variable (see IgnoreDiffToolEnvVar).
 func (o *Options) DiffTool() bool {
-	if o == nil {
-		return false
+	return o != nil && o.configuredDiffToolCommand() != ""
+}
+
+// configuredDiffToolCommand resolves the command the external diff tool runs,
+// in one place, so that the decision to install the tool printer (DiffTool) and
+// the printer itself (via diffToolCommand) cannot drift apart. Once an explicit
+// flag supersedes HELM_DIFF_TOOL the environment is not consulted at all — not
+// even as a fallback for a blank --diff-tool.
+func (o *Options) configuredDiffToolCommand() string {
+	if o.diffToolEnvIgnored {
+		return strings.TrimSpace(o.DiffToolCommand)
 	}
-	if strings.TrimSpace(o.DiffToolCommand) != "" {
-		return true
-	}
-	return !o.diffToolEnvIgnored && strings.TrimSpace(os.Getenv(DiffToolEnvVar)) != ""
+
+	return diffToolCommand(o.DiffToolCommand)
 }
 
 // IgnoreDiffToolEnvVar stops the HELM_DIFF_TOOL environment variable from being
