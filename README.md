@@ -223,7 +223,7 @@ When a kind is suppressed via `--suppress`, `changesSuppressed` is set to `true`
 
 ### External diff tool
 
-Set `--diff-tool` to a command and helm-diff renders the diff with that command instead of its built-in renderers. It writes the old and the new manifests into two temporary files and appends their paths as the last two arguments:
+Set `--diff-tool` to a command and helm-diff renders the diff with that command instead of its built-in renderers. It writes the old and the new manifests into two temporary files (named `old.yaml` and `new.yaml` in a private temporary directory) and appends their paths as the last two arguments:
 
 ```shell
 # any tool that accepts two file paths works
@@ -240,12 +240,15 @@ export HELM_DIFF_TOOL="difft --language yaml"
 helm diff upgrade api ./charts/api
 ```
 
-`--diff-tool` takes precedence over `HELM_DIFF_TOOL`, and either one overrides `--output`. There is no default command: without one, the built-in `--output` renderer is used.
+`--diff-tool` takes precedence over `HELM_DIFF_TOOL`, and either one overrides `--output`. An explicit `--output` (or an explicitly empty `--diff-tool ""`) also wins over `HELM_DIFF_TOOL`, so scripts that parse a specific output format cannot be silently broken by a variable inherited from a shell profile: the environment variable only applies when neither flag is given. There is no default command: without one, the built-in `--output` renderer is used.
 
 Notes:
 
-- The command is executed directly, not through a shell, so pipes and shell expansion are not available. Wrap arguments containing spaces in quotes, for example `--diff-tool '"/opt/my tools/diff" -u'`. For anything more involved, point the flag at a wrapper script.
-- The manifests handed to the tool are the ones from the diff report, so `--suppress`, `--suppress-output-line-regex` and secret redaction still apply. Secrets are redacted unless `--show-secrets` is given, and suppressed kinds are replaced by a placeholder on both sides.
+- The command is executed directly, not through a shell, so pipes and shell expansion are not available. Wrap arguments containing spaces in quotes, for example `--diff-tool '"/opt/my tools/diff" -u'`; an unclosed quote is rejected with an error. For anything more involved, point the flag at a wrapper script.
+- Each resource in the temporary files is preceded by a `# Resource:`/`# Change:` header comment (change types: `ADD`, `REMOVE`, `MODIFY`, `OWNERSHIP`), because an external tool would otherwise have no way to show them.
+- The manifests handed to the tool are the ones from the diff report, so `--suppress`, `--suppress-output-line-regex` and secret redaction still apply. Secrets are redacted unless `--show-secrets` is given; suppressed kinds — and entries whose diff is empty after `--suppress-output-line-regex` — are replaced by a placeholder on both sides.
+- The command must block until it has finished reading the two files. GUI tools that return immediately (for example `code --diff`) may find the temporary directory already deleted before they display it; make them wait (for example `code --wait --diff`) or wrap them in a script that waits.
+- There is no timeout around the command: a tool that never exits keeps helm-diff running.
 - An exit code of `1` from the tool is treated as "differences found" and ignored. Other failures are reported on stderr without aborting helm-diff.
 - helm-diff's own exit code is unaffected by the tool: `--detailed-exitcode` still returns `2` based on the changes helm-diff detected.
 - `--context`/`-C` is not applied; use the equivalent option of the external tool (for example `diff -U3`).
