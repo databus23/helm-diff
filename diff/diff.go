@@ -31,12 +31,17 @@ type Options struct {
 	FindRenames               float32
 	SuppressedOutputLineRegex []string
 	DiffToolCommand           string
+
+	// diffToolEnvIgnored stops the HELM_DIFF_TOOL environment variable from
+	// being consulted, set when an explicit flag supersedes the environment.
+	diffToolEnvIgnored bool
 }
 
 const kindSecret = "Secret"
 
 const (
 	// Output formats accepted by setupReportFormat.
+	outputFormatDiff       = "diff"
 	outputFormatSimple     = "simple"
 	outputFormatTemplate   = "template"
 	outputFormatJSON       = "json"
@@ -61,7 +66,24 @@ func (o *Options) StructuredOutput() bool {
 // DiffTool reports whether the diff is rendered by an external tool. Configuring a
 // command is the only way to ask for it, and it overrides the built-in outputs.
 func (o *Options) DiffTool() bool {
-	return o != nil && diffToolCommand(o.DiffToolCommand) != ""
+	if o == nil {
+		return false
+	}
+	if strings.TrimSpace(o.DiffToolCommand) != "" {
+		return true
+	}
+	return !o.diffToolEnvIgnored && strings.TrimSpace(os.Getenv(DiffToolEnvVar)) != ""
+}
+
+// IgnoreDiffToolEnvVar stops the HELM_DIFF_TOOL environment variable from being
+// consulted. It implements the "explicit flag over environment" precedence: a
+// command requested with --diff-tool is authoritative even when empty, and an
+// explicitly requested built-in output must not be silently overridden by a
+// variable inherited e.g. from a shell profile.
+func (o *Options) IgnoreDiffToolEnvVar() {
+	if o != nil {
+		o.diffToolEnvIgnored = true
+	}
 }
 
 type OwnershipDiff struct {

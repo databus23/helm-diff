@@ -26,13 +26,16 @@ func TestProcessDiffOptionsSuppressSecrets(t *testing.T) {
 	require.Contains(t, o.SuppressedKinds, "Secret")
 }
 
-func TestAddDiffOptionsHasNoExternalOutputFormat(t *testing.T) {
+func TestAddDiffOptionsOutputUsage(t *testing.T) {
 	var o diff.Options
 	f := pflag.NewFlagSet("test", pflag.ContinueOnError)
 	AddDiffOptions(f, &o)
 
-	require.NotContains(t, f.Lookup("output").Usage, "external",
-		"--diff-tool is the only way to select an external tool")
+	// --output selects one of the built-in renderers; --diff-tool is the only
+	// way to select an external tool.
+	require.Contains(t, f.Lookup("output").Usage,
+		"diff, simple, template, json, structured, dyff")
+	require.Equal(t, "diff", f.Lookup("output").DefValue)
 }
 
 func TestProcessDiffOptionsDiffTool(t *testing.T) {
@@ -64,8 +67,22 @@ func TestProcessDiffOptionsDiffTool(t *testing.T) {
 		require.True(t, o.DiffTool(), "but the external tool takes precedence")
 	})
 
+	t.Run("an explicit --output wins over HELM_DIFF_TOOL", func(t *testing.T) {
+		t.Setenv(diff.DiffToolEnvVar, "colordiff -u")
+		o := processedOptions(t, "--output", "json")
+		require.Empty(t, o.DiffToolCommand)
+		require.False(t, o.DiffTool(),
+			"a script explicitly asking for --output json must not be surprised by an inherited environment variable")
+	})
+
+	t.Run("an explicit --diff-tool \"\" disables HELM_DIFF_TOOL", func(t *testing.T) {
+		t.Setenv(diff.DiffToolEnvVar, "colordiff -u")
+		o := processedOptions(t, "--diff-tool", "")
+		require.False(t, o.DiffTool(), "an explicitly empty --diff-tool is an explicit opt-out")
+	})
+
 	t.Run("an empty --diff-tool keeps the built-in output", func(t *testing.T) {
-		t.Setenv(diff.DiffToolEnvVar, "")
+		t.Setenv(diff.DiffToolEnvVar, "colordiff -u")
 		o := processedOptions(t, "--diff-tool", "", "--output", "simple")
 		require.False(t, o.DiffTool())
 	})

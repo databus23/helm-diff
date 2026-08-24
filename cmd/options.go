@@ -25,4 +25,13 @@ func ProcessDiffOptions(f *pflag.FlagSet, o *diff.Options) {
 	if q, _ := f.GetBool("suppress-secrets"); q {
 		o.SuppressedKinds = append(o.SuppressedKinds, "Secret")
 	}
+
+	// HELM_DIFF_TOOL is a convenience for interactive use (e.g. set in a shell
+	// profile). An explicit flag is a deliberate choice and must win over it —
+	// explicit flag > environment > default — so that e.g. a CI job parsing
+	// `--output json` stdout cannot be silently broken by an inherited variable.
+	// An explicitly empty --diff-tool likewise disables the tool outright.
+	if f.Changed("diff-tool") || f.Changed("output") {
+		o.IgnoreDiffToolEnvVar()
+	}
 }
