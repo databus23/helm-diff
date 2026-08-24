@@ -63,6 +63,8 @@ type ReportTemplateSpec struct {
 func (r *Report) setupReportFormat(format string) {
 	r.mode = format
 	switch format {
+	case outputFormatDiff:
+		setupDiffReport(r)
 	case outputFormatSimple:
 		setupSimpleReport(r)
 	case outputFormatTemplate:
@@ -74,6 +76,7 @@ func (r *Report) setupReportFormat(format string) {
 	case outputFormatDyff:
 		setupDyffReport(r)
 	default:
+		// Unknown formats fall back to the default output (pre-existing behavior).
 		setupDiffReport(r)
 	}
 }

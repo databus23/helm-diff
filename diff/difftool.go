@@ -34,7 +34,9 @@ func diffToolCommand(configured string) string {
 // Whitespace separates arguments unless quoted, so that paths containing spaces can
 // be expressed as `"/opt/my tools/diff" -u`. The result is executed directly rather
 // than through a shell, so the generated file paths cannot be expanded or injected.
-func splitDiffToolCommand(command string) []string {
+// An unclosed quote is an error: silently dropping it would hand the tool a
+// different command line than the user typed.
+func splitDiffToolCommand(command string) ([]string, error) {
 	var (
 		args    []string
 		current strings.Builder
@@ -65,11 +67,15 @@ func splitDiffToolCommand(command string) []string {
 		}
 	}
 
+	if quote != 0 {
+		return nil, fmt.Errorf("unclosed %q quote in diff tool command %q", quote, command)
+	}
+
 	if started {
 		args = append(args, current.String())
 	}
 
-	return args
+	return args, nil
 }
 
 func setupDiffToolReport(r *Report) {
@@ -84,7 +90,11 @@ func printDiffToolReport(r *Report, to io.Writer) {
 		return
 	}
 
-	args := splitDiffToolCommand(diffToolCommand(r.diffToolCommand))
+	args, err := splitDiffToolCommand(diffToolCommand(r.diffToolCommand))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		return
+	}
 	if len(args) == 0 {
 		// Unreachable: this printer is only installed once a command is configured.
 		fmt.Fprintf(os.Stderr, "Error: no diff tool configured\n")
@@ -121,13 +131,14 @@ func printDiffToolReport(r *Report, to io.Writer) {
 
 func createDiffToolFiles() (oldFile, newFile string, cleanup func(), err error) {
 	// Stable basenames in a private directory: diff tools label their output
-	// with the file names, which randomized temp names would make unreadable.
+	// with the file names, so old.yaml/new.yaml pair up naturally where random
+	// temp names would be unreadable.
 	dir, err := os.MkdirTemp("", "helm-diff-tool")
 	if err != nil {
 		return "", "", nil, err
 	}
 
-	return filepath.Join(dir, "current.yaml"),
+	return filepath.Join(dir, "old.yaml"),
 		filepath.Join(dir, "new.yaml"),
 		func() { _ = os.RemoveAll(dir) },
 		nil
@@ -140,28 +151,41 @@ func writeDiffToolSides(r *Report, oldPath, newPath string) error {
 	var current, next strings.Builder
 
 	for _, entry := range r.Entries {
-		header := "---\n# Source: " + entry.Key + "\n"
+		// The tool only sees file content, so a header comment carries what the
+		// built-in output would print around the diff: the resource the entry
+		// refers to (the manifest content keeps its own "# Source:" template
+		// path) and the change type, which would otherwise be invisible to the
+		// tool user (ADD, REMOVE, MODIFY, ...).
+		header := fmt.Sprintf("---\n# Resource: %s\n# Change: %s\n", entry.Key, entry.ChangeType)
 		_, _ = current.WriteString(header)
 		_, _ = next.WriteString(header)
 
-		if containsKind(entry.SuppressedKinds, entry.Kind) {
+		switch {
+		case containsKind(entry.SuppressedKinds, entry.Kind):
 			// Identical placeholder on both sides: the tool must report no change
 			// rather than receive the suppressed content.
 			placeholder := fmt.Sprintf("# Changes suppressed on sensitive content of type %s\n", entry.Kind)
 			_, _ = current.WriteString(placeholder)
 			_, _ = next.WriteString(placeholder)
-			continue
-		}
-
-		for _, record := range entry.Diffs {
-			switch record.Delta {
-			case difflib.Common:
-				_, _ = current.WriteString(record.Payload + "\n")
-				_, _ = next.WriteString(record.Payload + "\n")
-			case difflib.LeftOnly:
-				_, _ = current.WriteString(record.Payload + "\n")
-			case difflib.RightOnly:
-				_, _ = next.WriteString(record.Payload + "\n")
+		case len(entry.Diffs) == 0:
+			// Every changed line was removed by --suppress-output-line-regex (such
+			// entries are flipped to MODIFY_SUPPRESSED, or kept as ADD/REMOVE with
+			// empty diffs). Without a placeholder the tool would report no difference
+			// at all while helm-diff still exits with "changes found".
+			placeholder := "# Changes suppressed by --suppress-output-line-regex\n"
+			_, _ = current.WriteString(placeholder)
+			_, _ = next.WriteString(placeholder)
+		default:
+			for _, record := range entry.Diffs {
+				switch record.Delta {
+				case difflib.Common:
+					_, _ = current.WriteString(record.Payload + "\n")
+					_, _ = next.WriteString(record.Payload + "\n")
+				case difflib.LeftOnly:
+					_, _ = current.WriteString(record.Payload + "\n")
+				case difflib.RightOnly:
+					_, _ = next.WriteString(record.Payload + "\n")
+				}
 			}
 		}
 	}
