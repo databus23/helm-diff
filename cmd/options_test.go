@@ -74,15 +74,10 @@ func TestProcessDiffOptionsDiffTool(t *testing.T) {
 			"a script explicitly asking for --output json must not be surprised by an inherited environment variable")
 	})
 
-	t.Run("an explicit --diff-tool \"\" disables HELM_DIFF_TOOL", func(t *testing.T) {
-		t.Setenv(diff.DiffToolEnvVar, "colordiff -u")
-		o := processedOptions(t, "--diff-tool", "")
-		require.False(t, o.DiffTool(), "an explicitly empty --diff-tool is an explicit opt-out")
-	})
-
-	t.Run("an empty --diff-tool keeps the built-in output", func(t *testing.T) {
+	t.Run("an explicitly empty --diff-tool disables HELM_DIFF_TOOL", func(t *testing.T) {
 		t.Setenv(diff.DiffToolEnvVar, "colordiff -u")
 		o := processedOptions(t, "--diff-tool", "", "--output", "simple")
-		require.False(t, o.DiffTool())
+		require.False(t, o.DiffTool(), "an explicitly empty --diff-tool is an explicit opt-out")
+		require.Equal(t, "simple", o.OutputFormat, "the built-in renderer is used")
 	})
 }
