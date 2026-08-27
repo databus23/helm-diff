@@ -233,3 +233,102 @@ func TestValidateRevision(t *testing.T) {
 		})
 	}
 }
+
+func TestGetStorageNamespace(t *testing.T) {
+	cases := []struct {
+		name             string
+		namespace        string
+		storageNamespace string
+		expected         string
+	}{
+		{
+			name:             "storage namespace defaults to target namespace when unset",
+			namespace:        "target-ns",
+			storageNamespace: "",
+			expected:         "target-ns",
+		},
+		{
+			name:             "storage namespace overrides target namespace when set",
+			namespace:        "target-ns",
+			storageNamespace: "flux-system",
+			expected:         "flux-system",
+		},
+		{
+			name:             "both empty returns empty",
+			namespace:        "",
+			storageNamespace: "",
+			expected:         "",
+		},
+		{
+			name:             "storage namespace set with empty target namespace",
+			namespace:        "",
+			storageNamespace: "flux-system",
+			expected:         "flux-system",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			d := diffCmd{
+				namespace:        tc.namespace,
+				storageNamespace: tc.storageNamespace,
+			}
+			actual := d.getStorageNamespace()
+			if actual != tc.expected {
+				t.Errorf("expected %q, got %q", tc.expected, actual)
+			}
+		})
+	}
+}
+
+func TestUpgradeCommand_StorageNamespaceFlag(t *testing.T) {
+	cmd := newChartCommand()
+	f := cmd.Flags()
+
+	if f.Lookup("storage-namespace") == nil {
+		t.Fatal("expected flag --storage-namespace to be registered")
+	}
+
+	if f.Lookup("namespace") == nil {
+		t.Fatal("expected flag --namespace to be registered")
+	}
+
+	if f.ShorthandLookup("n") == nil {
+		t.Fatal("expected shorthand flag -n to be registered")
+	}
+
+	err := cmd.ParseFlags([]string{"--storage-namespace", "flux-system", "-n", "prod-apps"})
+	if err != nil {
+		t.Fatalf("unexpected error parsing flags: %v", err)
+	}
+
+	storageNs, err := cmd.Flags().GetString("storage-namespace")
+	if err != nil || storageNs != "flux-system" {
+		t.Errorf("expected storage-namespace=flux-system, got %q (err: %v)", storageNs, err)
+	}
+
+	ns, err := cmd.Flags().GetString("namespace")
+	if err != nil || ns != "prod-apps" {
+		t.Errorf("expected namespace=prod-apps, got %q (err: %v)", ns, err)
+	}
+}
+
+func TestUpgradeCommand_StorageNamespaceEnvVar(t *testing.T) {
+	original := os.Getenv("HELM_DIFF_STORAGE_NAMESPACE")
+	defer os.Setenv("HELM_DIFF_STORAGE_NAMESPACE", original)
+
+	os.Setenv("HELM_DIFF_STORAGE_NAMESPACE", "flux-system-env")
+
+	// When flag is not specified, RunE or initialization logic should pick up env var
+	cmd := newChartCommand()
+	_ = cmd.ParseFlags([]string{})
+
+	// Check resolution logic with env var
+	d := diffCmd{
+		namespace:        "my-target-ns",
+		storageNamespace: os.Getenv("HELM_DIFF_STORAGE_NAMESPACE"),
+	}
+	if d.getStorageNamespace() != "flux-system-env" {
+		t.Errorf("expected getStorageNamespace() to return env var %q, got %q", "flux-system-env", d.getStorageNamespace())
+	}
+}

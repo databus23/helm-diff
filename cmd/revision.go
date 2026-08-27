@@ -14,12 +14,21 @@ import (
 
 type revision struct {
 	release            string
+	namespace          string
+	storageNamespace   string
 	kubeContext        string
 	detailedExitCode   bool
 	revisions          []string
 	includeTests       bool
 	normalizeManifests bool
 	diff.Options
+}
+
+func (d *revision) getStorageNamespace() string {
+	if d.storageNamespace != "" {
+		return d.storageNamespace
+	}
+	return d.namespace
 }
 
 const revisionCmdLongUsage = `
@@ -60,6 +69,13 @@ func revisionCmd() *cobra.Command {
 				return errors.New("Too many arguments to Command \"revision\".\nMaximum 3 arguments allowed: release name, revision1, revision2")
 			}
 
+			if !cmd.Flags().Changed("storage-namespace") && diff.storageNamespace == "" {
+				diff.storageNamespace = os.Getenv("HELM_DIFF_STORAGE_NAMESPACE")
+			}
+			if !cmd.Flags().Changed("namespace") && diff.namespace == "" {
+				diff.namespace = os.Getenv("HELM_NAMESPACE")
+			}
+
 			ProcessDiffOptions(cmd.Flags(), &diff.Options)
 
 			diff.release = args[0]
@@ -68,6 +84,8 @@ func revisionCmd() *cobra.Command {
 		},
 	}
 
+	revisionCmd.Flags().StringVarP(&diff.namespace, "namespace", "n", os.Getenv("HELM_NAMESPACE"), "namespace to assume the release to be installed into. Defaults to the current kube config namespace.")
+	revisionCmd.Flags().StringVar(&diff.storageNamespace, "storage-namespace", "", "namespace where the helm release storage (Secret/ConfigMap) is located. Defaults to the target namespace (-n/--namespace)")
 	revisionCmd.Flags().BoolVar(&diff.detailedExitCode, "detailed-exitcode", false, "return a non-zero exit code when there are changes")
 	revisionCmd.Flags().BoolVar(&diff.includeTests, "include-tests", false, "enable the diffing of the helm test hooks")
 	revisionCmd.Flags().BoolVar(&diff.normalizeManifests, "normalize-manifests", false, "normalize manifests before running diff to exclude style differences from the output")
@@ -80,27 +98,28 @@ func revisionCmd() *cobra.Command {
 }
 
 func (d *revision) differentiateHelm3() error {
-	namespace := os.Getenv("HELM_NAMESPACE")
+	storageNs := d.getStorageNamespace()
+	targetNs := d.namespace
 	excludes := []string{manifest.Helm3TestHook, manifest.Helm2TestSuccessHook}
 	if d.includeTests {
 		excludes = []string{}
 	}
 	switch len(d.revisions) {
 	case 1:
-		releaseResponse, err := getRelease(d.release, 0, namespace, d.kubeContext)
+		releaseResponse, err := getRelease(d.release, 0, storageNs, d.kubeContext)
 
 		if err != nil {
 			return err
 		}
 
 		revision, _ := strconv.Atoi(d.revisions[0])
-		revisionResponse, err := getRelease(d.release, revision, namespace, d.kubeContext)
+		revisionResponse, err := getRelease(d.release, revision, storageNs, d.kubeContext)
 		if err != nil {
 			return err
 		}
 
-		oldSpecs := manifest.Parse(revisionResponse, namespace, d.normalizeManifests, excludes...)
-		newSpecs := manifest.Parse(releaseResponse, namespace, d.normalizeManifests, excludes...)
+		oldSpecs := manifest.Parse(revisionResponse, targetNs, d.normalizeManifests, excludes...)
+		newSpecs := manifest.Parse(releaseResponse, targetNs, d.normalizeManifests, excludes...)
 		revisionResponse = nil //nolint:ineffassign // nil to allow GC to reclaim raw bytes before diff computation
 		releaseResponse = nil  //nolint:ineffassign // nil to allow GC to reclaim raw bytes before diff computation
 
@@ -117,18 +136,18 @@ func (d *revision) differentiateHelm3() error {
 			revision1, revision2 = revision2, revision1
 		}
 
-		revisionResponse1, err := getRelease(d.release, revision1, namespace, d.kubeContext)
+		revisionResponse1, err := getRelease(d.release, revision1, storageNs, d.kubeContext)
 		if err != nil {
 			return err
 		}
 
-		revisionResponse2, err := getRelease(d.release, revision2, namespace, d.kubeContext)
+		revisionResponse2, err := getRelease(d.release, revision2, storageNs, d.kubeContext)
 		if err != nil {
 			return err
 		}
 
-		oldSpecs := manifest.Parse(revisionResponse1, namespace, d.normalizeManifests, excludes...)
-		newSpecs := manifest.Parse(revisionResponse2, namespace, d.normalizeManifests, excludes...)
+		oldSpecs := manifest.Parse(revisionResponse1, targetNs, d.normalizeManifests, excludes...)
+		newSpecs := manifest.Parse(revisionResponse2, targetNs, d.normalizeManifests, excludes...)
 		revisionResponse1 = nil //nolint:ineffassign // nil to allow GC to reclaim raw bytes before diff computation
 		revisionResponse2 = nil //nolint:ineffassign // nil to allow GC to reclaim raw bytes before diff computation
 

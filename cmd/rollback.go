@@ -14,12 +14,21 @@ import (
 
 type rollback struct {
 	release            string
+	namespace          string
+	storageNamespace   string
 	kubeContext        string
 	detailedExitCode   bool
 	revisions          []string
 	includeTests       bool
 	normalizeManifests bool
 	diff.Options
+}
+
+func (d *rollback) getStorageNamespace() string {
+	if d.storageNamespace != "" {
+		return d.storageNamespace
+	}
+	return d.namespace
 }
 
 const rollbackCmdLongUsage = `
@@ -49,6 +58,13 @@ func rollbackCmd() *cobra.Command {
 				return err
 			}
 
+			if !cmd.Flags().Changed("storage-namespace") && diff.storageNamespace == "" {
+				diff.storageNamespace = os.Getenv("HELM_DIFF_STORAGE_NAMESPACE")
+			}
+			if !cmd.Flags().Changed("namespace") && diff.namespace == "" {
+				diff.namespace = os.Getenv("HELM_NAMESPACE")
+			}
+
 			ProcessDiffOptions(cmd.Flags(), &diff.Options)
 
 			diff.release = args[0]
@@ -58,6 +74,8 @@ func rollbackCmd() *cobra.Command {
 		},
 	}
 
+	rollbackCmd.Flags().StringVarP(&diff.namespace, "namespace", "n", os.Getenv("HELM_NAMESPACE"), "namespace to assume the release to be installed into. Defaults to the current kube config namespace.")
+	rollbackCmd.Flags().StringVar(&diff.storageNamespace, "storage-namespace", "", "namespace where the helm release storage (Secret/ConfigMap) is located. Defaults to the target namespace (-n/--namespace)")
 	rollbackCmd.Flags().BoolVar(&diff.detailedExitCode, "detailed-exitcode", false, "return a non-zero exit code when there are changes")
 	rollbackCmd.Flags().BoolVar(&diff.includeTests, "include-tests", false, "enable the diffing of the helm test hooks")
 	rollbackCmd.Flags().BoolVar(&diff.normalizeManifests, "normalize-manifests", false, "normalize manifests before running diff to exclude style differences from the output")
@@ -70,13 +88,14 @@ func rollbackCmd() *cobra.Command {
 }
 
 func (d *rollback) backcastHelm3() error {
-	namespace := os.Getenv("HELM_NAMESPACE")
+	storageNs := d.getStorageNamespace()
+	targetNs := d.namespace
 	excludes := []string{manifest.Helm3TestHook, manifest.Helm2TestSuccessHook}
 	if d.includeTests {
 		excludes = []string{}
 	}
 	// get manifest of the latest release
-	releaseResponse, err := getRelease(d.release, 0, namespace, d.kubeContext)
+	releaseResponse, err := getRelease(d.release, 0, storageNs, d.kubeContext)
 
 	if err != nil {
 		return err
@@ -84,14 +103,14 @@ func (d *rollback) backcastHelm3() error {
 
 	// get manifest of the release to rollback
 	revision, _ := strconv.Atoi(d.revisions[0])
-	revisionResponse, err := getRelease(d.release, revision, namespace, d.kubeContext)
+	revisionResponse, err := getRelease(d.release, revision, storageNs, d.kubeContext)
 	if err != nil {
 		return err
 	}
 
 	// create a diff between the current manifest and the version of the manifest that a user is intended to rollback
-	oldSpecs := manifest.Parse(releaseResponse, namespace, d.normalizeManifests, excludes...)
-	newSpecs := manifest.Parse(revisionResponse, namespace, d.normalizeManifests, excludes...)
+	oldSpecs := manifest.Parse(releaseResponse, targetNs, d.normalizeManifests, excludes...)
+	newSpecs := manifest.Parse(revisionResponse, targetNs, d.normalizeManifests, excludes...)
 	releaseResponse = nil  //nolint:ineffassign // nil to allow GC to reclaim raw bytes before diff computation
 	revisionResponse = nil //nolint:ineffassign // nil to allow GC to reclaim raw bytes before diff computation
 

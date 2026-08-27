@@ -178,6 +178,7 @@ Flags:
       --show-secrets                             do not redact secret values in the output
       --show-secrets-decoded                     decode secret values in the output
       --skip-schema-validation                   skip validation of the rendered manifests against the Kubernetes OpenAPI schema
+      --storage-namespace string                 namespace where the helm release storage (Secret/ConfigMap) is located. Defaults to the target namespace (-n/--namespace)
       --strip-trailing-cr                        strip trailing carriage return on input
       --suppress stringArray                     allows suppression of the kinds listed in the diff output (can specify multiple, like '--suppress Deployment --suppress Service')
       --suppress-output-line-regex stringArray   a regex to suppress diff output lines that match
@@ -323,6 +324,11 @@ Examples:
 # Read the flag usage below for more information on --context.
 HELM_DIFF_OUTPUT_CONTEXT=5 helm diff upgrade my-release datadog/datadog
 
+  # Set HELM_DIFF_STORAGE_NAMESPACE=flux-system to
+  # fetch release manifests/values/hooks from a storage namespace different from the target namespace.
+  # This is equivalent to specifying the --storage-namespace flag.
+  HELM_DIFF_STORAGE_NAMESPACE=flux-system helm diff upgrade -n prod-apps my-release datadog/datadog
+
 Flags:
       --allow-unreleased                         enables diffing of releases that are not yet deployed via Helm
   -a, --api-versions stringArray                 Kubernetes api versions used for Capabilities.APIVersions
@@ -360,6 +366,7 @@ Flags:
       --show-secrets                             do not redact secret values in the output
       --show-secrets-decoded                     decode secret values in the output
       --skip-schema-validation                   skip validation of the rendered manifests against the Kubernetes OpenAPI schema
+      --storage-namespace string                 namespace where the helm release storage (Secret/ConfigMap) is located. Defaults to the target namespace (-n/--namespace)
       --strip-trailing-cr                        strip trailing carriage return on input
       --suppress stringArray                     allows suppression of the kinds listed in the diff output (can specify multiple, like '--suppress Deployment --suppress Service')
       --suppress-output-line-regex stringArray   a regex to suppress diff output lines that match
@@ -445,6 +452,7 @@ Flags:
       --output string                            Possible values: diff, simple, template, json, structured, dyff. When set to "template", use the env var HELM_DIFF_TPL to specify the template. (default "diff")
       --show-secrets                             do not redact secret values in the output
       --show-secrets-decoded                     decode secret values in the output
+      --storage-namespace string                 namespace where the helm release storage (Secret/ConfigMap) is located. Defaults to the target namespace (-n/--namespace)
       --strip-trailing-cr                        strip trailing carriage return on input
       --suppress stringArray                     allows suppression of the kinds listed in the diff output (can specify multiple, like '--suppress Deployment --suppress Service')
       --suppress-output-line-regex stringArray   a regex to suppress diff output lines that match
@@ -481,6 +489,7 @@ Flags:
       --output string                            Possible values: diff, simple, template, json, structured, dyff. When set to "template", use the env var HELM_DIFF_TPL to specify the template. (default "diff")
       --show-secrets                             do not redact secret values in the output
       --show-secrets-decoded                     decode secret values in the output
+      --storage-namespace string                 namespace where the helm release storage (Secret/ConfigMap) is located. Defaults to the target namespace (-n/--namespace)
       --strip-trailing-cr                        strip trailing carriage return on input
       --suppress stringArray                     allows suppression of the kinds listed in the diff output (can specify multiple, like '--suppress Deployment --suppress Service')
       --suppress-output-line-regex stringArray   a regex to suppress diff output lines that match
