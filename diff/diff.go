@@ -30,13 +30,70 @@ type Options struct {
 	SuppressedKinds           []string
 	FindRenames               float32
 	SuppressedOutputLineRegex []string
+	DiffToolCommand           string
+
+	// diffToolEnvIgnored stops the HELM_DIFF_TOOL environment variable from
+	// being consulted, set when an explicit flag supersedes the environment.
+	diffToolEnvIgnored bool
 }
 
 const kindSecret = "Secret"
 
-// StructuredOutput returns true when the structured JSON output is requested.
+const (
+	// Output formats accepted by setupReportFormat.
+	outputFormatDiff       = "diff"
+	outputFormatSimple     = "simple"
+	outputFormatTemplate   = "template"
+	outputFormatJSON       = "json"
+	outputFormatStructured = "structured"
+	outputFormatDyff       = "dyff"
+
+	// Change types recorded on report entries.
+	changeTypeAdd              = "ADD"
+	changeTypeRemove           = "REMOVE"
+	changeTypeModify           = "MODIFY"
+	changeTypeModifySuppressed = "MODIFY_SUPPRESSED"
+	changeTypeOwnership        = "OWNERSHIP"
+)
+
+// StructuredOutput returns true when the structured JSON output is requested
+// except when using a diff tool, whose input is the line diffs that structured
+// output skips.
 func (o *Options) StructuredOutput() bool {
-	return o != nil && o.OutputFormat == "structured"
+	return o != nil && o.OutputFormat == outputFormatStructured && !o.DiffTool()
+}
+
+// DiffTool reports whether the diff is rendered by an external tool, requested
+// either with --diff-tool or through the HELM_DIFF_TOOL environment variable.
+// The external tool overrides the built-in outputs, except that an explicit
+// flag supersedes the environment variable (see IgnoreDiffToolEnvVar).
+func (o *Options) DiffTool() bool {
+	return o != nil && o.configuredDiffToolCommand() != ""
+}
+
+// configuredDiffToolCommand resolves the command for the external diff tool
+// in one place. The resolved value is what installs the tool printer
+// (DiffTool) and what the report carries to print time, so setup and rendering
+// cannot drift apart. Once an explicit flag supersedes HELM_DIFF_TOOL the
+// environment is not consulted at all — not even as a fallback for a blank
+// --diff-tool.
+func (o *Options) configuredDiffToolCommand() string {
+	if o.diffToolEnvIgnored {
+		return strings.TrimSpace(o.DiffToolCommand)
+	}
+
+	return diffToolCommand(o.DiffToolCommand)
+}
+
+// IgnoreDiffToolEnvVar stops the HELM_DIFF_TOOL environment variable from being
+// consulted. It implements the "explicit flag over environment" precedence: a
+// command requested with --diff-tool is authoritative even when empty, and an
+// explicitly requested built-in output must not be silently overridden by a
+// variable inherited e.g. from a shell profile.
+func (o *Options) IgnoreDiffToolEnvVar() {
+	if o != nil {
+		o.diffToolEnvIgnored = true
+	}
 }
 
 type OwnershipDiff struct {
@@ -67,13 +124,18 @@ func ManifestReport(oldIndex, newIndex map[string]*manifest.MappingResult, optio
 }
 
 func generateReport(oldIndex, newIndex map[string]*manifest.MappingResult, newOwnedReleases map[string]OwnershipDiff, options *Options) (bool, *Report, error) {
-	report := Report{findRenames: options.FindRenames}
-	report.setupReportFormat(options.OutputFormat)
+	report := Report{findRenames: options.FindRenames, diffToolCommand: options.configuredDiffToolCommand()}
+	if options.DiffTool() {
+		// A configured diff tool replaces whatever built-in output was selected.
+		setupDiffToolReport(&report)
+	} else {
+		report.setupReportFormat(options.OutputFormat)
+	}
 	var possiblyRemoved []string
 
 	for name, diff := range newOwnedReleases {
 		diff := diffStrings(diff.OldRelease, diff.NewRelease, true)
-		report.addEntry(name, options.SuppressedKinds, "", 0, diff, "OWNERSHIP", nil)
+		report.addEntry(name, options.SuppressedKinds, "", 0, diff, changeTypeOwnership, nil)
 	}
 
 	for _, key := range sortedKeys(oldIndex) {
@@ -121,7 +183,8 @@ func doSuppress(report Report, suppressedOutputLineRegex []string) (Report, erro
 	}
 
 	filteredReport := Report{
-		findRenames: report.findRenames,
+		findRenames:     report.findRenames,
+		diffToolCommand: report.diffToolCommand,
 	}
 	filteredReport.format = report.format
 	filteredReport.Entries = []ReportEntry{}
@@ -165,8 +228,8 @@ func doSuppress(report Report, suppressedOutputLineRegex []string) (Report, erro
 		switch {
 		case containsDiff:
 			diffRecords = diffs
-		case entry.ChangeType == "MODIFY":
-			entry.ChangeType = "MODIFY_SUPPRESSED"
+		case entry.ChangeType == changeTypeModify:
+			entry.ChangeType = changeTypeModifySuppressed
 		}
 
 		filteredReport.addEntry(entry.Key, entry.SuppressedKinds, entry.Kind, entry.Context, diffRecords, entry.ChangeType, entry.Structured)
@@ -270,7 +333,7 @@ func doDiff(report *Report, key string, oldContent *manifest.MappingResult, newC
 	var diffs []difflib.DiffRecord
 	switch {
 	case oldContent == nil:
-		changeType = "ADD"
+		changeType = changeTypeAdd
 		if newContent != nil {
 			subjectKind = newContent.Kind
 		}
@@ -279,14 +342,14 @@ func doDiff(report *Report, key string, oldContent *manifest.MappingResult, newC
 			diffs = diffMappingResults(emptyMapping, newContent, options.StripTrailingCR)
 		}
 	case newContent == nil:
-		changeType = "REMOVE"
+		changeType = changeTypeRemove
 		subjectKind = oldContent.Kind
 		if !options.StructuredOutput() {
 			emptyMapping := &manifest.MappingResult{}
 			diffs = diffMappingResults(oldContent, emptyMapping, options.StripTrailingCR)
 		}
 	default:
-		changeType = "MODIFY"
+		changeType = changeTypeModify
 		subjectKind = oldContent.Kind
 		if !options.StructuredOutput() {
 			diffs = diffMappingResults(oldContent, newContent, options.StripTrailingCR)
@@ -305,7 +368,7 @@ func doDiff(report *Report, key string, oldContent *manifest.MappingResult, newC
 			fmt.Fprintf(os.Stderr, "Warning: failed to build structured entry for %s (kind: %s, changeType: %s): %v\n",
 				key, subjectKind, changeType, err)
 		} else {
-			if changeType == "MODIFY" && !entry.ChangesSuppressed && len(entry.Changes) == 0 {
+			if changeType == changeTypeModify && !entry.ChangesSuppressed && len(entry.Changes) == 0 {
 				return
 			}
 			structured = entry

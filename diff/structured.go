@@ -69,7 +69,7 @@ func buildStructuredEntry(key, changeType, kind string, suppressedKinds []string
 		return entry, nil
 	}
 
-	if changeType == "MODIFY" && oldJSON != nil && newJSON != nil {
+	if changeType == changeTypeModify && oldJSON != nil && newJSON != nil {
 		changes, err := calculateFieldChanges(oldJSON, newJSON)
 		if err != nil {
 			return nil, err
