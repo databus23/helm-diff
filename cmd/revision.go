@@ -25,10 +25,7 @@ type revision struct {
 }
 
 func (d *revision) getStorageNamespace() string {
-	if d.storageNamespace != "" {
-		return d.storageNamespace
-	}
-	return d.namespace
+	return resolveStorageNamespace(d.storageNamespace, d.namespace)
 }
 
 const revisionCmdLongUsage = `
@@ -69,12 +66,7 @@ func revisionCmd() *cobra.Command {
 				return errors.New("Too many arguments to Command \"revision\".\nMaximum 3 arguments allowed: release name, revision1, revision2")
 			}
 
-			if !cmd.Flags().Changed("storage-namespace") && diff.storageNamespace == "" {
-				diff.storageNamespace = os.Getenv("HELM_DIFF_STORAGE_NAMESPACE")
-			}
-			if !cmd.Flags().Changed("namespace") && diff.namespace == "" {
-				diff.namespace = os.Getenv("HELM_NAMESPACE")
-			}
+			resolveNamespaceFlags(cmd, &diff.storageNamespace, &diff.namespace)
 
 			ProcessDiffOptions(cmd.Flags(), &diff.Options)
 

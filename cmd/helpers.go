@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/spf13/cobra"
 	"k8s.io/client-go/util/homedir"
 )
 
@@ -33,4 +34,23 @@ func outputWithRichError(cmd *exec.Cmd) ([]byte, error) {
 		return output, fmt.Errorf("%s: %s", exitError.Error(), string(exitError.Stderr))
 	}
 	return output, err
+}
+
+// resolveStorageNamespace returns storageNamespace if non-empty, otherwise falls back to namespace.
+func resolveStorageNamespace(storageNamespace, namespace string) string {
+	if storageNamespace != "" {
+		return storageNamespace
+	}
+	return namespace
+}
+
+// resolveNamespaceFlags populates storageNamespace and namespace from their respective environment variables
+// (HELM_DIFF_STORAGE_NAMESPACE and HELM_NAMESPACE) if the flags were not explicitly set on the command line.
+func resolveNamespaceFlags(cmd *cobra.Command, storageNamespace, namespace *string) {
+	if !cmd.Flags().Changed("storage-namespace") && *storageNamespace == "" {
+		*storageNamespace = os.Getenv("HELM_DIFF_STORAGE_NAMESPACE")
+	}
+	if !cmd.Flags().Changed("namespace") && *namespace == "" {
+		*namespace = os.Getenv("HELM_NAMESPACE")
+	}
 }

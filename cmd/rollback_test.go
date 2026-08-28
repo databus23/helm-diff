@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -37,61 +38,88 @@ func TestRollbackCommand_StorageNamespaceFlag(t *testing.T) {
 	}
 }
 
-func TestRollback_GetStorageNamespace(t *testing.T) {
-	original := os.Getenv("HELM_DIFF_STORAGE_NAMESPACE")
-	defer os.Setenv("HELM_DIFF_STORAGE_NAMESPACE", original)
+func TestRollbackCommand_Execution_StorageNamespace(t *testing.T) {
+	manifestYAML := `---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-config
+  namespace: prod-apps
+data:
+  key: value
+`
 
-	cases := []struct {
-		name             string
-		namespace        string
-		storageNamespace string
-		envVar           string
-		expected         string
-	}{
-		{
-			name:             "defaults to target namespace",
-			namespace:        "target-ns",
-			storageNamespace: "",
-			envVar:           "",
-			expected:         "target-ns",
-		},
-		{
-			name:             "storage namespace flag set",
-			namespace:        "target-ns",
-			storageNamespace: "flux-system",
-			envVar:           "",
-			expected:         "flux-system",
-		},
-		{
-			name:             "storage namespace env var set",
-			namespace:        "target-ns",
-			storageNamespace: "",
-			envVar:           "flux-system-env",
-			expected:         "flux-system-env",
-		},
-		{
-			name:             "storage namespace flag overrides env var",
-			namespace:        "target-ns",
-			storageNamespace: "flux-system-flag",
-			envVar:           "flux-system-env",
-			expected:         "flux-system-flag",
-		},
-	}
+	t.Run("explicit flag passes storage namespace to helm get", func(t *testing.T) {
+		argsFile := t.TempDir() + "/args"
+		setupFakeHelm(t, "capture_args", manifestYAML, argsFile, "")
 
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			os.Setenv("HELM_DIFF_STORAGE_NAMESPACE", tc.envVar)
-			r := rollback{
-				namespace:        tc.namespace,
-				storageNamespace: tc.storageNamespace,
-			}
-			if r.storageNamespace == "" && tc.envVar != "" {
-				r.storageNamespace = os.Getenv("HELM_DIFF_STORAGE_NAMESPACE")
-			}
-			actual := r.getStorageNamespace()
-			if actual != tc.expected {
-				t.Errorf("expected %q, got %q", tc.expected, actual)
-			}
-		})
-	}
+		cmd := rollbackCmd()
+		cmd.SetArgs([]string{"my-release", "2", "--storage-namespace", "flux-system", "-n", "prod-apps"})
+
+		err := cmd.Execute()
+		if err != nil {
+			t.Fatalf("unexpected error executing rollback command: %v", err)
+		}
+
+		data, err := os.ReadFile(argsFile)
+		if err != nil {
+			t.Fatalf("failed to read fake helm args: %v", err)
+		}
+		argsContent := string(data)
+
+		if !strings.Contains(argsContent, "get manifest my-release --namespace flux-system") {
+			t.Errorf("expected 'helm get manifest' for latest release to use --namespace flux-system, got:\n%s", argsContent)
+		}
+		if !strings.Contains(argsContent, "get manifest my-release --revision 2 --namespace flux-system") {
+			t.Errorf("expected 'helm get manifest' for revision 2 to use --namespace flux-system, got:\n%s", argsContent)
+		}
+	})
+
+	t.Run("env var sets storage namespace when flag is omitted", func(t *testing.T) {
+		argsFile := t.TempDir() + "/args"
+		setupFakeHelm(t, "capture_args", manifestYAML, argsFile, "")
+		t.Setenv("HELM_DIFF_STORAGE_NAMESPACE", "flux-system-env")
+
+		cmd := rollbackCmd()
+		cmd.SetArgs([]string{"my-release", "2", "-n", "prod-apps"})
+
+		err := cmd.Execute()
+		if err != nil {
+			t.Fatalf("unexpected error executing rollback command: %v", err)
+		}
+
+		data, err := os.ReadFile(argsFile)
+		if err != nil {
+			t.Fatalf("failed to read fake helm args: %v", err)
+		}
+		argsContent := string(data)
+
+		if !strings.Contains(argsContent, "get manifest my-release --namespace flux-system-env") {
+			t.Errorf("expected 'helm get manifest' to use env var --namespace flux-system-env, got:\n%s", argsContent)
+		}
+	})
+
+	t.Run("defaults to target namespace when storage namespace is omitted", func(t *testing.T) {
+		argsFile := t.TempDir() + "/args"
+		setupFakeHelm(t, "capture_args", manifestYAML, argsFile, "")
+		t.Setenv("HELM_DIFF_STORAGE_NAMESPACE", "")
+
+		cmd := rollbackCmd()
+		cmd.SetArgs([]string{"my-release", "2", "-n", "prod-apps"})
+
+		err := cmd.Execute()
+		if err != nil {
+			t.Fatalf("unexpected error executing rollback command: %v", err)
+		}
+
+		data, err := os.ReadFile(argsFile)
+		if err != nil {
+			t.Fatalf("failed to read fake helm args: %v", err)
+		}
+		argsContent := string(data)
+
+		if !strings.Contains(argsContent, "get manifest my-release --namespace prod-apps") {
+			t.Errorf("expected 'helm get manifest' to fall back to target namespace --namespace prod-apps, got:\n%s", argsContent)
+		}
+	})
 }

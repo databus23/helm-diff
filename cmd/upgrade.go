@@ -94,10 +94,7 @@ func (d *diffCmd) isAllowUnreleased() bool {
 }
 
 func (d *diffCmd) getStorageNamespace() string {
-	if d.storageNamespace != "" {
-		return d.storageNamespace
-	}
-	return d.namespace
+	return resolveStorageNamespace(d.storageNamespace, d.namespace)
 }
 
 // clusterAccessAllowed returns true if the diff command is allowed to access the cluster at some degree.
@@ -235,12 +232,7 @@ func newChartCommand() *cobra.Command {
 				}
 			}
 
-			if !cmd.Flags().Changed("storage-namespace") && diff.storageNamespace == "" {
-				diff.storageNamespace = os.Getenv("HELM_DIFF_STORAGE_NAMESPACE")
-			}
-			if !cmd.Flags().Changed("namespace") && diff.namespace == "" {
-				diff.namespace = os.Getenv("HELM_NAMESPACE")
-			}
+			resolveNamespaceFlags(cmd, &diff.storageNamespace, &diff.namespace)
 
 			ProcessDiffOptions(cmd.Flags(), &diff.Options)
 

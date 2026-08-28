@@ -25,10 +25,7 @@ type rollback struct {
 }
 
 func (d *rollback) getStorageNamespace() string {
-	if d.storageNamespace != "" {
-		return d.storageNamespace
-	}
-	return d.namespace
+	return resolveStorageNamespace(d.storageNamespace, d.namespace)
 }
 
 const rollbackCmdLongUsage = `
@@ -58,12 +55,7 @@ func rollbackCmd() *cobra.Command {
 				return err
 			}
 
-			if !cmd.Flags().Changed("storage-namespace") && diff.storageNamespace == "" {
-				diff.storageNamespace = os.Getenv("HELM_DIFF_STORAGE_NAMESPACE")
-			}
-			if !cmd.Flags().Changed("namespace") && diff.namespace == "" {
-				diff.namespace = os.Getenv("HELM_NAMESPACE")
-			}
+			resolveNamespaceFlags(cmd, &diff.storageNamespace, &diff.namespace)
 
 			ProcessDiffOptions(cmd.Flags(), &diff.Options)
 

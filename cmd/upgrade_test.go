@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -313,22 +314,103 @@ func TestUpgradeCommand_StorageNamespaceFlag(t *testing.T) {
 	}
 }
 
-func TestUpgradeCommand_StorageNamespaceEnvVar(t *testing.T) {
-	original := os.Getenv("HELM_DIFF_STORAGE_NAMESPACE")
-	defer os.Setenv("HELM_DIFF_STORAGE_NAMESPACE", original)
+func TestUpgradeCommand_Execution_StorageNamespace(t *testing.T) {
+	manifestYAML := `---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-config
+  namespace: prod-apps
+data:
+  key: value
+`
 
-	os.Setenv("HELM_DIFF_STORAGE_NAMESPACE", "flux-system-env")
+	t.Run("explicit flag separates storage and target namespace", func(t *testing.T) {
+		argsFile := t.TempDir() + "/args"
+		setupFakeHelm(t, "capture_args", manifestYAML, argsFile, "")
 
-	// When flag is not specified, RunE or initialization logic should pick up env var
-	cmd := newChartCommand()
-	_ = cmd.ParseFlags([]string{})
+		chartDir := t.TempDir()
+		cmd := newChartCommand()
+		cmd.SetArgs([]string{"my-release", chartDir, "--storage-namespace", "flux-system", "-n", "prod-apps"})
 
-	// Check resolution logic with env var
-	d := diffCmd{
-		namespace:        "my-target-ns",
-		storageNamespace: os.Getenv("HELM_DIFF_STORAGE_NAMESPACE"),
-	}
-	if d.getStorageNamespace() != "flux-system-env" {
-		t.Errorf("expected getStorageNamespace() to return env var %q, got %q", "flux-system-env", d.getStorageNamespace())
-	}
+		err := cmd.Execute()
+		if err != nil {
+			t.Fatalf("unexpected error executing upgrade command: %v", err)
+		}
+
+		data, err := os.ReadFile(argsFile)
+		if err != nil {
+			t.Fatalf("failed to read fake helm args: %v", err)
+		}
+		argsContent := string(data)
+
+		// get manifest should use storage namespace
+		if !strings.Contains(argsContent, "get manifest my-release --namespace flux-system") {
+			t.Errorf("expected 'helm get manifest' to use --namespace flux-system, got:\n%s", argsContent)
+		}
+		// template should use target namespace
+		if !strings.Contains(argsContent, "template my-release "+chartDir+" --namespace prod-apps") {
+			t.Errorf("expected 'helm template' to use --namespace prod-apps, got:\n%s", argsContent)
+		}
+	})
+
+	t.Run("env var sets storage namespace when flag is omitted", func(t *testing.T) {
+		argsFile := t.TempDir() + "/args"
+		setupFakeHelm(t, "capture_args", manifestYAML, argsFile, "")
+		t.Setenv("HELM_DIFF_STORAGE_NAMESPACE", "flux-system-env")
+
+		chartDir := t.TempDir()
+		cmd := newChartCommand()
+		cmd.SetArgs([]string{"my-release", chartDir, "-n", "prod-apps"})
+
+		err := cmd.Execute()
+		if err != nil {
+			t.Fatalf("unexpected error executing upgrade command: %v", err)
+		}
+
+		data, err := os.ReadFile(argsFile)
+		if err != nil {
+			t.Fatalf("failed to read fake helm args: %v", err)
+		}
+		argsContent := string(data)
+
+		// get manifest should use storage namespace from env var
+		if !strings.Contains(argsContent, "get manifest my-release --namespace flux-system-env") {
+			t.Errorf("expected 'helm get manifest' to use --namespace flux-system-env, got:\n%s", argsContent)
+		}
+		// template should use target namespace
+		if !strings.Contains(argsContent, "template my-release "+chartDir+" --namespace prod-apps") {
+			t.Errorf("expected 'helm template' to use --namespace prod-apps, got:\n%s", argsContent)
+		}
+	})
+
+	t.Run("defaults to target namespace when storage namespace is omitted", func(t *testing.T) {
+		argsFile := t.TempDir() + "/args"
+		setupFakeHelm(t, "capture_args", manifestYAML, argsFile, "")
+		t.Setenv("HELM_DIFF_STORAGE_NAMESPACE", "")
+
+		chartDir := t.TempDir()
+		cmd := newChartCommand()
+		cmd.SetArgs([]string{"my-release", chartDir, "-n", "prod-apps"})
+
+		err := cmd.Execute()
+		if err != nil {
+			t.Fatalf("unexpected error executing upgrade command: %v", err)
+		}
+
+		data, err := os.ReadFile(argsFile)
+		if err != nil {
+			t.Fatalf("failed to read fake helm args: %v", err)
+		}
+		argsContent := string(data)
+
+		// get manifest should use target namespace as fallback
+		if !strings.Contains(argsContent, "get manifest my-release --namespace prod-apps") {
+			t.Errorf("expected 'helm get manifest' to fall back to --namespace prod-apps, got:\n%s", argsContent)
+		}
+		// template should use target namespace
+		if !strings.Contains(argsContent, "template my-release "+chartDir+" --namespace prod-apps") {
+			t.Errorf("expected 'helm template' to use --namespace prod-apps, got:\n%s", argsContent)
+		}
+	})
 }

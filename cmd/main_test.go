@@ -51,14 +51,31 @@ func TestMain(m *testing.M) {
 		case "capture_args":
 			argsFile := os.Getenv("HELM_DIFF_FAKE_ARGS_FILE")
 			if argsFile != "" {
-				if err := os.WriteFile(argsFile, []byte(strings.Join(os.Args[1:], " ")), 0644); err != nil {
-					fmt.Fprintf(os.Stderr, "failed to write fake helm args file %q: %v\n", argsFile, err)
-					os.Exit(1)
+				f, err := os.OpenFile(argsFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+				if err == nil {
+					_, _ = fmt.Fprintln(f, strings.Join(os.Args[1:], " "))
+					_ = f.Close()
 				}
 			}
-			fmt.Print(os.Getenv("HELM_DIFF_FAKE_OUTPUT"))
+			if len(os.Args) > 1 && os.Args[1] == "version" {
+				if v := os.Getenv("HELM_DIFF_FAKE_VERSION_OUTPUT"); v != "" {
+					fmt.Print(v)
+				} else {
+					fmt.Println(`version.BuildInfo{Version:"v3.18.0"}`)
+				}
+			} else {
+				fmt.Print(os.Getenv("HELM_DIFF_FAKE_OUTPUT"))
+			}
 		default:
-			fmt.Print(os.Getenv("HELM_DIFF_FAKE_OUTPUT"))
+			if len(os.Args) > 1 && os.Args[1] == "version" {
+				if v := os.Getenv("HELM_DIFF_FAKE_VERSION_OUTPUT"); v != "" {
+					fmt.Print(v)
+				} else {
+					fmt.Println(`version.BuildInfo{Version:"v3.18.0"}`)
+				}
+			} else {
+				fmt.Print(os.Getenv("HELM_DIFF_FAKE_OUTPUT"))
+			}
 		}
 		os.Exit(0)
 	}

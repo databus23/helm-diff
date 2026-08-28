@@ -140,3 +140,68 @@ func TestOutputWithRichError(t *testing.T) {
 		})
 	}
 }
+
+func TestResolveStorageNamespace(t *testing.T) {
+	cases := []struct {
+		name             string
+		storageNamespace string
+		namespace        string
+		expected         string
+	}{
+		{
+			name:             "storage namespace set returns storage namespace",
+			storageNamespace: "flux-system",
+			namespace:        "prod-apps",
+			expected:         "flux-system",
+		},
+		{
+			name:             "storage namespace empty returns target namespace",
+			storageNamespace: "",
+			namespace:        "prod-apps",
+			expected:         "prod-apps",
+		},
+		{
+			name:             "both empty returns empty",
+			storageNamespace: "",
+			namespace:        "",
+			expected:         "",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			actual := resolveStorageNamespace(tc.storageNamespace, tc.namespace)
+			require.Equal(t, tc.expected, actual)
+		})
+	}
+}
+
+func TestResolveNamespaceFlags(t *testing.T) {
+	t.Run("env vars populate unset flags", func(t *testing.T) {
+		t.Setenv("HELM_DIFF_STORAGE_NAMESPACE", "env-storage")
+		t.Setenv("HELM_NAMESPACE", "env-target")
+
+		cmd := newChartCommand()
+		var storageNs, ns string
+		resolveNamespaceFlags(cmd, &storageNs, &ns)
+
+		require.Equal(t, "env-storage", storageNs)
+		require.Equal(t, "env-target", ns)
+	})
+
+	t.Run("explicit flags take precedence over env vars", func(t *testing.T) {
+		t.Setenv("HELM_DIFF_STORAGE_NAMESPACE", "env-storage")
+		t.Setenv("HELM_NAMESPACE", "env-target")
+
+		cmd := newChartCommand()
+		err := cmd.ParseFlags([]string{"--storage-namespace", "flag-storage", "-n", "flag-target"})
+		require.NoError(t, err)
+
+		storageNs, _ := cmd.Flags().GetString("storage-namespace")
+		ns, _ := cmd.Flags().GetString("namespace")
+		resolveNamespaceFlags(cmd, &storageNs, &ns)
+
+		require.Equal(t, "flag-storage", storageNs)
+		require.Equal(t, "flag-target", ns)
+	})
+}
