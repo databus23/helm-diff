@@ -34,11 +34,3 @@ func outputWithRichError(cmd *exec.Cmd) ([]byte, error) {
 	}
 	return output, err
 }
-
-// resolveStorageNamespace returns storageNamespace if non-empty, otherwise falls back to namespace.
-func resolveStorageNamespace(storageNamespace, namespace string) string {
-	if storageNamespace != "" {
-		return storageNamespace
-	}
-	return namespace
-}

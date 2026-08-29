@@ -21,6 +21,9 @@ jobs:
       - name: Run unit tests
         run: make test
 
+      - name: Verify README flag tables
+        run: make verify-readme
+
       - name: Verify installation
         run: |
           mkdir -p helmhome

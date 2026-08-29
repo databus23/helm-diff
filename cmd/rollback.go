@@ -14,18 +14,13 @@ import (
 
 type rollback struct {
 	release            string
-	namespace          string
-	storageNamespace   string
+	namespaces         // target namespace (-n/--namespace) and helm release storage namespace (--storage-namespace)
 	kubeContext        string
 	detailedExitCode   bool
 	revisions          []string
 	includeTests       bool
 	normalizeManifests bool
 	diff.Options
-}
-
-func (d *rollback) getStorageNamespace() string {
-	return resolveStorageNamespace(d.storageNamespace, d.namespace)
 }
 
 const rollbackCmdLongUsage = `
@@ -64,8 +59,7 @@ func rollbackCmd() *cobra.Command {
 		},
 	}
 
-	rollbackCmd.Flags().StringVarP(&diff.namespace, "namespace", "n", os.Getenv("HELM_NAMESPACE"), "namespace to assume the release to be installed into. Defaults to the current kube config namespace.")
-	rollbackCmd.Flags().StringVar(&diff.storageNamespace, "storage-namespace", os.Getenv("HELM_DIFF_STORAGE_NAMESPACE"), "namespace where the helm release storage (Secret/ConfigMap) is located. Defaults to the target namespace (-n/--namespace)")
+	addNamespaceFlags(rollbackCmd.Flags(), &diff.namespaces)
 	rollbackCmd.Flags().BoolVar(&diff.detailedExitCode, "detailed-exitcode", false, "return a non-zero exit code when there are changes")
 	rollbackCmd.Flags().BoolVar(&diff.includeTests, "include-tests", false, "enable the diffing of the helm test hooks")
 	rollbackCmd.Flags().BoolVar(&diff.normalizeManifests, "normalize-manifests", false, "normalize manifests before running diff to exclude style differences from the output")
@@ -78,7 +72,7 @@ func rollbackCmd() *cobra.Command {
 }
 
 func (d *rollback) backcastHelm3() error {
-	storageNs := d.getStorageNamespace()
+	storageNs := d.storage()
 	targetNs := d.namespace
 	excludes := []string{manifest.Helm3TestHook, manifest.Helm2TestSuccessHook}
 	if d.includeTests {

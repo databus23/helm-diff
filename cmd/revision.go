@@ -14,18 +14,13 @@ import (
 
 type revision struct {
 	release            string
-	namespace          string
-	storageNamespace   string
+	namespaces         // target namespace (-n/--namespace) and helm release storage namespace (--storage-namespace)
 	kubeContext        string
 	detailedExitCode   bool
 	revisions          []string
 	includeTests       bool
 	normalizeManifests bool
 	diff.Options
-}
-
-func (d *revision) getStorageNamespace() string {
-	return resolveStorageNamespace(d.storageNamespace, d.namespace)
 }
 
 const revisionCmdLongUsage = `
@@ -74,8 +69,7 @@ func revisionCmd() *cobra.Command {
 		},
 	}
 
-	revisionCmd.Flags().StringVarP(&diff.namespace, "namespace", "n", os.Getenv("HELM_NAMESPACE"), "namespace to assume the release to be installed into. Defaults to the current kube config namespace.")
-	revisionCmd.Flags().StringVar(&diff.storageNamespace, "storage-namespace", os.Getenv("HELM_DIFF_STORAGE_NAMESPACE"), "namespace where the helm release storage (Secret/ConfigMap) is located. Defaults to the target namespace (-n/--namespace)")
+	addNamespaceFlags(revisionCmd.Flags(), &diff.namespaces)
 	revisionCmd.Flags().BoolVar(&diff.detailedExitCode, "detailed-exitcode", false, "return a non-zero exit code when there are changes")
 	revisionCmd.Flags().BoolVar(&diff.includeTests, "include-tests", false, "enable the diffing of the helm test hooks")
 	revisionCmd.Flags().BoolVar(&diff.normalizeManifests, "normalize-manifests", false, "normalize manifests before running diff to exclude style differences from the output")
@@ -88,7 +82,7 @@ func revisionCmd() *cobra.Command {
 }
 
 func (d *revision) differentiateHelm3() error {
-	storageNs := d.getStorageNamespace()
+	storageNs := d.storage()
 	targetNs := d.namespace
 	excludes := []string{manifest.Helm3TestHook, manifest.Helm2TestSuccessHook}
 	if d.includeTests {

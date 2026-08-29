@@ -416,9 +416,11 @@ Flags:
   -D, --find-renames float32                     Enable rename detection if set to any value greater than 0. If specified, the value denotes the maximum fraction of changed content as lines added + removed compared to total lines in a diff for considering it a rename. Only objects of the same Kind are attempted to be matched
   -h, --help                                     help for release
       --include-tests                            enable the diffing of the helm test hooks
+      --kube-context string                      name of the kubeconfig context to use
       --normalize-manifests                      normalize manifests before running diff to exclude style differences from the output
       --output string                            Possible values: diff, simple, template, json, structured, dyff. When set to "template", use the env var HELM_DIFF_TPL to specify the template. (default "diff")
       --show-secrets                             do not redact secret values in the output
+      --show-secrets-decoded                     decode secret values in the output
       --strip-trailing-cr                        strip trailing carriage return on input
       --suppress stringArray                     allows suppression of the kinds listed in the diff output (can specify multiple, like '--suppress Deployment --suppress Service')
       --suppress-output-line-regex stringArray   a regex to suppress diff output lines that match

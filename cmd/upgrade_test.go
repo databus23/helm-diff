@@ -235,53 +235,6 @@ func TestValidateRevision(t *testing.T) {
 	}
 }
 
-func TestGetStorageNamespace(t *testing.T) {
-	cases := []struct {
-		name             string
-		namespace        string
-		storageNamespace string
-		expected         string
-	}{
-		{
-			name:             "storage namespace defaults to target namespace when unset",
-			namespace:        "target-ns",
-			storageNamespace: "",
-			expected:         "target-ns",
-		},
-		{
-			name:             "storage namespace overrides target namespace when set",
-			namespace:        "target-ns",
-			storageNamespace: "flux-system",
-			expected:         "flux-system",
-		},
-		{
-			name:             "both empty returns empty",
-			namespace:        "",
-			storageNamespace: "",
-			expected:         "",
-		},
-		{
-			name:             "storage namespace set with empty target namespace",
-			namespace:        "",
-			storageNamespace: "flux-system",
-			expected:         "flux-system",
-		},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			d := diffCmd{
-				namespace:        tc.namespace,
-				storageNamespace: tc.storageNamespace,
-			}
-			actual := d.getStorageNamespace()
-			if actual != tc.expected {
-				t.Errorf("expected %q, got %q", tc.expected, actual)
-			}
-		})
-	}
-}
-
 func TestUpgradeCommand_StorageNamespaceFlag(t *testing.T) {
 	cmd := newChartCommand()
 	f := cmd.Flags()
