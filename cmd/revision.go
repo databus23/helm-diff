@@ -66,8 +66,6 @@ func revisionCmd() *cobra.Command {
 				return errors.New("Too many arguments to Command \"revision\".\nMaximum 3 arguments allowed: release name, revision1, revision2")
 			}
 
-			resolveNamespaceFlags(cmd, &diff.storageNamespace, &diff.namespace)
-
 			ProcessDiffOptions(cmd.Flags(), &diff.Options)
 
 			diff.release = args[0]
@@ -77,7 +75,7 @@ func revisionCmd() *cobra.Command {
 	}
 
 	revisionCmd.Flags().StringVarP(&diff.namespace, "namespace", "n", os.Getenv("HELM_NAMESPACE"), "namespace to assume the release to be installed into. Defaults to the current kube config namespace.")
-	revisionCmd.Flags().StringVar(&diff.storageNamespace, "storage-namespace", "", "namespace where the helm release storage (Secret/ConfigMap) is located. Defaults to the target namespace (-n/--namespace)")
+	revisionCmd.Flags().StringVar(&diff.storageNamespace, "storage-namespace", os.Getenv("HELM_DIFF_STORAGE_NAMESPACE"), "namespace where the helm release storage (Secret/ConfigMap) is located. Defaults to the target namespace (-n/--namespace)")
 	revisionCmd.Flags().BoolVar(&diff.detailedExitCode, "detailed-exitcode", false, "return a non-zero exit code when there are changes")
 	revisionCmd.Flags().BoolVar(&diff.includeTests, "include-tests", false, "enable the diffing of the helm test hooks")
 	revisionCmd.Flags().BoolVar(&diff.normalizeManifests, "normalize-manifests", false, "normalize manifests before running diff to exclude style differences from the output")

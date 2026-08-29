@@ -156,8 +156,10 @@ Flags:
       --include-tests                            enable the diffing of the helm test hooks
       --insecure-skip-tls-verify                 skip tls certificate checks for the chart download
       --install                                  enables diffing of releases that are not yet deployed via Helm (equivalent to --allow-unreleased, added to match "helm upgrade --install" command
+      --kube-context string                      name of the kubeconfig context to use
       --kube-version string                      Kubernetes version used for Capabilities.KubeVersion
       --kubeconfig string                        This flag is ignored, to allow passing of this top level flag to helm
+  -n, --namespace string                         namespace to assume the release to be installed into. Defaults to the current kube config namespace.
       --no-color                                 remove colors from the output. If both --no-color and --color are unspecified, coloring enabled only when the stdout is a term and TERM is not "dumb"
       --no-hooks                                 disable diffing of hooks
       --normalize-manifests                      normalize manifests before running diff to exclude style differences from the output
@@ -188,7 +190,7 @@ Flags:
   -f, --values valueFiles                        specify values in a YAML file (can specify multiple) (default [])
       --version string                           specify the exact chart version to use. If this is not specified, the latest version is used
 
-Additional help topcis:
+Additional help topics:
   diff
 
 Use "diff [command] --help" for more information about a command.
@@ -329,6 +331,12 @@ HELM_DIFF_OUTPUT_CONTEXT=5 helm diff upgrade my-release datadog/datadog
   # This is equivalent to specifying the --storage-namespace flag.
   HELM_DIFF_STORAGE_NAMESPACE=flux-system helm diff upgrade -n prod-apps my-release datadog/datadog
 
+  # NOTE: The storage namespace separation is not supported in combination with
+  # HELM_DIFF_USE_UPGRADE_DRY_RUN=true, because rendering then goes through
+  # `helm upgrade --dry-run`, which resolves the release storage in the target
+  # namespace. If the release exists only in the storage namespace, keep the
+  # default `helm template` based rendering instead.
+
 Flags:
       --allow-unreleased                         enables diffing of releases that are not yet deployed via Helm
   -a, --api-versions stringArray                 Kubernetes api versions used for Capabilities.APIVersions
@@ -345,8 +353,10 @@ Flags:
       --include-tests                            enable the diffing of the helm test hooks
       --insecure-skip-tls-verify                 skip tls certificate checks for the chart download
       --install                                  enables diffing of releases that are not yet deployed via Helm (equivalent to --allow-unreleased, added to match "helm upgrade --install" command
+      --kube-context string                      name of the kubeconfig context to use
       --kube-version string                      Kubernetes version used for Capabilities.KubeVersion
       --kubeconfig string                        This flag is ignored, to allow passing of this top level flag to helm
+  -n, --namespace string                         namespace to assume the release to be installed into. Defaults to the current kube config namespace.
       --no-hooks                                 disable diffing of hooks
       --normalize-manifests                      normalize manifests before running diff to exclude style differences from the output
       --output string                            Possible values: diff, simple, template, json, structured, dyff. When set to "template", use the env var HELM_DIFF_TPL to specify the template. (default "diff")
@@ -443,11 +453,12 @@ Usage:
 
 Flags:
   -C, --context int                              output NUM lines of context around changes (default -1)
-      --show-secrets-decoded                     decode secret values in the output
       --detailed-exitcode                        return a non-zero exit code when there are changes
   -D, --find-renames float32                     Enable rename detection if set to any value greater than 0. If specified, the value denotes the maximum fraction of changed content as lines added + removed compared to total lines in a diff for considering it a rename. Only objects of the same Kind are attempted to be matched
   -h, --help                                     help for revision
       --include-tests                            enable the diffing of the helm test hooks
+      --kube-context string                      name of the kubeconfig context to use
+  -n, --namespace string                         namespace to assume the release to be installed into. Defaults to the current kube config namespace.
       --normalize-manifests                      normalize manifests before running diff to exclude style differences from the output
       --output string                            Possible values: diff, simple, template, json, structured, dyff. When set to "template", use the env var HELM_DIFF_TPL to specify the template. (default "diff")
       --show-secrets                             do not redact secret values in the output
@@ -485,6 +496,8 @@ Flags:
   -D, --find-renames float32                     Enable rename detection if set to any value greater than 0. If specified, the value denotes the maximum fraction of changed content as lines added + removed compared to total lines in a diff for considering it a rename. Only objects of the same Kind are attempted to be matched
   -h, --help                                     help for rollback
       --include-tests                            enable the diffing of the helm test hooks
+      --kube-context string                      name of the kubeconfig context to use
+  -n, --namespace string                         namespace to assume the release to be installed into. Defaults to the current kube config namespace.
       --normalize-manifests                      normalize manifests before running diff to exclude style differences from the output
       --output string                            Possible values: diff, simple, template, json, structured, dyff. When set to "template", use the env var HELM_DIFF_TPL to specify the template. (default "diff")
       --show-secrets                             do not redact secret values in the output

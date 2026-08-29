@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"testing"
 
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
 )
 
@@ -176,20 +177,32 @@ func TestResolveStorageNamespace(t *testing.T) {
 	}
 }
 
-func TestResolveNamespaceFlags(t *testing.T) {
-	t.Run("env vars populate unset flags", func(t *testing.T) {
+func TestStorageNamespaceEnvVarDefaults(t *testing.T) {
+	newCommands := map[string]func() *cobra.Command{
+		"upgrade":  newChartCommand,
+		"revision": revisionCmd,
+		"rollback": rollbackCmd,
+	}
+
+	t.Run("env vars populate flag defaults", func(t *testing.T) {
 		t.Setenv("HELM_DIFF_STORAGE_NAMESPACE", "env-storage")
 		t.Setenv("HELM_NAMESPACE", "env-target")
 
-		cmd := newChartCommand()
-		var storageNs, ns string
-		resolveNamespaceFlags(cmd, &storageNs, &ns)
+		for name, newCmd := range newCommands {
+			t.Run(name, func(t *testing.T) {
+				cmd := newCmd()
+				storageNs, err := cmd.Flags().GetString("storage-namespace")
+				require.NoError(t, err)
+				require.Equal(t, "env-storage", storageNs)
 
-		require.Equal(t, "env-storage", storageNs)
-		require.Equal(t, "env-target", ns)
+				ns, err := cmd.Flags().GetString("namespace")
+				require.NoError(t, err)
+				require.Equal(t, "env-target", ns)
+			})
+		}
 	})
 
-	t.Run("explicit flags take precedence over env vars", func(t *testing.T) {
+	t.Run("explicit flags take precedence over env var defaults", func(t *testing.T) {
 		t.Setenv("HELM_DIFF_STORAGE_NAMESPACE", "env-storage")
 		t.Setenv("HELM_NAMESPACE", "env-target")
 
@@ -199,9 +212,23 @@ func TestResolveNamespaceFlags(t *testing.T) {
 
 		storageNs, _ := cmd.Flags().GetString("storage-namespace")
 		ns, _ := cmd.Flags().GetString("namespace")
-		resolveNamespaceFlags(cmd, &storageNs, &ns)
-
 		require.Equal(t, "flag-storage", storageNs)
 		require.Equal(t, "flag-target", ns)
+	})
+
+	t.Run("empty env vars leave flags empty", func(t *testing.T) {
+		t.Setenv("HELM_DIFF_STORAGE_NAMESPACE", "")
+		t.Setenv("HELM_NAMESPACE", "")
+
+		for name, newCmd := range newCommands {
+			t.Run(name, func(t *testing.T) {
+				cmd := newCmd()
+				storageNs, _ := cmd.Flags().GetString("storage-namespace")
+				require.Empty(t, storageNs)
+
+				ns, _ := cmd.Flags().GetString("namespace")
+				require.Empty(t, ns)
+			})
+		}
 	})
 }

@@ -55,8 +55,6 @@ func rollbackCmd() *cobra.Command {
 				return err
 			}
 
-			resolveNamespaceFlags(cmd, &diff.storageNamespace, &diff.namespace)
-
 			ProcessDiffOptions(cmd.Flags(), &diff.Options)
 
 			diff.release = args[0]
@@ -67,7 +65,7 @@ func rollbackCmd() *cobra.Command {
 	}
 
 	rollbackCmd.Flags().StringVarP(&diff.namespace, "namespace", "n", os.Getenv("HELM_NAMESPACE"), "namespace to assume the release to be installed into. Defaults to the current kube config namespace.")
-	rollbackCmd.Flags().StringVar(&diff.storageNamespace, "storage-namespace", "", "namespace where the helm release storage (Secret/ConfigMap) is located. Defaults to the target namespace (-n/--namespace)")
+	rollbackCmd.Flags().StringVar(&diff.storageNamespace, "storage-namespace", os.Getenv("HELM_DIFF_STORAGE_NAMESPACE"), "namespace where the helm release storage (Secret/ConfigMap) is located. Defaults to the target namespace (-n/--namespace)")
 	rollbackCmd.Flags().BoolVar(&diff.detailedExitCode, "detailed-exitcode", false, "return a non-zero exit code when there are changes")
 	rollbackCmd.Flags().BoolVar(&diff.includeTests, "include-tests", false, "enable the diffing of the helm test hooks")
 	rollbackCmd.Flags().BoolVar(&diff.normalizeManifests, "normalize-manifests", false, "normalize manifests before running diff to exclude style differences from the output")

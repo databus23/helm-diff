@@ -232,8 +232,6 @@ func newChartCommand() *cobra.Command {
 				}
 			}
 
-			resolveNamespaceFlags(cmd, &diff.storageNamespace, &diff.namespace)
-
 			ProcessDiffOptions(cmd.Flags(), &diff.Options)
 
 			diff.release = args[0]
@@ -249,7 +247,7 @@ func newChartCommand() *cobra.Command {
 	var kubeconfig string
 	f.StringVar(&kubeconfig, "kubeconfig", "", "This flag is ignored, to allow passing of this top level flag to helm")
 	f.StringVarP(&diff.namespace, "namespace", "n", os.Getenv("HELM_NAMESPACE"), "namespace to assume the release to be installed into. Defaults to the current kube config namespace.")
-	f.StringVar(&diff.storageNamespace, "storage-namespace", "", "namespace where the helm release storage (Secret/ConfigMap) is located. Defaults to the target namespace (-n/--namespace)")
+	f.StringVar(&diff.storageNamespace, "storage-namespace", os.Getenv("HELM_DIFF_STORAGE_NAMESPACE"), "namespace where the helm release storage (Secret/ConfigMap) is located. Defaults to the target namespace (-n/--namespace)")
 	f.BoolVar(&diff.threeWayMerge, "three-way-merge", false, "use three-way-merge to compute patch and generate diff output")
 	f.StringVar(&diff.kubeContext, "kube-context", "", "name of the kubeconfig context to use")
 	f.StringVar(&diff.chartVersion, "version", "", "specify the exact chart version to use. If this is not specified, the latest version is used")
