@@ -20,21 +20,26 @@ func shouldRunFakeHelm() bool {
 	return !strings.HasPrefix(os.Args[1], "-test.")
 }
 
+// printFakeHelmVersion prints helm version build info, so that the version
+// checks in cmd (see getHelmVersion) work against the fake helm.
+// The version output can be overridden via HELM_DIFF_FAKE_VERSION_OUTPUT.
+func printFakeHelmVersion() {
+	if v := os.Getenv("HELM_DIFF_FAKE_VERSION_OUTPUT"); v != "" {
+		fmt.Print(v)
+		return
+	}
+	fmt.Println(`version.BuildInfo{Version:"v3.18.0"}`)
+}
+
 // printFakeHelmOutput prints the output for a fake helm invocation.
-// A `helm version` call prints helm version build info, so that the version
-// checks in cmd (see getHelmVersion) work against the fake helm. The version
-// output can be overridden via HELM_DIFF_FAKE_VERSION_OUTPUT.
-// Any other invocation prints HELM_DIFF_FAKE_OUTPUT.
+// A `helm version` call prints helm version build info; any other
+// invocation prints HELM_DIFF_FAKE_OUTPUT.
 func printFakeHelmOutput() {
 	if len(os.Args) > 1 && os.Args[1] == "version" {
-		if v := os.Getenv("HELM_DIFF_FAKE_VERSION_OUTPUT"); v != "" {
-			fmt.Print(v)
-		} else {
-			fmt.Println(`version.BuildInfo{Version:"v3.18.0"}`)
-		}
-	} else {
-		fmt.Print(os.Getenv("HELM_DIFF_FAKE_OUTPUT"))
+		printFakeHelmVersion()
+		return
 	}
+	fmt.Print(os.Getenv("HELM_DIFF_FAKE_OUTPUT"))
 }
 
 func TestMain(m *testing.M) {
