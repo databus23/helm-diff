@@ -7,6 +7,8 @@
 # The README contains one flag table per command, in the order listed in
 # COMMANDS below. Only the contiguous block of indented flag rows that follows
 # each "Flags:" line is rewritten; any surrounding prose is left untouched.
+# The script fails if the number of "Flags:" tables found does not match the
+# number of commands, so a lost or accidentally added table cannot slip through.
 set -euo pipefail
 
 BIN="${1:-bin/diff}"
@@ -52,7 +54,7 @@ done
 
 README="${README:-README.md}"
 
-awk -v workdir="${WORKDIR}" -v n="${#COMMANDS[@]}" '
+awk -v workdir="${WORKDIR}" -v n="${#COMMANDS[@]}" -v readme="${README}" '
 	function load_rows(i, line) {
 		rows[i] = ""
 		while ((getline line < (workdir "/flags_" i ".txt")) > 0)
@@ -62,6 +64,7 @@ awk -v workdir="${WORKDIR}" -v n="${#COMMANDS[@]}" '
 	BEGIN {
 		for (i = 0; i < n; i++) load_rows(i)
 	}
+	/^Flags:$/ { total++ }
 	/^Flags:$/ && idx < n {
 		print
 		idx++
@@ -71,7 +74,13 @@ awk -v workdir="${WORKDIR}" -v n="${#COMMANDS[@]}" '
 	}
 	in_rows && /^  / { next }
 	{ in_rows = 0; print }
-' "${README}" > "${README}.new"
+	END {
+		if (total != n || idx != n) {
+			printf "expected %d flag tables in %s, found %d\n", n, readme, total > "/dev/stderr"
+			exit 1
+		}
+	}
+' "${README}" > "${WORKDIR}/README.new"
 
-mv "${README}.new" "${README}"
+mv "${WORKDIR}/README.new" "${README}"
 echo "Regenerated ${#COMMANDS[@]} flag tables in ${README}"

@@ -541,6 +541,15 @@ To run all tests:
 go test -v ./...
 ```
 
+### Updating the flag tables in this README
+
+The per-command `Flags:` tables above are generated from the actual `--help`
+output. After adding or changing a command flag, regenerate them with:
+```
+make readme
+```
+CI fails if the committed tables do not match the binary (`make verify-readme`).
+
 ## Release
 
 Bump `version` in `plugin.yaml`:
