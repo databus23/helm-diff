@@ -41,6 +41,15 @@ test:
 	go test -v ./... -coverprofile cover.out -race
 	go tool cover -func cover.out
 
+.PHONY: readme
+readme: build
+	scripts/gen-readme.sh bin/diff
+
+.PHONY: verify-readme
+verify-readme: build
+	scripts/gen-readme.sh bin/diff
+	git diff --exit-code README.md
+
 .PHONY: docker-run-release
 docker-run-release: export pkg=/go/src/github.com/databus23/helm-diff
 docker-run-release:

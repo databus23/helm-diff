@@ -157,8 +157,10 @@ Flags:
       --include-tests                            enable the diffing of the helm test hooks
       --insecure-skip-tls-verify                 skip tls certificate checks for the chart download
       --install                                  enables diffing of releases that are not yet deployed via Helm (equivalent to --allow-unreleased, added to match "helm upgrade --install" command
+      --kube-context string                      name of the kubeconfig context to use
       --kube-version string                      Kubernetes version used for Capabilities.KubeVersion
       --kubeconfig string                        This flag is ignored, to allow passing of this top level flag to helm
+  -n, --namespace string                         namespace to assume the release to be installed into. Defaults to the current kube config namespace.
       --no-color                                 remove colors from the output. If both --no-color and --color are unspecified, coloring enabled only when the stdout is a term and TERM is not "dumb"
       --no-hooks                                 disable diffing of hooks
       --normalize-manifests                      normalize manifests before running diff to exclude style differences from the output
@@ -179,6 +181,7 @@ Flags:
       --show-secrets                             do not redact secret values in the output
       --show-secrets-decoded                     decode secret values in the output
       --skip-schema-validation                   skip validation of the rendered manifests against the Kubernetes OpenAPI schema
+      --storage-namespace string                 namespace where the helm release storage (Secret/ConfigMap) is located. Defaults to the target namespace (-n/--namespace)
       --strip-trailing-cr                        strip trailing carriage return on input
       --suppress stringArray                     allows suppression of the kinds listed in the diff output (can specify multiple, like '--suppress Deployment --suppress Service')
       --suppress-output-line-regex stringArray   a regex to suppress diff output lines that match
@@ -188,7 +191,7 @@ Flags:
   -f, --values valueFiles                        specify values in a YAML file (can specify multiple) (default [])
       --version string                           specify the exact chart version to use. If this is not specified, the latest version is used
 
-Additional help topcis:
+Additional help topics:
   diff
 
 Use "diff [command] --help" for more information about a command.
@@ -357,6 +360,17 @@ Examples:
 # Read the flag usage below for more information on --context.
 HELM_DIFF_OUTPUT_CONTEXT=5 helm diff upgrade my-release datadog/datadog
 
+  # Set HELM_DIFF_STORAGE_NAMESPACE=flux-system to
+  # fetch release manifests/values/hooks from a storage namespace different from the target namespace.
+  # This is equivalent to specifying the --storage-namespace flag.
+  HELM_DIFF_STORAGE_NAMESPACE=flux-system helm diff upgrade -n prod-apps my-release datadog/datadog
+
+  # NOTE: The storage namespace separation is not supported in combination with
+  # HELM_DIFF_USE_UPGRADE_DRY_RUN=true, because rendering then goes through
+  # `helm upgrade --dry-run`, which resolves the release storage in the target
+  # namespace. If the release exists only in the storage namespace, keep the
+  # default `helm template` based rendering instead.
+
 Flags:
       --allow-unreleased                         enables diffing of releases that are not yet deployed via Helm
   -a, --api-versions stringArray                 Kubernetes api versions used for Capabilities.APIVersions
@@ -374,8 +388,10 @@ Flags:
       --include-tests                            enable the diffing of the helm test hooks
       --insecure-skip-tls-verify                 skip tls certificate checks for the chart download
       --install                                  enables diffing of releases that are not yet deployed via Helm (equivalent to --allow-unreleased, added to match "helm upgrade --install" command
+      --kube-context string                      name of the kubeconfig context to use
       --kube-version string                      Kubernetes version used for Capabilities.KubeVersion
       --kubeconfig string                        This flag is ignored, to allow passing of this top level flag to helm
+  -n, --namespace string                         namespace to assume the release to be installed into. Defaults to the current kube config namespace.
       --no-hooks                                 disable diffing of hooks
       --normalize-manifests                      normalize manifests before running diff to exclude style differences from the output
       --output string                            Possible values: diff, simple, template, json, structured, dyff. When set to "template", use the env var HELM_DIFF_TPL to specify the template. (default "diff")
@@ -395,6 +411,7 @@ Flags:
       --show-secrets                             do not redact secret values in the output
       --show-secrets-decoded                     decode secret values in the output
       --skip-schema-validation                   skip validation of the rendered manifests against the Kubernetes OpenAPI schema
+      --storage-namespace string                 namespace where the helm release storage (Secret/ConfigMap) is located. Defaults to the target namespace (-n/--namespace)
       --strip-trailing-cr                        strip trailing carriage return on input
       --suppress stringArray                     allows suppression of the kinds listed in the diff output (can specify multiple, like '--suppress Deployment --suppress Service')
       --suppress-output-line-regex stringArray   a regex to suppress diff output lines that match
@@ -435,9 +452,11 @@ Flags:
   -D, --find-renames float32                     Enable rename detection if set to any value greater than 0. If specified, the value denotes the maximum fraction of changed content as lines added + removed compared to total lines in a diff for considering it a rename. Only objects of the same Kind are attempted to be matched
   -h, --help                                     help for release
       --include-tests                            enable the diffing of the helm test hooks
+      --kube-context string                      name of the kubeconfig context to use
       --normalize-manifests                      normalize manifests before running diff to exclude style differences from the output
       --output string                            Possible values: diff, simple, template, json, structured, dyff. When set to "template", use the env var HELM_DIFF_TPL to specify the template. (default "diff")
       --show-secrets                             do not redact secret values in the output
+      --show-secrets-decoded                     decode secret values in the output
       --strip-trailing-cr                        strip trailing carriage return on input
       --suppress stringArray                     allows suppression of the kinds listed in the diff output (can specify multiple, like '--suppress Deployment --suppress Service')
       --suppress-output-line-regex stringArray   a regex to suppress diff output lines that match
@@ -472,16 +491,18 @@ Usage:
 
 Flags:
   -C, --context int                              output NUM lines of context around changes (default -1)
-      --show-secrets-decoded                     decode secret values in the output
       --detailed-exitcode                        return a non-zero exit code when there are changes
       --diff-tool string                         command used to compare the manifests instead of the built-in --output renderers (can also be set via the env var HELM_DIFF_TOOL). The old and the new manifest file paths are appended as the last two arguments
   -D, --find-renames float32                     Enable rename detection if set to any value greater than 0. If specified, the value denotes the maximum fraction of changed content as lines added + removed compared to total lines in a diff for considering it a rename. Only objects of the same Kind are attempted to be matched
   -h, --help                                     help for revision
       --include-tests                            enable the diffing of the helm test hooks
+      --kube-context string                      name of the kubeconfig context to use
+  -n, --namespace string                         namespace to assume the release to be installed into. Defaults to the current kube config namespace.
       --normalize-manifests                      normalize manifests before running diff to exclude style differences from the output
       --output string                            Possible values: diff, simple, template, json, structured, dyff. When set to "template", use the env var HELM_DIFF_TPL to specify the template. (default "diff")
       --show-secrets                             do not redact secret values in the output
       --show-secrets-decoded                     decode secret values in the output
+      --storage-namespace string                 namespace where the helm release storage (Secret/ConfigMap) is located. Defaults to the target namespace (-n/--namespace)
       --strip-trailing-cr                        strip trailing carriage return on input
       --suppress stringArray                     allows suppression of the kinds listed in the diff output (can specify multiple, like '--suppress Deployment --suppress Service')
       --suppress-output-line-regex stringArray   a regex to suppress diff output lines that match
@@ -515,10 +536,13 @@ Flags:
   -D, --find-renames float32                     Enable rename detection if set to any value greater than 0. If specified, the value denotes the maximum fraction of changed content as lines added + removed compared to total lines in a diff for considering it a rename. Only objects of the same Kind are attempted to be matched
   -h, --help                                     help for rollback
       --include-tests                            enable the diffing of the helm test hooks
+      --kube-context string                      name of the kubeconfig context to use
+  -n, --namespace string                         namespace to assume the release to be installed into. Defaults to the current kube config namespace.
       --normalize-manifests                      normalize manifests before running diff to exclude style differences from the output
       --output string                            Possible values: diff, simple, template, json, structured, dyff. When set to "template", use the env var HELM_DIFF_TPL to specify the template. (default "diff")
       --show-secrets                             do not redact secret values in the output
       --show-secrets-decoded                     decode secret values in the output
+      --storage-namespace string                 namespace where the helm release storage (Secret/ConfigMap) is located. Defaults to the target namespace (-n/--namespace)
       --strip-trailing-cr                        strip trailing carriage return on input
       --suppress stringArray                     allows suppression of the kinds listed in the diff output (can specify multiple, like '--suppress Deployment --suppress Service')
       --suppress-output-line-regex stringArray   a regex to suppress diff output lines that match
@@ -554,6 +578,15 @@ To run all tests:
 ```
 go test -v ./...
 ```
+
+### Updating the flag tables in this README
+
+The per-command `Flags:` tables above are generated from the actual `--help`
+output. After adding or changing a command flag, regenerate them with:
+```
+make readme
+```
+CI fails if the committed tables do not match the binary (`make verify-readme`).
 
 ## Release
 

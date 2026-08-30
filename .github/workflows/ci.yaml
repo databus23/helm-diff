@@ -21,6 +21,9 @@ jobs:
       - name: Run unit tests
         run: make test
 
+      - name: Verify README flag tables
+        run: make verify-readme
+
       - name: Verify installation
         run: |
           mkdir -p helmhome
@@ -150,3 +153,46 @@ jobs:
 
       - name: helm diff upgrade -C 3 --set replicaCount=2 --install helm-diff ./helm-diff
         run: helm diff upgrade -C 3 --set replicaCount=2 --install helm-diff ./helm-diff
+
+      # Flux-style setup: the release storage (sh.helm.release.v1.* secrets) lives
+      # in a separate storage namespace (flux-system) while the workloads are
+      # deployed into the target namespace (prod-apps). Exercises --storage-namespace,
+      # HELM_DIFF_STORAGE_NAMESPACE and the three-way-merge pipeline against a
+      # real cluster.
+      - name: Install release into prod-apps and move its storage to flux-system
+        run: |
+          helm upgrade -i storage-diff ./helm-diff -n prod-apps --create-namespace
+          kubectl create namespace flux-system
+          for secret in $(kubectl get secrets -n prod-apps -o name | grep '^secret/sh\.helm\.release\.v1\.storage-diff\.'); do
+            kubectl get -n prod-apps "${secret}" -o json \
+              | jq --arg ns flux-system '.metadata.namespace = $ns | del(.metadata.resourceVersion, .metadata.uid, .metadata.creationTimestamp)' \
+              | kubectl apply -f -
+            kubectl delete -n prod-apps "${secret}"
+          done
+
+      - name: Verify release storage is only visible in flux-system
+        run: |
+          if helm get manifest storage-diff -n prod-apps >/dev/null 2>&1; then
+            echo "unexpected: release storage still found in prod-apps" >&2
+            exit 1
+          fi
+          helm get manifest storage-diff -n flux-system >/dev/null
+
+      - name: helm diff upgrade fails without --storage-namespace
+        run: |
+          if helm diff upgrade storage-diff ./helm-diff -n prod-apps >/dev/null 2>&1; then
+            echo "unexpected: diff succeeded although the release storage is not in prod-apps" >&2
+            exit 1
+          fi
+
+      - name: helm diff upgrade --storage-namespace
+        run: helm diff upgrade storage-diff ./helm-diff -n prod-apps --storage-namespace flux-system
+
+      - name: helm diff upgrade with HELM_DIFF_STORAGE_NAMESPACE env var
+        run: HELM_DIFF_STORAGE_NAMESPACE=flux-system helm diff upgrade storage-diff ./helm-diff -n prod-apps
+
+      - name: helm diff upgrade --storage-namespace --three-way-merge
+        run: |
+          set -o pipefail
+          helm diff upgrade storage-diff ./helm-diff -n prod-apps --storage-namespace flux-system --three-way-merge --set replicaCount=2 | tee /tmp/three-way.out
+          grep -q 'replicas: 2' /tmp/three-way.out

@@ -14,6 +14,7 @@ import (
 
 type rollback struct {
 	release            string
+	namespaces         // target namespace (-n/--namespace) and helm release storage namespace (--storage-namespace)
 	kubeContext        string
 	detailedExitCode   bool
 	revisions          []string
@@ -58,6 +59,7 @@ func rollbackCmd() *cobra.Command {
 		},
 	}
 
+	addNamespaceFlags(rollbackCmd.Flags(), &diff.namespaces)
 	rollbackCmd.Flags().BoolVar(&diff.detailedExitCode, "detailed-exitcode", false, "return a non-zero exit code when there are changes")
 	rollbackCmd.Flags().BoolVar(&diff.includeTests, "include-tests", false, "enable the diffing of the helm test hooks")
 	rollbackCmd.Flags().BoolVar(&diff.normalizeManifests, "normalize-manifests", false, "normalize manifests before running diff to exclude style differences from the output")
@@ -70,13 +72,14 @@ func rollbackCmd() *cobra.Command {
 }
 
 func (d *rollback) backcastHelm3() error {
-	namespace := os.Getenv("HELM_NAMESPACE")
+	storageNs := d.storage()
+	targetNs := d.namespace
 	excludes := []string{manifest.Helm3TestHook, manifest.Helm2TestSuccessHook}
 	if d.includeTests {
 		excludes = []string{}
 	}
 	// get manifest of the latest release
-	releaseResponse, err := getRelease(d.release, 0, namespace, d.kubeContext)
+	releaseResponse, err := getRelease(d.release, 0, storageNs, d.kubeContext)
 
 	if err != nil {
 		return err
@@ -84,14 +87,14 @@ func (d *rollback) backcastHelm3() error {
 
 	// get manifest of the release to rollback
 	revision, _ := strconv.Atoi(d.revisions[0])
-	revisionResponse, err := getRelease(d.release, revision, namespace, d.kubeContext)
+	revisionResponse, err := getRelease(d.release, revision, storageNs, d.kubeContext)
 	if err != nil {
 		return err
 	}
 
 	// create a diff between the current manifest and the version of the manifest that a user is intended to rollback
-	oldSpecs := manifest.Parse(releaseResponse, namespace, d.normalizeManifests, excludes...)
-	newSpecs := manifest.Parse(revisionResponse, namespace, d.normalizeManifests, excludes...)
+	oldSpecs := manifest.Parse(releaseResponse, targetNs, d.normalizeManifests, excludes...)
+	newSpecs := manifest.Parse(revisionResponse, targetNs, d.normalizeManifests, excludes...)
 	releaseResponse = nil  //nolint:ineffassign // nil to allow GC to reclaim raw bytes before diff computation
 	revisionResponse = nil //nolint:ineffassign // nil to allow GC to reclaim raw bytes before diff computation
 

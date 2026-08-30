@@ -3,8 +3,11 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func shouldRunFakeHelm() bool {
@@ -15,6 +18,28 @@ func shouldRunFakeHelm() bool {
 		return false
 	}
 	return !strings.HasPrefix(os.Args[1], "-test.")
+}
+
+// printFakeHelmVersion prints helm version build info, so that the version
+// checks in cmd (see getHelmVersion) work against the fake helm.
+// The version output can be overridden via HELM_DIFF_FAKE_VERSION_OUTPUT.
+func printFakeHelmVersion() {
+	if v := os.Getenv("HELM_DIFF_FAKE_VERSION_OUTPUT"); v != "" {
+		fmt.Print(v)
+		return
+	}
+	fmt.Println(`version.BuildInfo{Version:"v3.18.0"}`)
+}
+
+// printFakeHelmOutput prints the output for a fake helm invocation.
+// A `helm version` call prints helm version build info; any other
+// invocation prints HELM_DIFF_FAKE_OUTPUT.
+func printFakeHelmOutput() {
+	if len(os.Args) > 1 && os.Args[1] == "version" {
+		printFakeHelmVersion()
+		return
+	}
+	fmt.Print(os.Getenv("HELM_DIFF_FAKE_OUTPUT"))
 }
 
 func TestMain(m *testing.M) {
@@ -51,16 +76,51 @@ func TestMain(m *testing.M) {
 		case "capture_args":
 			argsFile := os.Getenv("HELM_DIFF_FAKE_ARGS_FILE")
 			if argsFile != "" {
-				if err := os.WriteFile(argsFile, []byte(strings.Join(os.Args[1:], " ")), 0644); err != nil {
-					fmt.Fprintf(os.Stderr, "failed to write fake helm args file %q: %v\n", argsFile, err)
-					os.Exit(1)
+				f, err := os.OpenFile(argsFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+				if err == nil {
+					_, _ = fmt.Fprintln(f, strings.Join(os.Args[1:], " "))
+					_ = f.Close()
 				}
 			}
-			fmt.Print(os.Getenv("HELM_DIFF_FAKE_OUTPUT"))
+			printFakeHelmOutput()
 		default:
-			fmt.Print(os.Getenv("HELM_DIFF_FAKE_OUTPUT"))
+			printFakeHelmOutput()
 		}
 		os.Exit(0)
 	}
 	os.Exit(m.Run())
+}
+
+func TestFakeHelmVersionOutput(t *testing.T) {
+	exe, err := os.Executable()
+	require.NoError(t, err)
+
+	t.Run("custom version output via HELM_DIFF_FAKE_VERSION_OUTPUT", func(t *testing.T) {
+		t.Setenv("HELM_DIFF_FAKE_HELM", "1")
+		t.Setenv("HELM_DIFF_FAKE_HELM_MODE", "default")
+		t.Setenv("HELM_DIFF_FAKE_VERSION_OUTPUT", `version.BuildInfo{Version:"v3.99.0"}`)
+
+		out, err := exec.Command(exe, "version").CombinedOutput()
+		require.NoError(t, err)
+		require.Equal(t, `version.BuildInfo{Version:"v3.99.0"}`, string(out))
+	})
+
+	t.Run("default version build info", func(t *testing.T) {
+		t.Setenv("HELM_DIFF_FAKE_HELM", "1")
+		t.Setenv("HELM_DIFF_FAKE_HELM_MODE", "capture_args")
+
+		out, err := exec.Command(exe, "version").CombinedOutput()
+		require.NoError(t, err)
+		require.Equal(t, "version.BuildInfo{Version:\"v3.18.0\"}\n", string(out))
+	})
+
+	t.Run("non-version invocations print HELM_DIFF_FAKE_OUTPUT", func(t *testing.T) {
+		t.Setenv("HELM_DIFF_FAKE_HELM", "1")
+		t.Setenv("HELM_DIFF_FAKE_HELM_MODE", "default")
+		t.Setenv("HELM_DIFF_FAKE_OUTPUT", "manifest-output")
+
+		out, err := exec.Command(exe, "get", "manifest").CombinedOutput()
+		require.NoError(t, err)
+		require.Equal(t, "manifest-output", string(out))
+	})
 }

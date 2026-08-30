@@ -47,7 +47,7 @@ type diffCmd struct {
 	disableOpenAPIValidation bool
 	enableDNS                bool
 	SkipSchemaValidation     bool
-	namespace                string // namespace to assume the release to be installed into. Defaults to the current kube config namespace.
+	namespaces               // target namespace (-n/--namespace) and helm release storage namespace (--storage-namespace)
 	valueFiles               valueFiles
 	values                   []string
 	stringValues             []string
@@ -136,9 +136,7 @@ perform.
 `
 
 func newChartCommand() *cobra.Command {
-	diff := diffCmd{
-		namespace: os.Getenv("HELM_NAMESPACE"),
-	}
+	diff := diffCmd{}
 	unknownFlags := os.Getenv("HELM_DIFF_IGNORE_UNKNOWN_FLAGS") == envTrue
 
 	cmd := &cobra.Command{
@@ -241,6 +239,7 @@ func newChartCommand() *cobra.Command {
 	f := cmd.Flags()
 	var kubeconfig string
 	f.StringVar(&kubeconfig, "kubeconfig", "", "This flag is ignored, to allow passing of this top level flag to helm")
+	addNamespaceFlags(f, &diff.namespaces)
 	f.BoolVar(&diff.threeWayMerge, "three-way-merge", false, "use three-way-merge to compute patch and generate diff output")
 	f.StringVar(&diff.kubeContext, "kube-context", "", "name of the kubeconfig context to use")
 	f.StringVar(&diff.chartVersion, "version", "", "specify the exact chart version to use. If this is not specified, the latest version is used")
@@ -303,13 +302,13 @@ func (d *diffCmd) runHelm3() error {
 	}
 
 	if d.clusterAccessAllowed() {
-		releaseManifest, err = getRelease(d.release, d.revision, d.namespace, d.kubeContext)
+		releaseManifest, err = getRelease(d.release, d.revision, d.storage(), d.kubeContext)
 	}
 
 	var newInstall bool
 	if err != nil && strings.Contains(err.Error(), "release: not found") {
 		if d.revision > 0 {
-			return fmt.Errorf("Failed to get revision %d of release %s in namespace %s: %w", d.revision, d.release, d.namespace, err)
+			return fmt.Errorf("Failed to get revision %d of release %s in namespace %s: %w", d.revision, d.release, d.storage(), err)
 		}
 		if d.isAllowUnreleased() {
 			newInstall = true
@@ -320,7 +319,7 @@ func (d *diffCmd) runHelm3() error {
 		}
 	}
 	if err != nil {
-		return fmt.Errorf("Failed to get release %s in namespace %s: %w", d.release, d.namespace, err)
+		return fmt.Errorf("Failed to get release %s in namespace %s: %w", d.release, d.storage(), err)
 	}
 
 	installManifest, err := d.template(!newInstall)
@@ -332,7 +331,11 @@ func (d *diffCmd) runHelm3() error {
 	if d.threeWayMerge || d.takeOwnership {
 		actionConfig = new(action.Configuration)
 		localEnv := prepareEnvSettings(d.kubeContext)
-		if err := actionConfig.Init(localEnv.RESTClientGetter(), localEnv.Namespace(), os.Getenv("HELM_DRIVER")); err != nil {
+		storageNs := d.storage()
+		if storageNs == "" {
+			storageNs = localEnv.Namespace()
+		}
+		if err := actionConfig.Init(localEnv.RESTClientGetter(), storageNs, os.Getenv("HELM_DRIVER")); err != nil {
 			log.Fatalf("%+v", err)
 		}
 		if err := actionConfig.KubeClient.IsReachable(); err != nil {
@@ -350,7 +353,7 @@ func (d *diffCmd) runHelm3() error {
 	currentSpecs := make(map[string]*manifest.MappingResult)
 	if !newInstall && d.clusterAccessAllowed() {
 		if !d.noHooks && !d.threeWayMerge {
-			hooks, err := getHooks(d.release, d.revision, d.namespace, d.kubeContext)
+			hooks, err := getHooks(d.release, d.revision, d.storage(), d.kubeContext)
 			if err != nil {
 				return err
 			}
