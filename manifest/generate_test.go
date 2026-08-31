@@ -581,3 +581,47 @@ spec:
 	_, found := nested(t, got, "spec", "replicas")
 	assert.False(t, found, "a replica count the chart stops pinning is a real change and must be reported")
 }
+
+// A chart that renders an empty collection literally (`rules: []`, the branch
+// grafana takes when no sidecar is enabled) disagrees with the cluster about how
+// to write "nothing": the API server stores objects as protobuf, which cannot
+// tell an empty list from an absent one, and answers with `rules: null`. The two
+// are the same object and must not be reported as a change.
+func TestLocalMerge_TreatsEmptyCollectionsAsEqual(t *testing.T) {
+	role := func(rules string) string {
+		return fmt.Sprintf(`
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata: {name: grafana, namespace: grafana}
+rules: %s
+`, rules)
+	}
+
+	t.Run("chart writes [], cluster answers null", func(t *testing.T) {
+		got := applyLocally(t, role("[]"), role("null"), role("[]"))
+		rules, _ := nested(t, got, "rules")
+		assert.Nil(t, rules, "an empty list must not be reported as a change against a null")
+	})
+
+	t.Run("chart writes null, cluster answers []", func(t *testing.T) {
+		got := applyLocally(t, role("null"), role("[]"), role("null"))
+		rules, _ := nested(t, got, "rules")
+		assert.Equal(t, []interface{}{}, rules, "a null must not be reported as a change against an empty list")
+	})
+
+	// Emptying a collection that actually had entries is a real change.
+	t.Run("chart empties a populated list", func(t *testing.T) {
+		populated := `
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata: {name: grafana, namespace: grafana}
+rules:
+  - apiGroups: [""]
+    resources: [configmaps]
+    verbs: [get]
+`
+		got := applyLocally(t, populated, populated, role("[]"))
+		rules, _ := nested(t, got, "rules")
+		assert.Empty(t, rules, "emptying a populated list is a real change and must be reported")
+	})
+}

@@ -320,6 +320,21 @@ func (p *resourcePatch) restoreServerPopulatedFields(merged, liveData []byte) ([
 	return out, nil
 }
 
+// isEmpty reports whether v carries nothing - a null, an empty list or an empty
+// map. The three are interchangeable in a stored Kubernetes object, so telling
+// them apart in a diff only ever produces noise.
+func isEmpty(v interface{}) bool {
+	switch v := v.(type) {
+	case nil:
+		return true
+	case []interface{}:
+		return len(v) == 0
+	case map[string]interface{}:
+		return len(v) == 0
+	}
+	return false
+}
+
 // restoreMissing walks merged and live in parallel and copies over the parts of
 // live that merged lost without either release manifest asking for it. It
 // returns the updated merged value and never overwrites a value merged already
@@ -336,6 +351,15 @@ func restoreMissing(merged, live, original, modified interface{}) interface{} {
 
 		for key, liveValue := range live {
 			mergedValue, inMerged := mergedMap[key]
+			if inMerged && isEmpty(mergedValue) && isEmpty(liveValue) {
+				// Two empty values that differ only in how they are written are
+				// not a change: the API server stores objects as protobuf,
+				// which cannot tell an empty list from an absent one, so a
+				// chart's `rules: []` comes back from the cluster as
+				// `rules: null`. Keep whichever the cluster reports.
+				mergedMap[key] = liveValue
+				continue
+			}
 			if !inMerged {
 				// A key that is absent and a key that holds `null` both read as
 				// nil here, which is what makes an unset `replicas:` in the
