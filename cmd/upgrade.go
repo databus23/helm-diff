@@ -68,6 +68,7 @@ type diffCmd struct {
 	normalizeManifests       bool
 	takeOwnership            bool
 	threeWayMerge            bool
+	threeWayMergeMode        string
 	serverSide               string
 	extraAPIs                []string
 	kubeVersion              string
@@ -162,6 +163,12 @@ func newChartCommand() *cobra.Command {
 			"  # Read the flag usage below for more information on --three-way-merge.",
 			"  HELM_DIFF_THREE_WAY_MERGE=true helm diff upgrade my-release datadog/datadog",
 			"",
+			"  # Set HELM_DIFF_THREE_WAY_MERGE_MODE=client to compute the three-way merge",
+			"  # locally, so that no permission to patch the cluster resources is needed.",
+			"  # This is equivalent to specifying the --three-way-merge-mode flag.",
+			"  # Read the flag usage below for more information on --three-way-merge-mode.",
+			"  HELM_DIFF_THREE_WAY_MERGE_MODE=client helm diff upgrade my-release datadog/datadog",
+			"",
 			"  # Set HELM_DIFF_NORMALIZE_MANIFESTS=true to",
 			"  # normalize the yaml file content when using helm diff.",
 			"  # This is equivalent to specifying the --normalize-manifests flag.",
@@ -187,6 +194,10 @@ func newChartCommand() *cobra.Command {
 				return fmt.Errorf("flag %q must be %q, %q or %q, but got %q", "server-side", envTrue, envFalse, serverSideAuto, diff.serverSide)
 			}
 
+			if !slices.Contains(manifest.ValidThreeWayMergeModes, diff.threeWayMergeMode) {
+				return fmt.Errorf("flag %q must be one of %q, but got %q", "three-way-merge-mode", manifest.ValidThreeWayMergeModes, diff.threeWayMergeMode)
+			}
+
 			if err := diff.validateRevision(cmd.Flags().Changed("revision")); err != nil {
 				return err
 			}
@@ -203,6 +214,15 @@ func newChartCommand() *cobra.Command {
 
 				if enabled {
 					fmt.Fprintf(os.Stderr, "Enabled three way merge via the envvar\n")
+				}
+			}
+
+			if !cmd.Flags().Changed("three-way-merge-mode") {
+				if mode := os.Getenv("HELM_DIFF_THREE_WAY_MERGE_MODE"); mode != "" {
+					if !slices.Contains(manifest.ValidThreeWayMergeModes, mode) {
+						return fmt.Errorf("env var %q must be one of %q, but got %q", "HELM_DIFF_THREE_WAY_MERGE_MODE", manifest.ValidThreeWayMergeModes, mode)
+					}
+					diff.threeWayMergeMode = mode
 				}
 			}
 
@@ -241,6 +261,7 @@ func newChartCommand() *cobra.Command {
 	f.StringVar(&kubeconfig, "kubeconfig", "", "This flag is ignored, to allow passing of this top level flag to helm")
 	addNamespaceFlags(f, &diff.namespaces)
 	f.BoolVar(&diff.threeWayMerge, "three-way-merge", false, "use three-way-merge to compute patch and generate diff output")
+	f.StringVar(&diff.threeWayMergeMode, "three-way-merge-mode", string(manifest.ThreeWayMergeAuto), `how --three-way-merge applies the computed patch. Must be "auto", "server" or "client". "server" dry-runs the patch against the API server, which requires the patch permission. "client" merges locally and needs read access only, at the cost of not applying server-side defaulting and mutating webhooks. "auto" uses the server and falls back to the client when patching is not permitted`)
 	f.StringVar(&diff.kubeContext, "kube-context", "", "name of the kubeconfig context to use")
 	f.StringVar(&diff.chartVersion, "version", "", "specify the exact chart version to use. If this is not specified, the latest version is used")
 	f.StringVar(&diff.chartRepo, "repo", "", "specify the chart repository url to locate the requested chart")
@@ -344,7 +365,8 @@ func (d *diffCmd) runHelm3() error {
 	}
 
 	if d.threeWayMerge {
-		releaseManifest, installManifest, err = manifest.Generate(actionConfig, releaseManifest, installManifest)
+		releaseManifest, installManifest, err = manifest.Generate(actionConfig, releaseManifest, installManifest,
+			manifest.WithThreeWayMergeMode(manifest.ThreeWayMergeMode(d.threeWayMergeMode)))
 		if err != nil {
 			return fmt.Errorf("unable to generate manifests: %w", err)
 		}

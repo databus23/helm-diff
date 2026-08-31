@@ -188,6 +188,7 @@ Flags:
   -q, --suppress-secrets                         suppress secrets in the output
       --take-ownership                           if set, upgrade will ignore the check for helm annotations and take ownership of the existing resources
       --three-way-merge                          use three-way-merge to compute patch and generate diff output
+      --three-way-merge-mode string              how --three-way-merge applies the computed patch. Must be "auto", "server" or "client". "server" dry-runs the patch against the API server, which requires the patch permission. "client" merges locally and needs read access only, at the cost of not applying server-side defaulting and mutating webhooks. "auto" uses the server and falls back to the client when patching is not permitted (default "auto")
   -f, --values valueFiles                        specify values in a YAML file (can specify multiple) (default [])
       --version string                           specify the exact chart version to use. If this is not specified, the latest version is used
 
@@ -255,6 +256,35 @@ Notes:
 - An exit code of `1` from the tool is treated as "differences found" and ignored. Other failures are reported on stderr without aborting helm-diff.
 - helm-diff's own exit code is unaffected by the tool: `--detailed-exitcode` still returns `2` based on the changes helm-diff detected.
 - `--context`/`-C` is not applied; use the equivalent option of the external tool (for example `diff -U3`).
+
+### Three-way merge
+
+`--three-way-merge` diffs against what is actually in the cluster rather than against the manifests of the last release, so changes made outside of Helm show up too. To do that helm-diff has to compute the object that the upgrade would produce: it reads the live object, builds a three-way merge patch from the old release manifest, the new release manifest and the live object, and then applies that patch.
+
+`--three-way-merge-mode` controls how the patch is applied:
+
+- `server` sends the patch to the API server as a dry-run (`PATCH ...?dryRun=All`). The API server fills in defaults and runs mutating webhooks, so the result is the most faithful preview of the upgrade — but the credentials need the `patch` permission on every diffed resource.
+- `client` applies the patch locally, using the same strategic-merge (or JSON merge patch, for custom resources) logic the API server would use. Only `get` is required. The merged object is then round-tripped through its Go type, the way the API server does before it answers, and a field is copied back from the live object whenever the old and the new release manifest agree about it — without that, the defaults the API server re-applies after patching would show up as spurious removals. Validation and mutating webhooks are still not applied.
+- `auto` (the default) tries `server` first and falls back to `client` per run when the API server rejects the dry-run with `Forbidden` or `MethodNotAllowed`, printing a note on stderr. Any other error still aborts the diff.
+
+Because the defaulting functions are not part of client-go, `client` mode cannot reproduce them exactly. What it can do is leave the live value alone: a field is only reported as gone when the two release manifests disagree about it. That matters more than it sounds, because a chart that leaves a value unset usually renders the field as an explicit `null` — a bare `replicas:` — and a `null` in a manifest reaches the patch as a change rather than a deletion, wiping a value the API server had defaulted in even when the chart did not change at all.
+
+The remaining known deviation from `server` mode is the case where the manifests really do disagree and the field is one the API server defaults: a chart that stops pinning `replicas: 3` is reported as removing the field, where `server` mode shows it changing from `3` to the defaulted `1`. The change is reported either way, but `client` mode cannot name the value that replaces it.
+
+So a read-only account is enough for a three-way merge diff out of the box. Set `--three-way-merge-mode=client` (or `HELM_DIFF_THREE_WAY_MERGE_MODE=client`) to skip the rejected dry-run request entirely, and `--three-way-merge-mode=server` to make a missing `patch` permission a hard error instead of silently degrading the diff.
+
+The minimal RBAC for the `client` mode is read access to the diffed kinds plus the release storage:
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: helm-diff
+rules:
+  - apiGroups: ["*"]
+    resources: ["*"]
+    verbs: ["get", "list"]
+```
 
 ## Commands:
 
@@ -349,6 +379,12 @@ Examples:
   # Read the flag usage below for more information on --three-way-merge.
   HELM_DIFF_THREE_WAY_MERGE=true helm diff upgrade my-release datadog/datadog
 
+  # Set HELM_DIFF_THREE_WAY_MERGE_MODE=client to compute the three-way merge
+  # locally, so that no permission to patch the cluster resources is needed.
+  # This is equivalent to specifying the --three-way-merge-mode flag.
+  # Read the flag usage below for more information on --three-way-merge-mode.
+  HELM_DIFF_THREE_WAY_MERGE_MODE=client helm diff upgrade my-release datadog/datadog
+
   # Set HELM_DIFF_NORMALIZE_MANIFESTS=true to
   # normalize the yaml file content when using helm diff.
   # This is equivalent to specifying the --normalize-manifests flag.
@@ -418,6 +454,7 @@ Flags:
   -q, --suppress-secrets                         suppress secrets in the output
       --take-ownership                           if set, upgrade will ignore the check for helm annotations and take ownership of the existing resources
       --three-way-merge                          use three-way-merge to compute patch and generate diff output
+      --three-way-merge-mode string              how --three-way-merge applies the computed patch. Must be "auto", "server" or "client". "server" dry-runs the patch against the API server, which requires the patch permission. "client" merges locally and needs read access only, at the cost of not applying server-side defaulting and mutating webhooks. "auto" uses the server and falls back to the client when patching is not permitted (default "auto")
   -f, --values valueFiles                        specify values in a YAML file (can specify multiple) (default [])
       --version string                           specify the exact chart version to use. If this is not specified, the latest version is used
 

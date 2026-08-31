@@ -91,6 +91,7 @@ Always reference these instructions first and fallback to search or bash command
 - `HELM_BIN` - Path to helm binary (for direct testing)
 - `HELM_DIFF_USE_UPGRADE_DRY_RUN` - Use helm upgrade --dry-run instead of template
 - `HELM_DIFF_THREE_WAY_MERGE` - Enable three-way merge diffing
+- `HELM_DIFF_THREE_WAY_MERGE_MODE` - Apply the three-way merge patch via the API server (`auto`/`server`) or locally (`client`)
 - `HELM_DIFF_NORMALIZE_MANIFESTS` - Normalize YAML before diffing
 - `HELM_DIFF_OUTPUT_CONTEXT` - Configure output context lines
 
