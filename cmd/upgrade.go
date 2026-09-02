@@ -217,7 +217,11 @@ func newChartCommand() *cobra.Command {
 				}
 			}
 
-			if !cmd.Flags().Changed("three-way-merge-mode") {
+			// Only consulted when the run actually performs a three-way merge:
+			// the variable may well be set for a different invocation, and an
+			// unrelated `helm diff upgrade` should not fail over a value it is
+			// never going to use. --take-ownership turns the merge on as well.
+			if (diff.threeWayMerge || diff.takeOwnership) && !cmd.Flags().Changed("three-way-merge-mode") {
 				if mode := os.Getenv("HELM_DIFF_THREE_WAY_MERGE_MODE"); mode != "" {
 					if !slices.Contains(manifest.ValidThreeWayMergeModes, mode) {
 						return fmt.Errorf("env var %q must be one of %q, but got %q", "HELM_DIFF_THREE_WAY_MERGE_MODE", manifest.ValidThreeWayMergeModes, mode)

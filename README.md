@@ -273,7 +273,7 @@ The remaining known deviation from `server` mode is the case where the manifests
 
 So a read-only account is enough for a three-way merge diff out of the box. Set `--three-way-merge-mode=client` (or `HELM_DIFF_THREE_WAY_MERGE_MODE=client`) to skip the rejected dry-run request entirely, and `--three-way-merge-mode=server` to make a missing `patch` permission a hard error instead of silently degrading the diff.
 
-The minimal RBAC for the `client` mode is read access to the diffed kinds plus the release storage:
+`client` mode needs `get` on every kind the chart renders, plus `get` on the Secret or ConfigMap holding the release. The role below is the blunt version — read access to everything, which is convenient but broader than a diff requires:
 
 ```yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -285,6 +285,24 @@ rules:
     resources: ["*"]
     verbs: ["get", "list"]
 ```
+
+For least privilege, list only the kinds the chart actually renders, for example:
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: helm-diff
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps", "secrets", "services", "serviceaccounts"]
+    verbs: ["get"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets", "daemonsets"]
+    verbs: ["get"]
+```
+
+A kind that is missing from the role makes the diff fail on that resource, so the set has to cover everything the chart renders — including the kinds it only renders under some values.
 
 ## Commands:
 

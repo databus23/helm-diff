@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"reflect"
 
@@ -118,18 +119,7 @@ func Generate(actionConfig *action.Configuration, originalManifest, targetManife
 		return nil
 	})
 
-	// The warning about the fallback to the local merge is only interesting
-	// once, no matter how many resources the release contains.
-	warned := false
-	warnClientSideMerge := func(cause error) {
-		if warned {
-			return
-		}
-		warned = true
-		fmt.Fprintf(os.Stderr, "Not allowed to dry-run the patch against the cluster (%v).\n"+
-			"Falling back to computing the three-way merge locally. The diff may deviate from the\n"+
-			"actual upgrade result because server-side defaulting and mutating webhooks are not applied.\n", cause)
-	}
+	fallback := &clientSideFallback{mode: options.mergeMode, warn: os.Stderr}
 
 	err = target.Visit(func(info *resource.Info, err error) error {
 		if err != nil {
@@ -174,7 +164,7 @@ func Generate(actionConfig *action.Configuration, originalManifest, targetManife
 		}
 
 		// `out` still holds the live object, which is what the patch applies to.
-		merged, err := applyPatch(helper, info, patch, out, options.mergeMode, warnClientSideMerge)
+		merged, err := applyPatch(helper, info, patch, out, fallback.currentMode(), fallback.patchDenied)
 		if err != nil {
 			return err
 		}
@@ -193,6 +183,36 @@ func Generate(actionConfig *action.Configuration, originalManifest, targetManife
 	})
 
 	return releaseManifest, installManifest, err
+}
+
+// clientSideFallback decides, for the whole run, whether a patch still goes to
+// the API server.
+//
+// A refused dry-run says something about the credentials rather than about the
+// resource, so once the server has turned one patch down the remaining
+// resources are merged locally as well. Retrying each of them would only collect
+// one denied request - and one audit log entry - per object in the release.
+type clientSideFallback struct {
+	mode ThreeWayMergeMode
+	warn io.Writer
+}
+
+// currentMode is how the next resource should be merged.
+func (f *clientSideFallback) currentMode() ThreeWayMergeMode {
+	return f.mode
+}
+
+// patchDenied records that the API server refused to dry-run a patch and moves
+// the rest of the run over to the local merge, reporting the switch once.
+func (f *clientSideFallback) patchDenied(cause error) {
+	if f.mode == ThreeWayMergeClient {
+		return
+	}
+	f.mode = ThreeWayMergeClient
+	fmt.Fprintf(f.warn, "Not allowed to dry-run the patch against the cluster (%v).\n"+
+		"Falling back to computing the three-way merge locally for the rest of this run. The diff\n"+
+		"may deviate from the actual upgrade result because server-side defaulting and mutating\n"+
+		"webhooks are not applied.\n", cause)
 }
 
 // resourcePatch is the patch computed for a single resource, together with
@@ -455,13 +475,14 @@ func createPatch(originalObj, currentObj runtime.Object, target *resource.Info) 
 	// Get a versioned object
 	versionedObject := kube.AsVersioned(target)
 
-	// Unstructured objects, such as CRDs, may not have an not registered error
-	// returned from ConvertToVersion. Anything that's unstructured should
-	// use the jsonpatch.CreateMergePatch. Strategic Merge Patch is not supported
-	// on objects like CRDs.
+	// Unstructured objects, such as CRDs, may not return a "not registered"
+	// error from ConvertToVersion. Anything that is unstructured should use
+	// jsonpatch.CreateMergePatch, because a strategic merge patch is not
+	// supported on objects like CRDs.
 	_, isUnstructured := versionedObject.(runtime.Unstructured)
 
-	// On newer K8s versions, CRDs aren't unstructured but has this dedicated type
+	// On newer Kubernetes versions CRDs are not unstructured but have this
+	// dedicated type.
 	_, isCRD := versionedObject.(*apiextv1.CustomResourceDefinition)
 
 	patch := &resourcePatch{originalData: oldData, modifiedData: newData}

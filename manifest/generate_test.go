@@ -1,6 +1,7 @@
 package manifest
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"testing"
@@ -624,4 +625,37 @@ rules:
 		rules, _ := nested(t, got, "rules")
 		assert.Empty(t, rules, "emptying a populated list is a real change and must be reported")
 	})
+}
+
+// Once the API server has refused one dry-run patch it will refuse the rest, so
+// the whole run switches to the local merge instead of collecting a denied
+// request, and an audit log entry, per resource.
+func TestClientSideFallbackAppliesToTheWholeRun(t *testing.T) {
+	forbidden := apierrors.NewForbidden(
+		schema.GroupResource{Group: "apps", Resource: "deployments"}, "nginx", assert.AnError)
+
+	var warnings bytes.Buffer
+	fallback := &clientSideFallback{mode: ThreeWayMergeAuto, warn: &warnings}
+	require.Equal(t, ThreeWayMergeAuto, fallback.currentMode())
+
+	fallback.patchDenied(forbidden)
+	assert.Equal(t, ThreeWayMergeClient, fallback.currentMode(),
+		"the rest of the run must not retry a patch the API server already refused")
+
+	firstWarning := warnings.String()
+	assert.Contains(t, firstWarning, "Falling back to computing the three-way merge locally")
+
+	fallback.patchDenied(forbidden)
+	assert.Equal(t, firstWarning, warnings.String(), "the fallback must be reported once per run")
+	assert.Equal(t, ThreeWayMergeClient, fallback.currentMode())
+}
+
+// The explicit modes are never overridden by the fallback.
+func TestClientSideFallbackLeavesExplicitModesAlone(t *testing.T) {
+	var warnings bytes.Buffer
+	fallback := &clientSideFallback{mode: ThreeWayMergeClient, warn: &warnings}
+
+	fallback.patchDenied(assert.AnError)
+	assert.Equal(t, ThreeWayMergeClient, fallback.currentMode())
+	assert.Empty(t, warnings.String(), "a run that never asks the server has nothing to report")
 }
