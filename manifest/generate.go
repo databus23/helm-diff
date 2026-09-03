@@ -54,7 +54,7 @@ type generateOptions struct {
 	mergeMode ThreeWayMergeMode
 }
 
-// GenerateOption customizes the behaviour of Generate.
+// GenerateOption customizes the behavior of Generate.
 type GenerateOption func(*generateOptions)
 
 // WithThreeWayMergeMode selects how the three-way merge patch is applied.
@@ -209,10 +209,12 @@ func (f *clientSideFallback) patchDenied(cause error) {
 		return
 	}
 	f.mode = ThreeWayMergeClient
-	fmt.Fprintf(f.warn, "Not allowed to dry-run the patch against the cluster (%v).\n"+
+	if _, err := fmt.Fprintf(f.warn, "Not allowed to dry-run the patch against the cluster (%v).\n"+
 		"Falling back to computing the three-way merge locally for the rest of this run. The diff\n"+
 		"may deviate from the actual upgrade result because server-side defaulting and mutating\n"+
-		"webhooks are not applied.\n", cause)
+		"webhooks are not applied.\n", cause); err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "failed writing fallback warning: %v\n", err)
+	}
 }
 
 // resourcePatch is the patch computed for a single resource, together with
@@ -270,7 +272,7 @@ func (p *resourcePatch) normalize(merged []byte) ([]byte, error) {
 	}
 
 	objType := reflect.TypeOf(p.versionedObject)
-	if objType.Kind() != reflect.Ptr {
+	if objType.Kind() != reflect.Pointer {
 		return merged, nil
 	}
 	typed, ok := reflect.New(objType.Elem()).Interface().(runtime.Object)
@@ -305,7 +307,7 @@ func (p *resourcePatch) normalize(merged []byte) ([]byte, error) {
 // manifest agree about it - neither mentions it, or both give it the same value,
 // `null` included. Nothing then asked for the live value to go, so its
 // disappearance is an artifact of the patch rather than a change to report. Once
-// the two manifests disagree the deletion is honoured, because that is a change
+// the two manifests disagree the deletion is honored, because that is a change
 // the chart really makes.
 //
 // Only fields missing from the merged object are restored, never values that it
