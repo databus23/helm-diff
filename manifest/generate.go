@@ -459,7 +459,7 @@ func isPatchNotAllowed(err error) bool {
 func createPatch(originalObj, currentObj runtime.Object, target *resource.Info) (*resourcePatch, error) {
 	oldData, err := json.Marshal(originalObj)
 	if err != nil {
-		return nil, fmt.Errorf("serializing current configuration: %w", err)
+		return nil, fmt.Errorf("serializing original configuration: %w", err)
 	}
 	newData, err := json.Marshal(target.Object)
 	if err != nil {
