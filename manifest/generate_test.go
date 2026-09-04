@@ -634,18 +634,20 @@ func TestClientSideFallbackAppliesToTheWholeRun(t *testing.T) {
 	forbidden := apierrors.NewForbidden(
 		schema.GroupResource{Group: "apps", Resource: "deployments"}, "nginx", assert.AnError)
 
+	info := infoFor(t, deployment(1, "nginx:1.0", nil), appsv1.SchemeGroupVersion.WithKind("Deployment"))
+
 	var warnings bytes.Buffer
 	fallback := &clientSideFallback{mode: ThreeWayMergeAuto, warn: &warnings}
 	require.Equal(t, ThreeWayMergeAuto, fallback.currentMode())
 
-	fallback.patchDenied(forbidden)
+	assert.True(t, fallback.patchDenied(info, forbidden))
 	assert.Equal(t, ThreeWayMergeClient, fallback.currentMode(),
 		"the rest of the run must not retry a patch the API server already refused")
 
 	firstWarning := warnings.String()
 	assert.Contains(t, firstWarning, "Falling back to computing the three-way merge locally")
 
-	fallback.patchDenied(forbidden)
+	assert.True(t, fallback.patchDenied(info, forbidden))
 	assert.Equal(t, firstWarning, warnings.String(), "the fallback must be reported once per run")
 	assert.Equal(t, ThreeWayMergeClient, fallback.currentMode())
 }
@@ -655,7 +657,128 @@ func TestClientSideFallbackLeavesExplicitModesAlone(t *testing.T) {
 	var warnings bytes.Buffer
 	fallback := &clientSideFallback{mode: ThreeWayMergeClient, warn: &warnings}
 
-	fallback.patchDenied(assert.AnError)
+	assert.True(t, fallback.patchDenied(infoFor(t, deployment(1, "nginx:1.0", nil), appsv1.SchemeGroupVersion.WithKind("Deployment")), assert.AnError))
 	assert.Equal(t, ThreeWayMergeClient, fallback.currentMode())
 	assert.Empty(t, warnings.String(), "a run that never asks the server has nothing to report")
+}
+
+// Both manifests asking for the same value is not the same as neither asking for
+// anything. normalize drops an explicit `hostNetwork: false` through omitempty,
+// and restoring the live value there would undo the very correction the upgrade
+// makes.
+func TestLocalMerge_KeepsReportingDriftOnChartOwnedZeroValues(t *testing.T) {
+	pod := func(hostNetwork string) string {
+		return fmt.Sprintf(`
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: nginx, namespace: default}
+spec:
+  selector: {matchLabels: {app: nginx}}
+  template:
+    metadata: {labels: {app: nginx}}
+    spec:
+      hostNetwork: %s
+      containers: [{name: nginx, image: nginx:1.0}]
+`, hostNetwork)
+	}
+
+	// The chart pins false on both sides; someone flipped the cluster to true.
+	got := applyLocally(t, pod("false"), pod("true"), pod("false"))
+
+	value, found := nested(t, got, "spec", "template", "spec", "hostNetwork")
+	assert.False(t, found && value == true,
+		"a chart-owned value must not be restored from the cluster, got hostNetwork=%v", value)
+}
+
+// A custom resource is stored as JSON, which keeps null, [] and {} apart, and a
+// JSON merge patch already leaves untouched live fields alone. Neither the
+// empty-value equivalence nor the restoration pass may run over one.
+func TestLocalMerge_LeavesCustomResourcesToTheMergePatch(t *testing.T) {
+	widget := func(items string) string {
+		return fmt.Sprintf(`
+apiVersion: example.com/v1
+kind: Widget
+metadata: {name: w, namespace: default}
+spec:
+  items: %s
+  size: large
+`, items)
+	}
+
+	t.Run("null to empty list is a change the chart asked for", func(t *testing.T) {
+		got := applyLocally(t, widget("null"), widget("null"), widget("[]"))
+		items, _ := nested(t, got, "spec", "items")
+		assert.Equal(t, []interface{}{}, items, "the chart changed null to [], which must survive")
+	})
+
+	t.Run("empty list to null is a change the chart asked for", func(t *testing.T) {
+		got := applyLocally(t, widget("[]"), widget("[]"), widget("null"))
+		items, found := nested(t, got, "spec", "items")
+		assert.Nil(t, items, "the chart changed [] to null, which must survive (found=%v)", found)
+	})
+
+	t.Run("fields the chart never mentions are left alone by the merge patch", func(t *testing.T) {
+		live := `
+apiVersion: example.com/v1
+kind: Widget
+metadata: {name: w, namespace: default}
+spec:
+  items: null
+  size: large
+  status: {observed: 3}
+`
+		got := applyLocally(t, widget("null"), live, widget("null"))
+		observed, found := nested(t, got, "spec", "status", "observed")
+		require.True(t, found, "a JSON merge patch must not prune a field it never mentions")
+		assert.EqualValues(t, 3, observed)
+	})
+}
+
+// A Forbidden that RBAC did not produce - an admission webhook or a quota
+// controller refusing an authorized request - is the upgrade's own outcome and
+// must not be worked around locally.
+func TestClientSideFallbackDistinguishesAdmissionFromPermissions(t *testing.T) {
+	info := infoFor(t, deployment(1, "nginx:1.0", nil), appsv1.SchemeGroupVersion.WithKind("Deployment"))
+	info.Mapping.Resource = appsv1.SchemeGroupVersion.WithResource("deployments")
+
+	denial := apierrors.NewForbidden(
+		schema.GroupResource{Group: "apps", Resource: "deployments"}, "nginx", assert.AnError)
+
+	t.Run("patching is allowed, so the refusal came from elsewhere", func(t *testing.T) {
+		var warnings bytes.Buffer
+		fallback := &clientSideFallback{
+			mode:     ThreeWayMergeAuto,
+			warn:     &warnings,
+			canPatch: func(*resource.Info) (bool, error) { return true, nil },
+		}
+
+		assert.False(t, fallback.patchDenied(info, denial), "the caller must surface an admission refusal")
+		assert.Equal(t, ThreeWayMergeAuto, fallback.currentMode(), "the run must not degrade")
+		assert.Empty(t, warnings.String())
+	})
+
+	t.Run("patching is not allowed, so it is a permission problem", func(t *testing.T) {
+		var warnings bytes.Buffer
+		fallback := &clientSideFallback{
+			mode:     ThreeWayMergeAuto,
+			warn:     &warnings,
+			canPatch: func(*resource.Info) (bool, error) { return false, nil },
+		}
+
+		assert.True(t, fallback.patchDenied(info, denial))
+		assert.Equal(t, ThreeWayMergeClient, fallback.currentMode())
+		assert.Contains(t, warnings.String(), "Falling back")
+	})
+
+	t.Run("the check itself fails, so the refusal is taken at face value", func(t *testing.T) {
+		var warnings bytes.Buffer
+		fallback := &clientSideFallback{
+			mode:     ThreeWayMergeAuto,
+			warn:     &warnings,
+			canPatch: func(*resource.Info) (bool, error) { return false, assert.AnError },
+		}
+
+		assert.True(t, fallback.patchDenied(info, denial))
+		assert.Equal(t, ThreeWayMergeClient, fallback.currentMode())
+	})
 }

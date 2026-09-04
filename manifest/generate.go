@@ -2,6 +2,7 @@ package manifest
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,8 +13,10 @@ import (
 	jsoniter "github.com/json-iterator/go"
 	"helm.sh/helm/v4/pkg/action"
 	"helm.sh/helm/v4/pkg/kube"
+	authorizationv1 "k8s.io/api/authorization/v1"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
@@ -119,7 +122,11 @@ func Generate(actionConfig *action.Configuration, originalManifest, targetManife
 		return nil
 	})
 
-	fallback := &clientSideFallback{mode: options.mergeMode, warn: os.Stderr}
+	fallback := &clientSideFallback{
+		mode:     options.mergeMode,
+		warn:     os.Stderr,
+		canPatch: patchPermissionCheck(actionConfig),
+	}
 
 	err = target.Visit(func(info *resource.Info, err error) error {
 		if err != nil {
@@ -195,6 +202,10 @@ func Generate(actionConfig *action.Configuration, originalManifest, targetManife
 type clientSideFallback struct {
 	mode ThreeWayMergeMode
 	warn io.Writer
+	// canPatch reports whether the credentials may patch a resource at all. It
+	// is nil when the question cannot be put, and a refusal is then taken at
+	// face value.
+	canPatch func(*resource.Info) (bool, error)
 }
 
 // currentMode is how the next resource should be merged.
@@ -202,18 +213,73 @@ func (f *clientSideFallback) currentMode() ThreeWayMergeMode {
 	return f.mode
 }
 
-// patchDenied records that the API server refused to dry-run a patch and moves
-// the rest of the run over to the local merge, reporting the switch once.
-func (f *clientSideFallback) patchDenied(cause error) {
+// patchDenied records that the API server refused to dry-run a patch. It reports
+// whether the run may carry on with the local merge; false means the refusal was
+// not about permissions, so the caller has to surface it instead.
+func (f *clientSideFallback) patchDenied(info *resource.Info, cause error) bool {
 	if f.mode == ThreeWayMergeClient {
-		return
+		return true
 	}
+
+	// A 403 need not come from RBAC. An admission webhook or a quota controller
+	// can turn down a request the credentials are entitled to make, and that
+	// refusal is precisely what the upgrade would run into as well - working
+	// around it locally would hide the outcome the diff exists to predict. Ask
+	// whether patching is permitted at all before reading a refusal as a
+	// permission problem.
+	if f.canPatch != nil {
+		if allowed, err := f.canPatch(info); err == nil && allowed {
+			return false
+		}
+	}
+
 	f.mode = ThreeWayMergeClient
 	if _, err := fmt.Fprintf(f.warn, "Not allowed to dry-run the patch against the cluster (%v).\n"+
 		"Falling back to computing the three-way merge locally for the rest of this run. The diff\n"+
 		"may deviate from the actual upgrade result because server-side defaulting and mutating\n"+
 		"webhooks are not applied.\n", cause); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "failed writing fallback warning: %v\n", err)
+	}
+
+	return true
+}
+
+// patchPermissionCheck asks the API server whether the credentials may patch a
+// resource. It returns nil when the question cannot be put - helm hands over a
+// *kube.Client in practice, but the interface does not promise one - and a
+// refusal is then assumed to be about permissions, which is how the fallback
+// behaved before the check existed.
+func patchPermissionCheck(actionConfig *action.Configuration) func(*resource.Info) (bool, error) {
+	client, ok := actionConfig.KubeClient.(*kube.Client)
+	if !ok || client.Factory == nil {
+		return nil
+	}
+
+	clientset, err := client.Factory.KubernetesClientSet()
+	if err != nil {
+		return nil
+	}
+
+	return func(info *resource.Info) (bool, error) {
+		review := &authorizationv1.SelfSubjectAccessReview{
+			Spec: authorizationv1.SelfSubjectAccessReviewSpec{
+				ResourceAttributes: &authorizationv1.ResourceAttributes{
+					Namespace: info.Namespace,
+					Name:      info.Name,
+					Verb:      "patch",
+					Group:     info.Mapping.Resource.Group,
+					Resource:  info.Mapping.Resource.Resource,
+				},
+			},
+		}
+
+		result, err := clientset.AuthorizationV1().SelfSubjectAccessReviews().
+			Create(context.Background(), review, metav1.CreateOptions{})
+		if err != nil {
+			return false, err
+		}
+
+		return result.Status.Allowed, nil
 	}
 }
 
@@ -256,6 +322,16 @@ func (p *resourcePatch) apply(liveData []byte) ([]byte, error) {
 
 	if merged, err = p.normalize(merged); err != nil {
 		return nil, err
+	}
+
+	// A JSON merge patch carries only what the chart changed between the two
+	// release manifests, so it never prunes a field the cluster populated and
+	// there is nothing to put back. Custom resources are also stored as JSON
+	// rather than protobuf, which keeps `null`, `[]` and `{}` apart, so the
+	// restoration pass would misread a chart changing one into another as noise
+	// and undo it.
+	if p.patchType == types.MergePatchType {
+		return merged, nil
 	}
 
 	return p.restoreServerPopulatedFields(merged, liveData)
@@ -360,7 +436,7 @@ func isEmpty(v interface{}) bool {
 // restoreMissing walks merged and live in parallel and copies over the parts of
 // live that merged lost without either release manifest asking for it. It
 // returns the updated merged value and never overwrites a value merged already
-// has.
+// has, so a field the chart does specify keeps whatever the patch made of it.
 func restoreMissing(merged, live, original, modified interface{}) interface{} {
 	switch live := live.(type) {
 	case map[string]interface{}:
@@ -383,10 +459,14 @@ func restoreMissing(merged, live, original, modified interface{}) interface{} {
 				continue
 			}
 			if !inMerged {
-				// A key that is absent and a key that holds `null` both read as
-				// nil here, which is what makes an unset `replicas:` in the
-				// chart compare equal to the field the manifests never mention.
-				if reflect.DeepEqual(originalMap[key], modifiedMap[key]) {
+				// Only where neither manifest carries a value for the key: an
+				// absent key and a `null` both read as nil here, which is what
+				// lets an unset `replicas:` count as "the chart says nothing".
+				// Agreeing on an actual value is not enough - two manifests that
+				// both say `hostNetwork: false` are asking for false, and
+				// copying a drifted `true` back would hide the correction the
+				// upgrade makes.
+				if originalMap[key] == nil && modifiedMap[key] == nil {
 					mergedMap[key] = liveValue
 				}
 				continue
@@ -424,7 +504,7 @@ func restoreMissing(merged, live, original, modified interface{}) interface{} {
 // dry-run the patch or by merging locally, depending on mode. warn is called at
 // most once, when mode is ThreeWayMergeAuto and the API server refused the
 // dry-run.
-func applyPatch(helper *resource.Helper, info *resource.Info, patch *resourcePatch, liveData []byte, mode ThreeWayMergeMode, warn func(cause error)) ([]byte, error) {
+func applyPatch(helper *resource.Helper, info *resource.Info, patch *resourcePatch, liveData []byte, mode ThreeWayMergeMode, patchDenied func(*resource.Info, error) bool) ([]byte, error) {
 	kind := info.Mapping.GroupVersionKind.Kind
 
 	if mode != ThreeWayMergeClient {
@@ -438,7 +518,9 @@ func applyPatch(helper *resource.Helper, info *resource.Info, patch *resourcePat
 			}
 			return out, nil
 		case mode == ThreeWayMergeAuto && isPatchNotAllowed(err):
-			warn(err)
+			if !patchDenied(info, err) {
+				return nil, fmt.Errorf("cannot patch %q with kind %s: %w", info.Name, kind, err)
+			}
 		default:
 			return nil, fmt.Errorf("cannot patch %q with kind %s: %w", info.Name, kind, err)
 		}
