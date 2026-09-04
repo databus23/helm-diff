@@ -367,3 +367,89 @@ data:
 		}
 	})
 }
+
+func TestThreeWayMergeModeFlag(t *testing.T) {
+	if f := newChartCommand().Flags().Lookup("three-way-merge-mode"); f == nil {
+		t.Fatal("expected flag --three-way-merge-mode to be registered")
+	} else if f.DefValue != "auto" {
+		t.Errorf("expected --three-way-merge-mode to default to auto, got %q", f.DefValue)
+	}
+
+	cases := []struct {
+		name      string
+		args      []string
+		env       string
+		expectErr string
+	}{
+		{name: "server", args: []string{"--three-way-merge-mode", "server"}},
+		{name: "client", args: []string{"--three-way-merge-mode", "client"}},
+		{name: "auto", args: []string{"--three-way-merge-mode", "auto"}},
+		{name: "invalid flag", args: []string{"--three-way-merge-mode", "local"}, expectErr: "three-way-merge-mode"},
+		{name: "empty flag", args: []string{"--three-way-merge-mode", ""}, expectErr: "three-way-merge-mode"},
+		// The env var is only consulted when the run performs a three-way merge,
+		// so on its own it can neither take effect nor fail the command.
+		{name: "env var without three-way-merge", env: "client"},
+		{name: "invalid env var without three-way-merge", env: "local"},
+		{name: "flag wins over invalid env var", args: []string{"--three-way-merge-mode", "client"}, env: "local"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("HELM_DIFF_THREE_WAY_MERGE_MODE", tc.env)
+
+			chartDir := t.TempDir()
+			setupFakeHelm(t, "capture_args", "", chartDir+"/args", "")
+
+			cmd := newChartCommand()
+			cmd.SetArgs(append([]string{"my-release", chartDir}, tc.args...))
+
+			err := cmd.Execute()
+			switch {
+			case tc.expectErr == "" && err != nil:
+				t.Fatalf("unexpected error: %v", err)
+			case tc.expectErr != "" && err == nil:
+				t.Fatalf("expected an error mentioning %q, got none", tc.expectErr)
+			case tc.expectErr != "" && !strings.Contains(err.Error(), tc.expectErr):
+				t.Fatalf("expected error mentioning %q, got %v", tc.expectErr, err)
+			}
+		})
+	}
+}
+
+// The env var is rejected only where it is actually used, so that a value left
+// over in the environment cannot fail an unrelated `helm diff upgrade`.
+func TestThreeWayMergeModeEnvVarOnlyAppliesToThreeWayMerge(t *testing.T) {
+	cases := []struct {
+		name      string
+		args      []string
+		env       string
+		expectErr bool
+	}{
+		{name: "--three-way-merge", args: []string{"--three-way-merge"}, env: "local", expectErr: true},
+		{name: "--take-ownership", args: []string{"--take-ownership"}, env: "local", expectErr: true},
+		{name: "neither", env: "local", expectErr: false},
+		{name: "valid value with --three-way-merge", args: []string{"--three-way-merge"}, env: "client", expectErr: false},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("HELM_DIFF_THREE_WAY_MERGE_MODE", tc.env)
+
+			chartDir := t.TempDir()
+			setupFakeHelm(t, "capture_args", "", chartDir+"/args", "")
+
+			cmd := newChartCommand()
+			cmd.SetArgs(append([]string{"my-release", chartDir}, tc.args...))
+
+			err := cmd.Execute()
+			mentionsEnvVar := err != nil && strings.Contains(err.Error(), "HELM_DIFF_THREE_WAY_MERGE_MODE")
+
+			// A run that gets past validation goes on to reach for the cluster,
+			// which is not available here, so only the env var complaint itself
+			// is meaningful - not whether the command as a whole succeeded.
+			if mentionsEnvVar != tc.expectErr {
+				t.Fatalf("expected the env var to be rejected=%v, got err=%v", tc.expectErr, err)
+			}
+		})
+	}
+}
