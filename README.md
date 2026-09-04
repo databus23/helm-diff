@@ -269,11 +269,17 @@ Notes:
 
 Because the defaulting functions are not part of client-go, `client` mode cannot reproduce them exactly. What it can do is leave the live value alone: a field is only reported as gone when the two release manifests disagree about it. That matters more than it sounds, because a chart that leaves a value unset usually renders the field as an explicit `null` — a bare `replicas:` — and a `null` in a manifest reaches the patch as a change rather than a deletion, wiping a value the API server had defaulted in even when the chart did not change at all.
 
-Two known deviations from `server` mode remain. Where the manifests really do disagree and the field is one the API server defaults, a chart that stops pinning `replicas: 3` is reported as removing the field, while `server` mode shows it changing from `3` to the defaulted `1` — the change is reported either way, but `client` mode cannot name the value that replaces it. And where a chart changes an entry inside an atomic list, the server defaults elsewhere in that entry are reported as removed: changing a NetworkPolicy port from `27017` to `27018` also drops the defaulted `protocol: TCP` from the diff, because positions in a list the chart rewrote can no longer be matched up safely.
+Three known deviations from `server` mode remain.
 
-So a read-only account is enough for a three-way merge diff out of the box. Set `--three-way-merge-mode=client` (or `HELM_DIFF_THREE_WAY_MERGE_MODE=client`) to skip the rejected dry-run request entirely, and `--three-way-merge-mode=server` to make a missing `patch` permission a hard error instead of silently degrading the diff.
+**A field the chart stops pinning is reported as removed** rather than as changing to its default. `server` mode shows `replicas: 3` becoming the defaulted `1`; `client` mode reports the field going away, because it cannot name the value that replaces it. The change is reported either way.
 
-`client` mode needs `get` on every kind the chart renders, plus `get` on the Secret or ConfigMap holding the release. The role below is the blunt version — read access to everything, which is convenient but broader than a diff requires:
+**Drift can be hidden inside a `retainKeys` struct or an atomic list.** The restoration described above copies back every live-only field that the patch replaced wholesale, and locally there is no way to tell a value the API server defaulted from one somebody set by hand — both are simply fields neither manifest mentions. If a NetworkPolicy port carries a hand-added `endPort`, the upgrade removes it and `server` mode says so, while `client` mode restores it along with the defaulted `protocol: TCP` and reports nothing. This is the one case where `client` mode can be quieter than the truth; everywhere else it errs towards reporting a change that does not happen. Use `--three-way-merge-mode=server` where that matters.
+
+**Server defaults are dropped from an atomic-list entry the chart changes.** Changing a NetworkPolicy port from `27017` to `27018` also drops the defaulted `protocol: TCP` from the diff, because positions in a list the chart rewrote can no longer be matched up safely.
+
+So a read-only account is enough for a three-way merge diff out of the box. Set `--three-way-merge-mode=client` (or `HELM_DIFF_THREE_WAY_MERGE_MODE=client`, which is only read once the three-way merge is enabled) to skip the rejected dry-run request entirely, and `--three-way-merge-mode=server` to make a missing `patch` permission a hard error instead of silently degrading the diff.
+
+`client` mode needs `get` on every kind the chart renders, plus `get` **and `list`** on the Secret or ConfigMap holding the release — without an explicit `--revision`, Helm lists the storage backend to find the newest one. The role below is the blunt version, read access to everything, which is convenient but broader than a diff requires:
 
 ```yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -294,8 +300,13 @@ kind: Role
 metadata:
   name: helm-diff
 rules:
+  # Release storage: `list` is what lets Helm find the newest revision.
   - apiGroups: [""]
-    resources: ["configmaps", "secrets", "services", "serviceaccounts"]
+    resources: ["configmaps", "secrets"]
+    verbs: ["get", "list"]
+  # Everything else the chart renders needs `get` only.
+  - apiGroups: [""]
+    resources: ["services", "serviceaccounts"]
     verbs: ["get"]
   - apiGroups: ["apps"]
     resources: ["deployments", "statefulsets", "daemonsets"]
@@ -399,9 +410,10 @@ Examples:
 
   # Set HELM_DIFF_THREE_WAY_MERGE_MODE=client to compute the three-way merge
   # locally, so that no permission to patch the cluster resources is needed.
+  # It is only read once the three-way merge is on, hence the flag below.
   # This is equivalent to specifying the --three-way-merge-mode flag.
   # Read the flag usage below for more information on --three-way-merge-mode.
-  HELM_DIFF_THREE_WAY_MERGE_MODE=client helm diff upgrade my-release datadog/datadog
+  HELM_DIFF_THREE_WAY_MERGE_MODE=client helm diff upgrade my-release datadog/datadog --three-way-merge
 
   # Set HELM_DIFF_NORMALIZE_MANIFESTS=true to
   # normalize the yaml file content when using helm diff.

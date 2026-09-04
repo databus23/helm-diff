@@ -782,3 +782,28 @@ func TestClientSideFallbackDistinguishesAdmissionFromPermissions(t *testing.T) {
 		assert.Equal(t, ThreeWayMergeClient, fallback.currentMode())
 	})
 }
+
+// A 405 says the API server takes no patch for this resource whoever is asking,
+// so being entitled to send one changes nothing: the run still has to fall back.
+// Only a 403 is ambiguous enough to be worth an authorization review.
+func TestClientSideFallbackAlwaysFallsBackOnMethodNotAllowed(t *testing.T) {
+	info := infoFor(t, deployment(1, "nginx:1.0", nil), appsv1.SchemeGroupVersion.WithKind("Deployment"))
+	notSupported := apierrors.NewMethodNotSupported(
+		schema.GroupResource{Group: "apps", Resource: "deployments"}, "patch")
+
+	reviewed := false
+	var warnings bytes.Buffer
+	fallback := &clientSideFallback{
+		mode: ThreeWayMergeAuto,
+		warn: &warnings,
+		canPatch: func(*resource.Info) (bool, error) {
+			reviewed = true
+			return true, nil
+		},
+	}
+
+	assert.True(t, fallback.patchDenied(info, notSupported),
+		"a 405 must fall back even where the credentials may patch")
+	assert.Equal(t, ThreeWayMergeClient, fallback.currentMode())
+	assert.False(t, reviewed, "a 405 is unambiguous, so it is not worth an authorization review")
+}

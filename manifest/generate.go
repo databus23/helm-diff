@@ -227,7 +227,11 @@ func (f *clientSideFallback) patchDenied(info *resource.Info, cause error) bool 
 	// around it locally would hide the outcome the diff exists to predict. Ask
 	// whether patching is permitted at all before reading a refusal as a
 	// permission problem.
-	if f.canPatch != nil {
+	//
+	// Only a 403 is ambiguous that way. A 405 says the API server takes no patch
+	// for this resource whoever is asking, so being entitled to send one changes
+	// nothing and the local merge is the only way left.
+	if apierrors.IsForbidden(cause) && f.canPatch != nil {
 		if allowed, err := f.canPatch(info); err == nil && allowed {
 			return false
 		}
