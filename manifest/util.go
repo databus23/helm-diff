@@ -31,7 +31,7 @@ func deleteStatusAndTidyMetadata(obj []byte) (map[string]interface{}, error) {
 		"deployment.kubernetes.io/revision",
 	)
 
-	pruneNestedMap(metadata, "labels", 
+	pruneNestedMap(metadata, "labels",
 		"app.kubernetes.io/managed-by",
 		"helm.toolkit.fluxcd.io/name",
 		"helm.toolkit.fluxcd.io/namespace",
