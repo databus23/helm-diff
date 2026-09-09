@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
-# Reproduction script for https://github.com/databus23/helm-diff/issues/1064
+# Reproduction test for https://github.com/databus23/helm-diff/issues/1064
 #
 # Bug: "helm-diff shows `- labels`, if resource contains only
 # `app.kubernetes.io/managed-by` label".
 #
-# After the managed-by label is pruned from the diff, the leftover empty (or
-# null) `labels` key must not show up as a confusing `- labels:` diff entry.
+# A `labels:`/`annotations:` key that is null or empty is semantically
+# identical to an absent key, so it must not show up as a diff entry when one
+# side renders the (empty) key and the other omits it.
 #
-# This script exercises several chart shapes against a real cluster:
+# Scenarios (each prints its full diff output to the CI log):
 #   A. a chart whose resource has no labels at all
 #   B. a release installed with an explicit managed-by label, then diffed
 #      against a chart version that dropped the label
@@ -16,99 +17,15 @@
 #   D. a custom resource (unstructured/CRD path, like the ExternalSecret from
 #      the issue) without labels
 #   E. flux-style extra labels on the live object
-#
-# Every helm diff invocation prints its full output so the CI log shows the
-# actual behavior. Plain (text) diffs are informational: a chart that really
-# dropped a labels block legitimately shows a textual change. The assertion
-# targets three-way-merge diffs, which fetch live objects and must not report
-# any labels-only change (a labels key with no content left after pruning).
+#   F. --take-ownership
+#   G. --dry-run=server
+#   H. a chart rendering an explicit empty labels map `labels: {}`
 
 set -euo pipefail
 
-NS="d1064"
-WORK="$(mktemp -d)"
-FAIL=0
-
-strip_ansi() {
-  sed 's/\x1b\[[0-9;]*m//g'
-}
-
-# Detect labels-only diff entries: a +/- line whose payload is `labels:`,
-# `labels: null` or `labels: {}` and whose following line is not an indented
-# child entry (which would make it a legitimate multi-line label change).
-find_symptoms() {
-  awk '
-    { lines[NR] = $0 }
-    END {
-      for (i = 1; i <= NR; i++) {
-        line = lines[i]
-        if (line !~ /^[+-][[:space:]]*labels:([[:space:]]+(null|\{\}))?[[:space:]]*$/)
-          continue
-        payload = line
-        sub(/^[+-]/, "", payload)
-        val = payload
-        sub(/^[[:space:]]*labels:/, "", val)
-        gsub(/^[[:space:]]+|[[:space:]]+$/, "", val)
-        if (val == "null" || val == "{}") {
-          printf "  line %d: %s\n", i, line
-          continue
-        }
-        # bare `labels:` key: only a symptom when no child entry follows
-        match(payload, /^[[:space:]]*/); curind = RLENGTH
-        nxt = lines[i + 1]
-        if (nxt != "") {
-          nprefix = substr(nxt, 1, 1)
-          nrest = substr(nxt, 2)
-          if (nprefix == "+" || nprefix == "-" || nprefix == " ") {
-            match(nrest, /^[[:space:]]*/)
-            if (RLENGTH > curind)
-              continue
-          }
-        }
-        printf "  line %d: %s\n", i, line
-      }
-    }' "$1"
-}
-
-check_no_symptom() {
-  local output_file="$1" scenario="$2"
-  strip_ansi < "$output_file" > "$WORK/stripped.out"
-  local symptoms
-  symptoms="$(find_symptoms "$WORK/stripped.out")"
-  if [ -n "$symptoms" ]; then
-    echo "FAIL: scenario [$scenario] shows a labels-only diff (#1064):"
-    echo "$symptoms"
-    FAIL=1
-  else
-    echo "OK: scenario [$scenario] has no labels-only diff"
-  fi
-}
-
-run_diff() {
-  local scenario="$1" assert="$2"; shift 2
-  local out="$WORK/${scenario// /_}.out"
-  echo ""
-  echo "===== helm diff $* [$scenario] ====="
-  set +e
-  helm diff upgrade "$@" > "$out" 2>&1
-  local rc="$?"
-  set -e
-  strip_ansi < "$out"
-  echo "----- exit code: $rc -----"
-  if [ "$assert" = "assert" ]; then
-    check_no_symptom "$out" "$scenario"
-  fi
-}
-
-chart() { # chart <dir> <template-content>
-  mkdir -p "$1/templates"
-  cat > "$1/Chart.yaml" <<'YAML'
-apiVersion: v2
-name: issue1064
-version: 0.1.0
-YAML
-  cat > "$1/templates/res.yaml" <<< "$2"
-}
+ISSUE=1064
+# shellcheck source=lib.sh
+source "$(dirname "$0")/lib.sh"
 
 kubectl create namespace "$NS" 2>/dev/null || true
 
@@ -132,7 +49,8 @@ run_diff "A three-way"  assert   rel-a "$WORK/a" -n "$NS" --three-way-merge
 ###############################################################################
 # Variant B: release installed with explicit managed-by label, new chart
 # version drops the label. The three-way diff must not show any labels noise
-# (a real helm upgrade re-adds managed-by, and helm-diff prunes it).
+# (a real helm upgrade re-adds managed-by, and helm-diff prunes it). The plain
+# diff legitimately reports the dropped label, so it is informational only.
 ###############################################################################
 chart "$WORK/b1" 'apiVersion: v1
 kind: ConfigMap
@@ -284,9 +202,4 @@ run_diff "H plain"     assert   rel-h "$WORK/h2" -n "$NS"
 run_diff "H three-way" assert   rel-h "$WORK/h2" -n "$NS" --three-way-merge
 
 ###############################################################################
-echo ""
-if [ "$FAIL" -ne 0 ]; then
-  echo "issue 1064 reproduced: labels-only diff entries found"
-  exit 1
-fi
-echo "no labels-only diff entries found"
+finish
