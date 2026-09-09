@@ -180,7 +180,7 @@ helm upgrade -i rel-c "$WORK/c1" -n "$NS" >/dev/null
 echo "===== live object labels (C) ====="
 kubectl get configmap res-c -n "$NS" -o jsonpath='{.metadata.labels}'; echo
 
-run_diff "C plain"     noassert rel-c "$WORK/c2" -n "$NS"
+run_diff "C plain"     assert   rel-c "$WORK/c2" -n "$NS"
 run_diff "C three-way" assert   rel-c "$WORK/c2" -n "$NS" --three-way-merge
 
 ###############################################################################
@@ -280,7 +280,7 @@ helm upgrade -i rel-h "$WORK/h1" -n "$NS" >/dev/null
 echo "===== live object labels (H) ====="
 kubectl get configmap res-h -n "$NS" -o jsonpath='{.metadata.labels}'; echo
 
-run_diff "H plain"     noassert rel-h "$WORK/h2" -n "$NS"
+run_diff "H plain"     assert   rel-h "$WORK/h2" -n "$NS"
 run_diff "H three-way" assert   rel-h "$WORK/h2" -n "$NS" --three-way-merge
 
 ###############################################################################

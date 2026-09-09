@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"regexp"
 	"strings"
 
 	jsoniter "github.com/json-iterator/go"
@@ -19,6 +20,105 @@ const (
 )
 
 var yamlSeparator = []byte("\n---\n")
+
+// metadataLineRegex matches the top-level `metadata:` key of a manifest.
+var metadataLineRegex = regexp.MustCompile(`^metadata:[ \t]*(#.*)?$`)
+
+// stripEmptyMetadataKeys removes `labels:`/`annotations:` lines from content
+// when their value is null or an empty mapping.
+//
+// Kubernetes treats a null or empty labels/annotations map exactly like an
+// absent one, but charts frequently render the (empty) key anyway, e.g. via a
+// conditional block:
+//
+//	metadata:
+//	  name: example
+//	  labels:
+//
+// A raw textual diff between such a manifest and one that omits the key
+// reports a meaningless `- labels:` change. The removal is done line-based so
+// the surrounding text keeps its original formatting; the parsed document is
+// only consulted to confirm that the key really is null/empty (a `labels:`
+// line followed by indented entries is left alone).
+//
+// See https://github.com/databus23/helm-diff/issues/1064
+func stripEmptyMetadataKeys(content []byte) []byte {
+	var doc map[interface{}]interface{}
+	if err := yaml.Unmarshal(content, &doc); err != nil {
+		return content
+	}
+
+	metadata, ok := doc["metadata"].(map[interface{}]interface{})
+	if !ok {
+		return content
+	}
+
+	strip := map[string]bool{}
+	for _, key := range []string{"labels", "annotations"} {
+		value, exists := metadata[key]
+		if !exists {
+			continue
+		}
+		if value == nil {
+			strip[key] = true
+			continue
+		}
+		if m, ok := value.(map[interface{}]interface{}); ok && len(m) == 0 {
+			strip[key] = true
+		}
+	}
+	if len(strip) == 0 {
+		return content
+	}
+
+	lines := strings.Split(string(content), "\n")
+
+	// Determine the indentation of metadata's direct children by looking at
+	// the first non-blank line below the top-level `metadata:` key.
+	childIndent := -1
+	for i, line := range lines {
+		if !metadataLineRegex.MatchString(line) {
+			continue
+		}
+		for j := i + 1; j < len(lines); j++ {
+			if strings.TrimSpace(lines[j]) == "" {
+				continue
+			}
+			if indent := len(lines[j]) - len(strings.TrimLeft(lines[j], " \t")); indent > 0 {
+				childIndent = indent
+			}
+			break
+		}
+		break
+	}
+	if childIndent <= 0 {
+		return content
+	}
+
+	keyLine := func(key string) *regexp.Regexp {
+		return regexp.MustCompile(fmt.Sprintf(`^ {%d}%s:[ \t]*(\{\}[ \t]*)?(#.*)?$`, childIndent, key))
+	}
+	regexes := make([]*regexp.Regexp, 0, len(strip))
+	for key := range strip {
+		regexes = append(regexes, keyLine(key))
+	}
+
+	kept := make([]string, 0, len(lines))
+	for _, line := range lines {
+		drop := false
+		for _, re := range regexes {
+			if re.MatchString(line) {
+				drop = true
+				break
+			}
+		}
+		if !drop {
+			kept = append(kept, line)
+		}
+	}
+
+	return []byte(strings.Join(kept, "\n"))
+}
 
 // MappingResult to store result of diff
 type MappingResult struct {
@@ -196,6 +296,12 @@ func parseContent(content []byte, defaultNamespace string, normalizeManifests bo
 			log.Fatalf("Error normalizing manifests: %v", normalizeErr)
 		}
 	}
+
+	// Remove `labels:`/`annotations:` keys that are null or empty: they are
+	// semantically identical to an absent key, yet a textual diff between a
+	// manifest rendering the empty key and one omitting it would otherwise
+	// report a meaningless change (#1064).
+	content = stripEmptyMetadataKeys(content)
 
 	if isHook(parsedMetadata, excludedHooks...) {
 		return nil, nil
