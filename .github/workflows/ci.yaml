@@ -196,3 +196,6 @@ jobs:
           set -o pipefail
           helm diff upgrade storage-diff ./helm-diff -n prod-apps --storage-namespace flux-system --three-way-merge --set replicaCount=2 | tee /tmp/three-way.out
           grep -q 'replicas: 2' /tmp/three-way.out
+
+      - name: Reproduce issue 1064 (labels-only diff noise)
+        run: scripts/repro-issue-1064.sh

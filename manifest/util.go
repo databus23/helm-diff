@@ -42,10 +42,19 @@ func deleteStatusAndTidyMetadata(obj []byte) (map[string]interface{}, error) {
 
 // pruneNestedMap removes the given fields from the nested map found at key in
 // target. If the nested map ends up empty afterwards, key itself is removed
-// from target.
+// from target. A null-valued key (e.g. a chart template rendering "labels:"
+// with nothing under it) is removed as well, so it does not show up as a
+// confusing "- labels:" diff entry. See
+// https://github.com/databus23/helm-diff/issues/1064
 func pruneNestedMap(target map[string]interface{}, key string, fields ...string) {
 	sub, ok := target[key].(map[string]interface{})
 	if !ok {
+		// The key is either absent or explicitly null. A null value (JSON
+		// "labels": null) would otherwise survive as an empty "labels:" entry
+		// in the rendered YAML and produce a meaningless diff.
+		if target[key] == nil {
+			delete(target, key)
+		}
 		return
 	}
 
