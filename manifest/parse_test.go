@@ -3,6 +3,7 @@ package manifest_test
 import (
 	"os"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -29,6 +30,96 @@ func TestPod(t *testing.T) {
 		[]string{"default, nginx, Pod (v1)"},
 		foundObjects(Parse(spec, "default", false)),
 	)
+}
+
+func TestParseStripsEmptyMetadataKeys(t *testing.T) {
+	tests := []struct {
+		name     string
+		manifest string
+		wantName string
+		want     []string
+	}{
+		{
+			name: "null labels line is removed",
+			manifest: `# Source: chart/templates/cm.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: example
+  labels:
+data:
+  foo: bar
+`,
+			wantName: "default, example, ConfigMap (v1)",
+			want:     []string{"# Source: chart/templates/cm.yaml", "apiVersion: v1", "kind: ConfigMap", "metadata:", "  name: example", "data:", "  foo: bar"},
+		},
+		{
+			name: "empty flow labels map is removed",
+			manifest: `apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: example
+  labels: {}
+data:
+  foo: bar
+`,
+			wantName: "default, example, ConfigMap (v1)",
+			want:     []string{"apiVersion: v1", "kind: ConfigMap", "metadata:", "  name: example", "data:", "  foo: bar"},
+		},
+		{
+			name: "null annotations line is removed",
+			manifest: `apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: example
+  annotations:
+data:
+  foo: bar
+`,
+			wantName: "default, example, ConfigMap (v1)",
+			want:     []string{"apiVersion: v1", "kind: ConfigMap", "metadata:", "  name: example", "data:", "  foo: bar"},
+		},
+		{
+			name: "labels with content are kept",
+			manifest: `apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: example
+  labels:
+    app: kept
+data:
+  foo: bar
+`,
+			wantName: "default, example, ConfigMap (v1)",
+			want:     []string{"apiVersion: v1", "kind: ConfigMap", "metadata:", "  name: example", "  labels:", "    app: kept", "data:", "  foo: bar"},
+		},
+		{
+			name: "nested spec template labels are kept",
+			manifest: `apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: example
+  labels:
+spec:
+  template:
+    metadata:
+      labels:
+        app: kept
+`,
+			wantName: "default, example, Deployment (apps)",
+			want:     []string{"apiVersion: apps/v1", "kind: Deployment", "metadata:", "  name: example", "spec:", "  template:", "    metadata:", "      labels:", "        app: kept"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := Parse([]byte(tt.manifest), "default", false)
+			require.Len(t, result, 1)
+			mapping, ok := result[tt.wantName]
+			require.True(t, ok, "expected resource %q in %v", tt.wantName, foundObjects(result))
+			require.Equal(t, tt.want, strings.Split(mapping.Content, "\n"))
+		})
+	}
 }
 
 func TestPodNamespace(t *testing.T) {

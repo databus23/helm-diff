@@ -111,6 +111,75 @@ func Test_deleteStatusAndTidyMetadata(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name: "null labels are removed (chart renders bare labels: key)",
+			obj: []byte(`
+{
+    "kind": "ConfigMap",
+    "metadata": {
+        "labels": null,
+        "name": "example"
+    }
+}
+`),
+			want: map[string]interface{}{
+				"kind": "ConfigMap",
+				"metadata": map[string]interface{}{
+					"name": "example",
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "null annotations are removed",
+			obj: []byte(`
+{
+    "kind": "ConfigMap",
+    "metadata": {
+        "annotations": null,
+        "labels": {
+            "app": "kept"
+        },
+        "name": "example"
+    }
+}
+`),
+			want: map[string]interface{}{
+				"kind": "ConfigMap",
+				"metadata": map[string]interface{}{
+					"labels": map[string]interface{}{
+						"app": "kept",
+					},
+					"name": "example",
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "labels with other keys are kept",
+			obj: []byte(`
+{
+    "kind": "ConfigMap",
+    "metadata": {
+        "labels": {
+            "app.kubernetes.io/managed-by": "Helm",
+            "app.kubernetes.io/name": "myapp"
+        },
+        "name": "example"
+    }
+}
+`),
+			want: map[string]interface{}{
+				"kind": "ConfigMap",
+				"metadata": map[string]interface{}{
+					"labels": map[string]interface{}{
+						"app.kubernetes.io/name": "myapp",
+					},
+					"name": "example",
+				},
+			},
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
