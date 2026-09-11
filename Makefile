@@ -68,34 +68,40 @@ docker-run-release:
 	-v $(shell pwd)/docker-run-release-cache:/.cache \
 	-w $(pkg) helm-diff-release make release
 
+# dist-package builds the plugin for a single platform and packs it into
+# release/$(1).tgz. The archive content is wrapped in a directory named
+# after the archive itself (e.g. helm-diff-linux-amd64/). Helm 4's plugin
+# installer requires this when installing directly from a tarball: it
+# derives the expected directory from the tarball filename and fails with
+# "plugin.yaml not found in expected directory" otherwise (see issue #1071).
+# Usage: $(call dist-package,<platform>,<GOOS>,<GOARCH>[,<extra env>])
+DIST_PACKAGE_FILES := README.md LICENSE plugin.yaml install-binary.sh install-binary.ps1
+define dist-package
+mkdir -p build/helm-diff-$(1)/bin
+cp $(DIST_PACKAGE_FILES) build/helm-diff-$(1)/
+goarch=$(3); bin=diff; [ "$(2)" = "windows" ] && bin=$$bin.exe; \
+	$(4) GOOS=$(2) GOARCH=$$goarch $(GO) build -o build/helm-diff-$(1)/bin/$$bin -trimpath -ldflags="$(LDFLAGS)"
+tar -C build/ -zcvf $(CURDIR)/release/helm-diff-$(1).tgz helm-diff-$(1)/
+rm -rf build/helm-diff-$(1)
+
+endef
+
 .PHONY: dist
 dist: export COPYFILE_DISABLE=1 #teach OSX tar to not put ._* files in tar archive
 dist: export CGO_ENABLED=0
 dist:
-	rm -rf build/diff/* release/*
-	mkdir -p build/diff/bin release/
-	cp README.md LICENSE plugin.yaml build/diff
-	GOOS=linux GOARCH=amd64 $(GO) build -o build/diff/bin/diff -trimpath -ldflags="$(LDFLAGS)"
-	tar -C build/ -zcvf $(CURDIR)/release/helm-diff-linux-amd64.tgz diff/
-	GOOS=linux GOARCH=arm64 $(GO) build -o build/diff/bin/diff -trimpath -ldflags="$(LDFLAGS)"
-	tar -C build/ -zcvf $(CURDIR)/release/helm-diff-linux-arm64.tgz diff/
-	GOOS=linux GOARCH=arm GOARM=6 $(GO) build -o build/diff/bin/diff -trimpath -ldflags="$(LDFLAGS)"
-	tar -C build/ -zcvf $(CURDIR)/release/helm-diff-linux-armv6.tgz diff/
-	GOOS=linux GOARCH=arm GOARM=7 $(GO) build -o build/diff/bin/diff -trimpath -ldflags="$(LDFLAGS)"
-	tar -C build/ -zcvf $(CURDIR)/release/helm-diff-linux-armv7.tgz diff/
-	GOOS=linux GOARCH=ppc64le $(GO) build -o build/diff/bin/diff -trimpath -ldflags="$(LDFLAGS)"
-	tar -C build/ -zcvf $(CURDIR)/release/helm-diff-linux-ppc64le.tgz diff/
-	GOOS=linux GOARCH=s390x $(GO) build -o build/diff/bin/diff -trimpath -ldflags="$(LDFLAGS)"
-	tar -C build/ -zcvf $(CURDIR)/release/helm-diff-linux-s390x.tgz diff/
-	GOOS=freebsd GOARCH=amd64 $(GO) build -o build/diff/bin/diff -trimpath -ldflags="$(LDFLAGS)"
-	tar -C build/ -zcvf $(CURDIR)/release/helm-diff-freebsd-amd64.tgz diff/
-	GOOS=darwin GOARCH=amd64 $(GO) build -o build/diff/bin/diff -trimpath -ldflags="$(LDFLAGS)"
-	tar -C build/ -zcvf $(CURDIR)/release/helm-diff-macos-amd64.tgz diff/
-	GOOS=darwin GOARCH=arm64 $(GO) build -o build/diff/bin/diff -trimpath -ldflags="$(LDFLAGS)"
-	tar -C build/ -zcvf $(CURDIR)/release/helm-diff-macos-arm64.tgz diff/
-	rm build/diff/bin/diff
-	GOOS=windows GOARCH=amd64 $(GO) build -o build/diff/bin/diff.exe -trimpath -ldflags="$(LDFLAGS)"
-	tar -C build/ -zcvf $(CURDIR)/release/helm-diff-windows-amd64.tgz diff/
+	rm -rf build/ release/*
+	mkdir -p release/
+	$(call dist-package,linux-amd64,linux,amd64)
+	$(call dist-package,linux-arm64,linux,arm64)
+	$(call dist-package,linux-armv6,linux,arm,GOARM=6)
+	$(call dist-package,linux-armv7,linux,arm,GOARM=7)
+	$(call dist-package,linux-ppc64le,linux,ppc64le)
+	$(call dist-package,linux-s390x,linux,s390x)
+	$(call dist-package,freebsd-amd64,freebsd,amd64)
+	$(call dist-package,macos-amd64,darwin,amd64)
+	$(call dist-package,macos-arm64,darwin,arm64)
+	$(call dist-package,windows-amd64,windows,amd64)
 
 .PHONY: release
 release: lint dist

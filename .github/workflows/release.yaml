@@ -75,15 +75,18 @@ jobs:
           for f in dist/helm-diff-*.tgz; do
             echo "== $f =="
             tar tzf "$f"
-            for member in diff/plugin.yaml diff/install-binary.sh diff/install-binary.ps1; do
+            # Archives are wrapped in a directory named after the archive
+            # itself (required by helm 4 installs from a tarball, see #1071)
+            base="$(basename "$f" .tgz)"
+            for member in "$base/plugin.yaml" "$base/install-binary.sh" "$base/install-binary.ps1"; do
               if ! tar tzf "$f" | grep -q "^${member}$"; then
                 echo "ERROR: ${member} missing from ${f}"
                 missing=1
               fi
             done
             # the binary has a .exe suffix on windows archives
-            if ! tar tzf "$f" | grep -qE '^diff/bin/diff(\.exe)?$'; then
-              echo "ERROR: diff/bin/diff missing from ${f}"
+            if ! tar tzf "$f" | grep -qE "^${base}/bin/diff(\\.exe)?$"; then
+              echo "ERROR: ${base}/bin/diff missing from ${f}"
               missing=1
             fi
           done
@@ -107,9 +110,9 @@ jobs:
           mkdir -p /tmp/archive-test
           tar xzf dist/helm-diff-linux-amd64.tgz -C /tmp/archive-test
           echo "Extracted archive layout:"
-          find /tmp/archive-test/diff -maxdepth 2 -type f | sort
+          find /tmp/archive-test/helm-diff-linux-amd64 -maxdepth 2 -type f | sort
 
-          out="$(helm plugin install /tmp/archive-test/diff 2>&1)"
+          out="$(helm plugin install /tmp/archive-test/helm-diff-linux-amd64 2>&1)"
           echo "$out"
           # The install hook must find the bundled binary already staged in
           # HELM_PLUGIN_DIR and skip the network download.
@@ -120,6 +123,43 @@ jobs:
           }
           helm diff version
           echo "End-to-end archive install test passed: installed from archive without downloading"
+      -
+        name: Set up Helm 4
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        uses: azure/setup-helm@v5
+        with:
+          version: v4.3.0
+      -
+        # Regression test for issue #1071: helm 4 must be able to install
+        # directly from a local tarball (which it verifies by default), so
+        # archives must be wrapped in a directory named after the tarball.
+        name: Helm 4 offline tarball install test (snapshot only)
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        env:
+          HELM_DATA_HOME: /tmp/helm4-data
+        run: |
+          set -e
+          archive="dist/helm-diff-linux-amd64.tgz"
+
+          export GNUPGHOME="$(mktemp -d)"
+          chmod 700 "$GNUPGHOME"
+          gpg --batch --pinentry-mode loopback --passphrase '' \
+            --quick-generate-key "helm-diff-test" rsa3072 sign 0
+          GPG_FINGERPRINT=$(gpg --batch --with-colons --list-secret-keys "helm-diff-test" \
+            | grep '^fpr:' | head -1 | cut -d: -f10)
+          export GPG_FINGERPRINT GPG_PASSPHRASE=""
+
+          ./scripts/sign-provenance.sh "$archive" "$archive.prov"
+          gpg --export --armor "helm-diff-test" > /tmp/keyring.gpg
+
+          out="$(helm plugin install "$archive" --keyring /tmp/keyring.gpg 2>&1)"
+          echo "$out"
+          echo "$out" | grep -q "Plugin Hash Verified" || {
+            echo "ERROR: helm 4 did not verify the signed archive."
+            exit 1
+          }
+          helm diff version
+          echo "Helm 4 offline tarball install test passed: installed and verified from a local tarball"
       -
         name: Export and upload public key
         if: ${{ startsWith(github.ref, 'refs/tags/v') }}

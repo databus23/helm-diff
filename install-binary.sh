@@ -109,19 +109,21 @@ rmTempDir() {
 # downloadFile downloads the latest binary package and also the checksum
 # for that binary.
 downloadFile() {
-  PLUGIN_TMP_FILE="${HELM_TMP}/${PROJECT_NAME}.tgz"
-
-  # If HELM_DIFF_BIN_TGZ is set, copy the local file instead of downloading
+  # If HELM_DIFF_BIN_TGZ is set, copy the local file instead of downloading.
+  # Keep its original file name: release archives wrap their content in a
+  # directory named after the archive (see installFile below).
   if [ -n "$HELM_DIFF_BIN_TGZ" ]; then
     echo "Using local package at $HELM_DIFF_BIN_TGZ"
     if [ ! -f "$HELM_DIFF_BIN_TGZ" ]; then
       echo "Error: file not found at $HELM_DIFF_BIN_TGZ"
       exit 1
     fi
+    PLUGIN_TMP_FILE="${HELM_TMP}/$(basename "$HELM_DIFF_BIN_TGZ")"
     cp "$HELM_DIFF_BIN_TGZ" "$PLUGIN_TMP_FILE"
     return
   fi
 
+  PLUGIN_TMP_FILE="${HELM_TMP}/helm-diff-${OS}-${ARCH}.tgz"
   echo "Downloading $DOWNLOAD_URL"
   # Retry with backoff to absorb transient failures, e.g. a release window
   # where the "latest" asset is already published but not fully uploaded yet.
@@ -155,11 +157,20 @@ downloadFile() {
 
 # Unpack the archive file, then install it into the helm directory.
 installFile() {
-  PLUGIN_TMP_FILE="${HELM_TMP}/${PROJECT_NAME}.tgz"
   tar xzf "$PLUGIN_TMP_FILE" -C "$HELM_TMP"
-  HELM_TMP_BIN="$HELM_TMP/diff/bin/diff"
+  bin="diff"
   if [ "${OS}" = "windows" ]; then
-    HELM_TMP_BIN="$HELM_TMP_BIN.exe"
+    bin="$bin.exe"
+  fi
+  # Release archives wrap their content in a directory named after the
+  # archive itself (e.g. helm-diff-linux-amd64/bin/diff), as required by
+  # helm 4 when installing directly from a tarball (issue #1071).
+  # Archives from earlier releases wrap the content in a directory named
+  # "diff" instead.
+  wrap_dir="$(basename "$PLUGIN_TMP_FILE" .tgz)"
+  HELM_TMP_BIN="$HELM_TMP/$wrap_dir/bin/$bin"
+  if [ ! -f "$HELM_TMP_BIN" ] && [ -f "$HELM_TMP/diff/bin/$bin" ]; then
+    HELM_TMP_BIN="$HELM_TMP/diff/bin/$bin"
   fi
   echo "Preparing to install into ${HELM_PLUGIN_DIR}"
   mkdir -p "$HELM_PLUGIN_DIR/bin"

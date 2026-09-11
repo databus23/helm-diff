@@ -64,13 +64,27 @@ function Install-Plugin {
   tar -xzf $ArchiveName -C .
   Pop-Location
   New-Item -ItemType Directory -Path $Destination -Force
-  Copy-Item -Path (Join-Path $ArchiveDirectory "diff" "bin" "diff.exe") -Destination $Destination -Force
+  # Release archives wrap their content in a directory named after the
+  # archive itself (e.g. helm-diff-windows-amd64/bin/diff.exe), as required
+  # by helm 4 when installing directly from a tarball (issue #1071).
+  # Archives from earlier releases wrap the content in a
+  # directory named "diff" instead.
+  $wrapDir = [System.IO.Path]::GetFileNameWithoutExtension($ArchiveName)
+  $binary = Join-Path $ArchiveDirectory $wrapDir "bin" "diff.exe"
+  if (-not (Test-Path $binary -PathType Leaf)) {
+    $binary = Join-Path $ArchiveDirectory "diff" "bin" "diff.exe"
+  }
+  Copy-Item -Path $binary -Destination $Destination -Force
 }
 
 $ErrorActionPreference = "Stop"
 
-$archiveName = "helm-diff.tgz"
 $arch = Get-Architecture
+
+# Archives wrap their content in a directory named after the archive
+# itself (see Install-Plugin below), so the temporary copy must keep the
+# original file name.
+$archiveName = "helm-diff-windows-${arch}.tgz"
 
 # If installing (not updating) and the binary is already staged in the
 # plugin dir (e.g. installing from a release archive that bundles the
@@ -84,7 +98,6 @@ if (-not $Update -and (Test-Path $pluginBin -PathType Leaf)) {
 
 $tmpDir = New-TemporaryDirectory
 trap {   Remove-Item -path $tmpDir -Recurse -Force }
-$output = Join-Path $tmpDir $archiveName
 
 # Check for offline installation via environment variable
 if ($env:HELM_DIFF_BIN_TGZ) {
@@ -92,10 +105,13 @@ if ($env:HELM_DIFF_BIN_TGZ) {
     if (-not (Test-Path $env:HELM_DIFF_BIN_TGZ -PathType Leaf)) {
         throw "Offline installation failed: File not found at '$($env:HELM_DIFF_BIN_TGZ)'"
     }
+    $archiveName = [System.IO.Path]::GetFileName($env:HELM_DIFF_BIN_TGZ)
+    $output = Join-Path $tmpDir $archiveName
     Copy-Item -Path $env:HELM_DIFF_BIN_TGZ -Destination $output
 }
 else {
     # Proceed with online installation
+    $output = Join-Path $tmpDir $archiveName
     $version = Get-Version -Update $Update
     $url = Get-Url -Version $version -Architecture $arch
     Download-Plugin -Url $url -Output $output
