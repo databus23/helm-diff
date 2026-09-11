@@ -346,6 +346,8 @@ func (p *resourcePatch) apply(liveData []byte) ([]byte, error) {
 // the manifests spell out explicitly but the type omits, such as
 // `initialDelaySeconds: 0`, `hostNetwork: false` or `sysctls: []`, which would
 // otherwise show up as additions that the upgrade does not actually make.
+// Fields the compiled-in type does not know are dropped here as well - see the
+// "Three-way merge" section of the README for when that can be observed.
 func (p *resourcePatch) normalize(merged []byte) ([]byte, error) {
 	if p.versionedObject == nil {
 		return merged, nil

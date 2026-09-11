@@ -269,13 +269,15 @@ Notes:
 
 Because the defaulting functions are not part of client-go, `client` mode cannot reproduce them exactly. What it can do is leave the live value alone: a field is only reported as gone when the two release manifests disagree about it. That matters more than it sounds, because a chart that leaves a value unset usually renders the field as an explicit `null` — a bare `replicas:` — and a `null` in a manifest reaches the patch as a change rather than a deletion, wiping a value the API server had defaulted in even when the chart did not change at all.
 
-Three known deviations from `server` mode remain.
+Four known deviations from `server` mode remain.
 
 **A field the chart stops pinning is reported as removed** rather than as changing to its default. `server` mode shows `replicas: 3` becoming the defaulted `1`; `client` mode reports the field going away, because it cannot name the value that replaces it. The change is reported either way.
 
 **Drift can be hidden inside a `retainKeys` struct or an atomic list.** The restoration described above copies back every live-only field that the patch replaced wholesale, and locally there is no way to tell a value the API server defaulted from one somebody set by hand — both are simply fields neither manifest mentions. If a NetworkPolicy port carries a hand-added `endPort`, the upgrade removes it and `server` mode says so, while `client` mode restores it along with the defaulted `protocol: TCP` and reports nothing. This is the one case where `client` mode can be quieter than the truth; everywhere else it errs towards reporting a change that does not happen. Use `--three-way-merge-mode=server` where that matters.
 
 **Server defaults are dropped from an atomic-list entry the chart changes.** Changing a NetworkPolicy port from `27017` to `27018` also drops the defaulted `protocol: TCP` from the diff, because positions in a list the chart rewrote can no longer be matched up safely.
+
+**A field unknown to the compiled-in Kubernetes libraries is dropped.** To strip explicit zero values, `client` mode round-trips the merged object through the Go types helm-diff was built with. A field on a built-in kind that those libraries do not know — a freshly introduced field, on a cluster newer than the libraries this build was compiled against — does not survive that round-trip: a chart that adds it gets no diff line, and a chart that changes it sees it reported as removed instead. Custom resources are unaffected, since they are merged as JSON without a typed round-trip. `server` mode reports such fields, because the dry-run response is kept exactly as the API server sent it.
 
 So a read-only account is enough for a three-way merge diff out of the box. Set `--three-way-merge-mode=client` (or `HELM_DIFF_THREE_WAY_MERGE_MODE=client`, which is only read once the three-way merge is enabled) to skip the rejected dry-run request entirely, and `--three-way-merge-mode=server` to make a missing `patch` permission a hard error instead of silently degrading the diff.
 
