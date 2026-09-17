@@ -1,11 +1,23 @@
 package cmd
 
 import (
+	"io"
+	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
+
+	"helm.sh/helm/v4/pkg/kube"
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/cli-runtime/pkg/resource"
+	"k8s.io/client-go/rest/fake"
+
+	"github.com/databus23/helm-diff/v3/manifest"
 )
 
 func TestIsRemoteAccessAllowed(t *testing.T) {
@@ -451,5 +463,82 @@ func TestThreeWayMergeModeEnvVarOnlyAppliesToThreeWayMerge(t *testing.T) {
 				t.Fatalf("expected the env var to be rejected=%v, got err=%v", tc.expectErr, err)
 			}
 		})
+	}
+}
+
+// ownershipTestInfo returns a rendered ConfigMap backed by a fake API server
+// that serves the given live objects by name. Fetching a name listed in
+// mustNotGet fails the test.
+func ownershipTestInfo(t *testing.T, name string, annotations map[string]interface{}, live map[string]string, mustNotGet map[string]bool) *resource.Info {
+	t.Helper()
+	obj := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata": map[string]interface{}{
+			"name":        name,
+			"namespace":   "default",
+			"annotations": annotations,
+		},
+	}}
+	client := &fake.RESTClient{
+		NegotiatedSerializer: resource.UnstructuredPlusDefaultContentConfig().NegotiatedSerializer,
+		Client: fake.CreateHTTPClient(func(req *http.Request) (*http.Response, error) {
+			header := http.Header{"Content-Type": []string{"application/json"}}
+			liveName := path.Base(req.URL.Path)
+			if mustNotGet[liveName] {
+				t.Errorf("checkOwnership fetched the live object of hook %q", liveName)
+			}
+			body, ok := live[liveName]
+			if !ok {
+				return &http.Response{StatusCode: http.StatusNotFound, Header: header, Body: io.NopCloser(strings.NewReader(`{"kind":"Status","apiVersion":"v1","status":"Failure","reason":"NotFound","code":404}`))}, nil
+			}
+			return &http.Response{StatusCode: http.StatusOK, Header: header, Body: io.NopCloser(strings.NewReader(body))}, nil
+		}),
+	}
+	return &resource.Info{
+		Client:    client,
+		Namespace: "default",
+		Name:      name,
+		Object:    obj,
+		Mapping: &meta.RESTMapping{
+			Resource:         schema.GroupVersionResource{Version: "v1", Resource: "configmaps"},
+			GroupVersionKind: schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"},
+			Scope:            meta.RESTScopeNamespace,
+		},
+	}
+}
+
+func TestCheckOwnershipSkipsHooks(t *testing.T) {
+	live := map[string]string{
+		// A live object without the hook annotation: the check has to rely on
+		// the rendered object, like Helm does.
+		"hook":      `{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"hook","namespace":"default"}}`,
+		"test-hook": `{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"test-hook","namespace":"default","annotations":{"helm.sh/hook":"test"}}}`,
+		"unmanaged": `{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"unmanaged","namespace":"default"}}`,
+		"owned":     `{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"owned","namespace":"default","annotations":{"meta.helm.sh/release-name":"rel","meta.helm.sh/release-namespace":"default"}}}`,
+	}
+	hooks := map[string]bool{"hook": true, "test-hook": true}
+	resources := kube.ResourceList{
+		ownershipTestInfo(t, "hook", map[string]interface{}{"helm.sh/hook": "pre-install,pre-upgrade"}, live, hooks),
+		ownershipTestInfo(t, "test-hook", map[string]interface{}{"helm.sh/hook": "test"}, live, hooks),
+		ownershipTestInfo(t, "unmanaged", nil, live, hooks),
+		ownershipTestInfo(t, "owned", nil, live, hooks),
+	}
+	currentSpecs := make(map[string]*manifest.MappingResult)
+
+	newOwnedReleases, err := checkOwnership(&diffCmd{release: "rel", namespaces: namespaces{namespace: "default"}}, resources, currentSpecs)
+	if err != nil {
+		t.Fatalf("checkOwnership returned an error: %v", err)
+	}
+
+	const unmanagedKey = "default, unmanaged, ConfigMap (v1)"
+	if len(newOwnedReleases) != 1 {
+		t.Fatalf("expected an ownership change for %q only, got %v", unmanagedKey, newOwnedReleases)
+	}
+	if got := newOwnedReleases[unmanagedKey]; got.OldRelease != "" || got.NewRelease != "default/rel" {
+		t.Errorf("unexpected ownership change for %q: %+v", unmanagedKey, got)
+	}
+	if _, ok := currentSpecs[unmanagedKey]; !ok || len(currentSpecs) != 1 {
+		t.Errorf("expected only %q in the current specs, got %v", unmanagedKey, currentSpecs)
 	}
 }
