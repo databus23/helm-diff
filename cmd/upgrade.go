@@ -15,7 +15,9 @@ import (
 	"helm.sh/helm/v4/pkg/action"
 	"helm.sh/helm/v4/pkg/cli"
 	"helm.sh/helm/v4/pkg/kube"
+	releasev1 "helm.sh/helm/v4/pkg/release/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/cli-runtime/pkg/resource"
 
 	"github.com/databus23/helm-diff/v3/diff"
@@ -431,6 +433,16 @@ func checkOwnership(d *diffCmd, resources kube.ResourceList, currentSpecs map[st
 	err := resources.Visit(func(info *resource.Info, err error) error {
 		if err != nil {
 			return err
+		}
+
+		// Helm only adopts resources from the release manifest. Hooks are kept
+		// out of it and carry no ownership annotations, so skip them here.
+		accessor, err := meta.Accessor(info.Object)
+		if err != nil {
+			return err
+		}
+		if _, isHook := accessor.GetAnnotations()[releasev1.HookAnnotation]; isHook {
+			return nil
 		}
 
 		helper := resource.NewHelper(info.Client, info.Mapping)
