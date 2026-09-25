@@ -127,12 +127,16 @@ expect "C chart-change" "no error" '^Error:' absent
 
 ###############################################################################
 # Variant D: manual change on the CRD itself must be detected
+#
+# The drift must not stop the version from being served ("served: false"
+# makes the REST mapper unable to resolve kind Widget, so the new manifest
+# cannot even be built), so a chart-owned names field is drifted instead.
 ###############################################################################
-kubectl patch crd widgets.example.com --type=merge -p '{"spec":{"versions":[{"name":"v1","served":false,"storage":true,"schema":{"openAPIV3Schema":{"type":"object","x-kubernetes-preserve-unknown-fields":true}}}]}}' >/dev/null
+kubectl patch crd widgets.example.com --type=merge -p '{"spec":{"names":{"singular":"widg"}}}' >/dev/null
 
 run_diff "D crd-drift" noassert rel "$WORK/a" -n "$NS" --three-way-merge
-expect "D crd-drift" "diff entry for the live value (served: false)" '^[+-][[:space:]]*served: false' present
-expect "D crd-drift" "diff entry for the chart value (served: true)" '^[+-][[:space:]]*served: true' present
+expect "D crd-drift" "diff entry for the live value (singular: widg)" '^[+-][[:space:]]*singular: widg' present
+expect "D crd-drift" "diff entry for the chart value (singular: widget)" '^[+-][[:space:]]*singular: widget' present
 expect "D crd-drift" "no error" '^Error:' absent
 
 ###############################################################################
