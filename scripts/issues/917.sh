@@ -78,9 +78,12 @@ spec:
 # in the same chart ("no matches for kind Widget ... ensure CRDs are installed
 # first"), so the CRD has to exist in the cluster before the install. It is
 # still part of the release manifest via templates/, which is what scenario D
-# relies on.
+# relies on. Because the CRD then already exists when Helm installs the
+# release, it must carry the ownership metadata Helm requires to adopt it.
 kubectl apply -f <(printf '%s\n' "$CRD_YAML") >/dev/null
 kubectl wait --for=condition=Established crd/widgets.example.com --timeout=60s >/dev/null
+kubectl label crd widgets.example.com app.kubernetes.io/managed-by=Helm --overwrite >/dev/null
+kubectl annotate crd widgets.example.com meta.helm.sh/release-name=rel meta.helm.sh/release-namespace="$NS" --overwrite >/dev/null
 
 chart "$WORK/a" "${CRD_YAML}---
 ${CR_TMPL}"
