@@ -6,16 +6,23 @@ import (
 	jsoniter "github.com/json-iterator/go"
 )
 
-func deleteStatusAndTidyMetadata(obj []byte) (map[string]interface{}, error) {
-	var objectMap map[string]interface{}
+func deleteStatusAndTidyMetadata(obj []byte) (map[string]any, error) {
+	var objectMap map[string]any
 	err := jsoniter.Unmarshal(obj, &objectMap)
 	if err != nil {
 		return nil, fmt.Errorf("could not unmarshal byte sequence: %w", err)
 	}
 
+	if objectMap == nil {
+		return nil, nil
+	}
+
 	delete(objectMap, "status")
 
-	metadata := objectMap["metadata"].(map[string]interface{})
+	metadata, ok := objectMap["metadata"].(map[string]any)
+	if !ok {
+		return objectMap, nil
+	}
 
 	delete(metadata, "managedFields")
 	delete(metadata, "generation")
