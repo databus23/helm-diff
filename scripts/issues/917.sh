@@ -45,7 +45,7 @@ expect() {
 
 kubectl create namespace "$NS" 2>/dev/null || true
 
-CHART='apiVersion: apiextensions.k8s.io/v1
+CRD_YAML='apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   name: widgets.example.com
@@ -64,8 +64,9 @@ spec:
       openAPIV3Schema:
         type: object
         x-kubernetes-preserve-unknown-fields: true
----
-apiVersion: example.com/v1
+'
+
+CR_TMPL='apiVersion: example.com/v1
 kind: Widget
 metadata:
   name: w
@@ -73,26 +74,17 @@ spec:
   size: {{ .Values.size | default "small" }}
 '
 
-chart "$WORK/a" "$CHART"
-
-# Helm applies the CRD before the CR but does not wait for it to become
-# established, so the very first install can lose a race. Retry.
-ok=0
-for attempt in 1 2 3; do
-  if helm upgrade -i rel "$WORK/a" -n "$NS" > "$WORK/install.out" 2>&1; then
-    ok=1
-    break
-  fi
-  echo "===== helm install attempt ${attempt} failed ====="
-  cat "$WORK/install.out"
-  kubectl wait --for=condition=Established crd/widgets.example.com --timeout=30s >/dev/null 2>&1 || true
-  sleep 2
-done
-if [ "$ok" -ne 1 ]; then
-  echo "FAIL: could not install the release (#${ISSUE})"
-  exit 1
-fi
+# Helm cannot build a manifest whose CR refers to a CRD that is only defined
+# in the same chart ("no matches for kind Widget ... ensure CRDs are installed
+# first"), so the CRD has to exist in the cluster before the install. It is
+# still part of the release manifest via templates/, which is what scenario D
+# relies on.
+kubectl apply -f <(printf '%s\n' "$CRD_YAML") >/dev/null
 kubectl wait --for=condition=Established crd/widgets.example.com --timeout=60s >/dev/null
+
+chart "$WORK/a" "${CRD_YAML}---
+${CR_TMPL}"
+helm upgrade -i rel "$WORK/a" -n "$NS" >/dev/null
 kubectl get widget w -n "$NS" -o jsonpath='{.spec.size}'; echo " <- live CR size"
 
 ###############################################################################
