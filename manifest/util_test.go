@@ -34,12 +34,16 @@ func Test_deleteStatusAndTidyMetadata(t *testing.T) {
     "metadata": {
         "annotations": {
             "deployment.kubernetes.io/revision": "1",
-			"meta.helm.sh/release-name": "test-release",
-			"meta.helm.sh/release-namespace": "test-ns",
-			"other-annot": "value"
+            "meta.helm.sh/release-name": "test-release",
+            "meta.helm.sh/release-namespace": "test-ns",
+            "other-annot": "value"
         },
         "creationTimestamp": "2025-03-03T10:07:50Z",
         "generation": 1,
+        "labels": {
+            "app": "nginx",
+            "app.kubernetes.io/managed-by": "Helm"
+        },
         "name": "nginx-deployment",
         "namespace": "test-ns",
         "resourceVersion": "33648",
@@ -70,6 +74,9 @@ func Test_deleteStatusAndTidyMetadata(t *testing.T) {
 					"annotations": map[string]any{
 						"other-annot": "value",
 					},
+					"labels": map[string]interface{}{
+						"app": "nginx",
+					},
 					"name":      "nginx-deployment",
 					"namespace": "test-ns",
 				},
@@ -85,6 +92,96 @@ func Test_deleteStatusAndTidyMetadata(t *testing.T) {
 							},
 						},
 					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "empty labels are removed",
+			obj: []byte(`
+{
+    "kind": "ConfigMap",
+    "metadata": {
+        "labels": {
+            "app.kubernetes.io/managed-by": "Helm"
+        },
+        "name": "example"
+    }
+}
+`),
+			want: map[string]interface{}{
+				"kind": "ConfigMap",
+				"metadata": map[string]interface{}{
+					"name": "example",
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "null labels are removed (chart renders bare labels: key)",
+			obj: []byte(`
+{
+    "kind": "ConfigMap",
+    "metadata": {
+        "labels": null,
+        "name": "example"
+    }
+}
+`),
+			want: map[string]interface{}{
+				"kind": "ConfigMap",
+				"metadata": map[string]interface{}{
+					"name": "example",
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "null annotations are removed",
+			obj: []byte(`
+{
+    "kind": "ConfigMap",
+    "metadata": {
+        "annotations": null,
+        "labels": {
+            "app": "kept"
+        },
+        "name": "example"
+    }
+}
+`),
+			want: map[string]interface{}{
+				"kind": "ConfigMap",
+				"metadata": map[string]interface{}{
+					"labels": map[string]interface{}{
+						"app": "kept",
+					},
+					"name": "example",
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "labels with other keys are kept",
+			obj: []byte(`
+{
+    "kind": "ConfigMap",
+    "metadata": {
+        "labels": {
+            "app.kubernetes.io/managed-by": "Helm",
+            "app.kubernetes.io/name": "myapp"
+        },
+        "name": "example"
+    }
+}
+`),
+			want: map[string]interface{}{
+				"kind": "ConfigMap",
+				"metadata": map[string]interface{}{
+					"labels": map[string]interface{}{
+						"app.kubernetes.io/name": "myapp",
+					},
+					"name": "example",
 				},
 			},
 			wantErr: false,

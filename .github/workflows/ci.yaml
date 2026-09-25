@@ -13,13 +13,16 @@ jobs:
     if: "!contains(github.event.head_commit.message, '[ci skip]')"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: "go.mod"
 
       - name: Run unit tests
         run: make test
+
+      - name: Verify README flag tables
+        run: make verify-readme
 
       - name: Verify installation
         run: |
@@ -40,7 +43,7 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
         shell: [default]
         experimental: [false]
-        helm-version: [v3.18.6, v3.20.0, v4.1.0]
+        helm-version: [v3.18.6, v3.22.0, v4.3.0]
         include:
           - os: windows-latest
             shell: wsl
@@ -58,29 +61,29 @@ jobs:
           - os: windows-latest
             shell: wsl
             experimental: false
-            helm-version: v3.20.0
+            helm-version: v3.22.0
           - os: windows-latest
             shell: cygwin
             experimental: false
-            helm-version: v3.20.0
+            helm-version: v3.22.0
           - os: ubuntu-latest
             container: alpine
             shell: sh
             experimental: false
-            helm-version: v3.20.0
+            helm-version: v3.22.0
           - os: windows-latest
             shell: wsl
             experimental: false
-            helm-version: v4.1.0
+            helm-version: v4.3.0
           - os: windows-latest
             shell: cygwin
             experimental: false
-            helm-version: v4.1.0
+            helm-version: v4.3.0
           - os: ubuntu-latest
             container: alpine
             shell: sh
             experimental: false
-            helm-version: v4.1.0
+            helm-version: v4.3.0
 
     steps:
       - name: Disable autocrlf
@@ -89,16 +92,16 @@ jobs:
           git config --global core.autocrlf false
           git config --global core.eol lf
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup Helm
-        uses: azure/setup-helm@v4
+        uses: azure/setup-helm@v5
         with:
           version: "${{ matrix.helm-version }}"
 
       - name: Setup WSL
         if: "contains(matrix.shell, 'wsl')"
-        uses: Vampire/setup-wsl@v6
+        uses: Vampire/setup-wsl@v7
 
       - name: Setup Cygwin
         if: "contains(matrix.shell, 'cygwin')"
@@ -119,17 +122,17 @@ jobs:
           # That's why we cover only 2 Helm minor versions in this matrix.
           # See https://github.com/helmfile/helmfile/pull/286#issuecomment-1250161182 for more context.
           - helm-version: v3.18.6
-          - helm-version: v3.20.0
-          - helm-version: v4.1.0
+          - helm-version: v3.22.0
+          - helm-version: v4.3.0
     steps:
-      - uses: engineerd/setup-kind@v0.6.2
+      - uses: helm/kind-action@v1.15.0
         with:
-          skipClusterLogsExport: true
+          cluster_name: kind
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup Helm
-        uses: azure/setup-helm@v4
+        uses: azure/setup-helm@v5
         with:
           version: ${{ matrix.helm-version }}
 
@@ -150,3 +153,49 @@ jobs:
 
       - name: helm diff upgrade -C 3 --set replicaCount=2 --install helm-diff ./helm-diff
         run: helm diff upgrade -C 3 --set replicaCount=2 --install helm-diff ./helm-diff
+
+      # Flux-style setup: the release storage (sh.helm.release.v1.* secrets) lives
+      # in a separate storage namespace (flux-system) while the workloads are
+      # deployed into the target namespace (prod-apps). Exercises --storage-namespace,
+      # HELM_DIFF_STORAGE_NAMESPACE and the three-way-merge pipeline against a
+      # real cluster.
+      - name: Install release into prod-apps and move its storage to flux-system
+        run: |
+          helm upgrade -i storage-diff ./helm-diff -n prod-apps --create-namespace
+          kubectl create namespace flux-system
+          for secret in $(kubectl get secrets -n prod-apps -o name | grep '^secret/sh\.helm\.release\.v1\.storage-diff\.'); do
+            kubectl get -n prod-apps "${secret}" -o json \
+              | jq --arg ns flux-system '.metadata.namespace = $ns | del(.metadata.resourceVersion, .metadata.uid, .metadata.creationTimestamp)' \
+              | kubectl apply -f -
+            kubectl delete -n prod-apps "${secret}"
+          done
+
+      - name: Verify release storage is only visible in flux-system
+        run: |
+          if helm get manifest storage-diff -n prod-apps >/dev/null 2>&1; then
+            echo "unexpected: release storage still found in prod-apps" >&2
+            exit 1
+          fi
+          helm get manifest storage-diff -n flux-system >/dev/null
+
+      - name: helm diff upgrade fails without --storage-namespace
+        run: |
+          if helm diff upgrade storage-diff ./helm-diff -n prod-apps >/dev/null 2>&1; then
+            echo "unexpected: diff succeeded although the release storage is not in prod-apps" >&2
+            exit 1
+          fi
+
+      - name: helm diff upgrade --storage-namespace
+        run: helm diff upgrade storage-diff ./helm-diff -n prod-apps --storage-namespace flux-system
+
+      - name: helm diff upgrade with HELM_DIFF_STORAGE_NAMESPACE env var
+        run: HELM_DIFF_STORAGE_NAMESPACE=flux-system helm diff upgrade storage-diff ./helm-diff -n prod-apps
+
+      - name: helm diff upgrade --storage-namespace --three-way-merge
+        run: |
+          set -o pipefail
+          helm diff upgrade storage-diff ./helm-diff -n prod-apps --storage-namespace flux-system --three-way-merge --set replicaCount=2 | tee /tmp/three-way.out
+          grep -q 'replicas: 2' /tmp/three-way.out
+
+      - name: Run issue reproduction tests (scripts/issues)
+        run: scripts/issues/run.sh

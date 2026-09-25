@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -130,37 +131,48 @@ func compatibleHelm3Version() error {
 	return nil
 }
 
-func getRelease(release, namespace string) ([]byte, error) {
-	args := []string{"get", "manifest", release}
+// helmGetSubcmd is the `helm get` subcommand used to read data of a deployed release.
+const helmGetSubcmd = "get"
+
+// helmGetArgs builds the arguments for a `helm get <what> <release>` invocation.
+//
+// A revision of 0 means no --revision flag is passed, so helm defaults to the
+// newest revision of the release regardless of its status.
+func helmGetArgs(what, release string, revision int, namespace, kubeContext string) []string {
+	args := []string{helmGetSubcmd, what, release}
+	if revision > 0 {
+		args = append(args, "--revision", strconv.Itoa(revision))
+	}
 	if namespace != "" {
 		args = append(args, "--namespace", namespace)
 	}
-	cmd := exec.Command(os.Getenv("HELM_BIN"), args...)
+	if kubeContext != "" {
+		args = append(args, "--kube-context", kubeContext)
+	}
+	return args
+}
+
+// getRelease returns the manifest of the given release revision.
+// A revision of 0 means the newest revision.
+func getRelease(release string, revision int, namespace, kubeContext string) ([]byte, error) {
+	cmd := exec.Command(os.Getenv("HELM_BIN"), helmGetArgs("manifest", release, revision, namespace, kubeContext)...)
 	return outputWithRichError(cmd)
 }
 
-func getHooks(release, namespace string) ([]byte, error) {
-	args := []string{"get", "hooks", release}
+// getHooks returns the hooks of the given release revision.
+// A revision of 0 means the newest revision.
+func getHooks(release string, revision int, namespace, kubeContext string) ([]byte, error) {
+	cmd := exec.Command(os.Getenv("HELM_BIN"), helmGetArgs("hooks", release, revision, namespace, kubeContext)...)
+	return outputWithRichError(cmd)
+}
+
+func getChart(release, namespace, kubeContext string) (string, error) {
+	args := []string{helmGetSubcmd, "all", release, "--template", "{{.Release.Chart.Name}}"}
 	if namespace != "" {
 		args = append(args, "--namespace", namespace)
 	}
-	cmd := exec.Command(os.Getenv("HELM_BIN"), args...)
-	return outputWithRichError(cmd)
-}
-
-func getRevision(release string, revision int, namespace string) ([]byte, error) {
-	args := []string{"get", "manifest", release, "--revision", strconv.Itoa(revision)}
-	if namespace != "" {
-		args = append(args, "--namespace", namespace)
-	}
-	cmd := exec.Command(os.Getenv("HELM_BIN"), args...)
-	return outputWithRichError(cmd)
-}
-
-func getChart(release, namespace string) (string, error) {
-	args := []string{"get", "all", release, "--template", "{{.Release.Chart.Name}}"}
-	if namespace != "" {
-		args = append(args, "--namespace", namespace)
+	if kubeContext != "" {
+		args = append(args, "--kube-context", kubeContext)
 	}
 	cmd := exec.Command(os.Getenv("HELM_BIN"), args...)
 	out, err := outputWithRichError(cmd)
@@ -189,6 +201,9 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 	}
 	if d.namespace != "" {
 		flags = append(flags, "--namespace", d.namespace)
+	}
+	if d.kubeContext != "" {
+		flags = append(flags, "--kube-context", d.kubeContext)
 	}
 	if d.postRenderer != "" {
 		flags = append(flags, "--post-renderer", d.postRenderer)
@@ -291,6 +306,9 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 		flags = append(flags, "--take-ownership")
 	}
 
+	isHelmV4, _ := isHelmVersionGreaterThanEqual(helmV4Version)
+	flags = append(flags, serverSideFlags(isHelmV4, d.useUpgradeDryRun, d.serverSide)...)
+
 	var (
 		subcmd string
 		filter func([]byte) []byte
@@ -331,8 +349,14 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 		if !d.disableValidation && d.clusterAccessAllowed() {
 			isHelmV4, err := isHelmVersionGreaterThanEqual(helmV4Version)
 			if err == nil && isHelmV4 {
-				// Flag --validate has been deprecated, use '--dry-run=server' instead in Helm v4+
-				flags = append(flags, "--dry-run=server")
+				// For Helm v4, we use --dry-run=server by default to get correct .Capabilities.APIVersions.
+				// This is only applied if the user hasn't explicitly set --dry-run=client, --dry-run=true, or --dry-run=false.
+				// Note: dryRunMode="true" behaves like "client" (no cluster access).
+				// Note: dryRunMode="false" behaves like "none" (no dry-run flag at all).
+				// See https://github.com/databus23/helm-diff/issues/894
+				if !slices.Contains([]string{dryRunNoOptDefVal, envTrue, envFalse}, d.dryRunMode) {
+					flags = append(flags, "--dry-run=server")
+				}
 			} else {
 				flags = append(flags, "--validate")
 			}
@@ -353,49 +377,41 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 		// To keep the full compatibility with older helm-diff versions,
 		// we pass --dry-run to `helm template` only if Helm is greater than v3.13.0.
 		if useDryRunService, err := isHelmVersionAtLeast(minHelmVersionWithDryRunLookupSupport); err == nil && useDryRunService {
-			// However, which dry-run mode to use is still not clear.
-			//
-			// For compatibility with the old and new helm-diff options,
-			// old and new helm, we assume that the user wants to use the older `helm template --dry-run=client` mode
-			// if helm-diff has been invoked with any of the following flags:
-			//
-			// * no dry-run flags (to be consistent with helm-template)
-			// * --dry-run
-			// * --dry-run=""
-			// * --dry-run=client
-			//
-			// and the newer `helm template --dry-run=server` mode when invoked with:
-			//
-			// * --dry-run=server
-			//
-			// Any other values should result in errors.
-			//
-			// See the fllowing link for more details:
-			// - https://github.com/databus23/helm-diff/pull/458
-			// - https://github.com/helm/helm/pull/9426#issuecomment-1501005666
-			if d.dryRunMode == "server" {
-				// This is for security reasons!
-				//
-				// We give helm-template the additional cluster access for the helm `lookup` function
-				// only if the user has explicitly requested it by --dry-run=server,
-				//
-				// In other words, although helm-diff-upgrade implies limited cluster access by default,
-				// helm-diff-upgrade without a --dry-run flag does NOT imply
-				// full cluster-access via helm-template --dry-run=server!
-				flags = append(flags, "--dry-run=server")
-			} else {
-				// Since helm-diff 3.9.0 and helm 3.13.0, we pass --dry-run=client to `helm template` by default.
-				// This doesn't make any difference for helm-diff itself,
-				// because helm-template w/o flags is equivalent to helm-template --dry-run=client.
-				// See https://github.com/helm/helm/pull/9426#discussion_r1181397259
-				flags = append(flags, "--dry-run=client")
+			isHelmV4, _ := isHelmVersionGreaterThanEqual(helmV4Version)
+
+			// For Helm v4, --dry-run=server may already have been added above when
+			// clusterAccessAllowed() is true and d.dryRunMode is not "client", "true", or "false".
+			// In that case (Helm v4 and d.dryRunMode not "client"/"true"/"false"), we skip adding any
+			// additional dry-run flag here. In all other cases (Helm v3 or d.dryRunMode is "client"/"true"),
+			// we add the appropriate dry-run mode below.
+			// Note: dryRunMode="false" means no dry-run flag at all.
+			if d.dryRunMode == envFalse {
+				// "false" means no dry-run, skip adding any dry-run flag
+			} else if !(isHelmV4 && !slices.Contains([]string{dryRunNoOptDefVal, envTrue}, d.dryRunMode)) {
+				if d.dryRunMode == dryRunServer {
+					// This is for security reasons!
+					//
+					// We give helm-template the additional cluster access for the helm `lookup` function
+					// only if the user has explicitly requested it by --dry-run=server,
+					//
+					// In other words, although helm-diff-upgrade implies limited cluster access by default,
+					// helm-diff-upgrade without a --dry-run flag does NOT imply
+					// full cluster-access via helm-template --dry-run=server!
+					flags = append(flags, "--dry-run=server")
+				} else {
+					// Since helm-diff 3.9.0 and helm 3.13.0, we pass --dry-run=client to `helm template` by default.
+					// This doesn't make any difference for helm-diff itself,
+					// because helm-template w/o flags is equivalent to helm-template --dry-run=client.
+					// See https://github.com/helm/helm/pull/9426#discussion_r1181397259
+					flags = append(flags, "--dry-run=client")
+				}
 			}
 		}
 
 		subcmd = "template"
 
 		filter = func(s []byte) []byte {
-			return s
+			return stripOCIPullProgress(s)
 		}
 	}
 
@@ -408,9 +424,15 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 }
 
 func (d *diffCmd) writeExistingValues(f *os.File, all bool) error {
-	args := []string{"get", "values", d.release, "--output", "yaml"}
+	args := []string{helmGetSubcmd, "values", d.release, "--output", "yaml"}
 	if all {
 		args = append(args, "--all")
+	}
+	if storageNs := d.storage(); storageNs != "" {
+		args = append(args, "--namespace", storageNs)
+	}
+	if d.kubeContext != "" {
+		args = append(args, "--kube-context", d.kubeContext)
 	}
 	cmd := exec.Command(os.Getenv("HELM_BIN"), args...)
 	debugPrint("Executing %s", strings.Join(cmd.Args, " "))
@@ -469,4 +491,62 @@ func extractManifestFromHelmUpgradeDryRunOutput(s []byte, noHooks bool) []byte {
 	r = append(r, hooks...)
 
 	return r
+}
+
+// ociPullProgressRE matches Helm's OCI chart pull progress lines that Helm writes
+// to stdout before the rendered manifests when the chart, or one of its subcharts,
+// is pulled from an OCI registry.
+//
+// The lines reported in the wild are "Pulled: ..." and "Digest: ...";
+// "Pulling: ..." is matched defensively too.
+//
+// These lines are emitted at the start of a line and are not valid Kubernetes
+// manifests, so they are safe to strip. Top-level manifest keys are
+// apiVersion/kind/metadata/spec and never "Pulled", "Digest" or "Pulling";
+// any homonymous keys inside a manifest are indented and therefore not matched.
+//
+// See https://github.com/databus23/helm-diff/issues/1040
+var ociPullProgressRE = regexp.MustCompile(`(?m)^(?:Pulled|Digest|Pulling):[^\n]*\n?`)
+
+// stripOCIPullProgress removes Helm's OCI chart pull progress output that leaks
+// into the rendered manifest buffer when the chart (or a subchart) is pulled
+// from an OCI registry.
+//
+// Without this, the progress lines (e.g. "Pulled: ...", "Digest: ...") are
+// parsed as a YAML document lacking a Kind and break the downstream three-way
+// merge / kubeclient.Build():
+//
+//	unable to decode "": Object 'Kind' is missing in '{"Digest":"...","Pulled":"..."}'
+//
+// See https://github.com/databus23/helm-diff/issues/1040
+func stripOCIPullProgress(s []byte) []byte {
+	return ociPullProgressRE.ReplaceAll(s, []byte(""))
+}
+
+// serverSideFlags returns the --server-side flag(s) to forward to helm.
+//
+// The flag is Helm v4 only:
+//   - `helm upgrade` registers it as a string accepting "true", "false", "auto".
+//   - `helm template` registers it as a bool (default true); "auto" is rejected.
+//
+// The flag has no effect on manifest rendering in dry-run mode — both
+// `helm template` and `helm upgrade --dry-run` bail out before the apply
+// step where ServerSideApply is actually consulted. It is forwarded purely
+// for semantic correctness and so that helm-diff can be used as a drop-in
+// wrapper around `helm upgrade` with the same flags.
+func serverSideFlags(isHelmV4 bool, useUpgradeDryRun bool, serverSide string) []string {
+	if !isHelmV4 {
+		return nil
+	}
+	switch {
+	case useUpgradeDryRun:
+		// `helm upgrade`: forward all values including "auto".
+		return []string{"--server-side=" + serverSide}
+	case serverSide == envTrue || serverSide == envFalse:
+		// `helm template`: forward only bool-compatible values.
+		// "auto" is skipped — template's default (true) is reasonable.
+		return []string{"--server-side=" + serverSide}
+	default:
+		return nil
+	}
 }

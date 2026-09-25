@@ -278,7 +278,7 @@ annotations:
 
 	t.Run("OnChange", func(t *testing.T) {
 		var buf1 bytes.Buffer
-		diffOptions := Options{"diff", 10, false, true, false, []string{}, 0.0, []string{}}
+		diffOptions := Options{OutputFormat: "diff", OutputContext: 10, StripTrailingCR: false, ShowSecrets: true, ShowSecretsDecoded: false, SuppressedKinds: []string{}, FindRenames: 0.0, SuppressedOutputLineRegex: []string{}}
 
 		if changesSeen := Manifests(specBeta, specRelease, &diffOptions, &buf1); !changesSeen {
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
@@ -297,7 +297,7 @@ annotations:
 
 	t.Run("OnChangeWithSuppress", func(t *testing.T) {
 		var buf1 bytes.Buffer
-		diffOptions := Options{"diff", 10, false, true, false, []string{}, 0.0, []string{"apiVersion"}}
+		diffOptions := Options{OutputFormat: "diff", OutputContext: 10, StripTrailingCR: false, ShowSecrets: true, ShowSecretsDecoded: false, SuppressedKinds: []string{}, FindRenames: 0.0, SuppressedOutputLineRegex: []string{"apiVersion"}}
 
 		if changesSeen := Manifests(specBeta, specReleaseSpec, &diffOptions, &buf1); !changesSeen {
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
@@ -316,7 +316,7 @@ annotations:
 
 	t.Run("OnChangeWithSuppressAll", func(t *testing.T) {
 		var buf1 bytes.Buffer
-		diffOptions := Options{"diff", 10, false, true, false, []string{}, 0.0, []string{"apiVersion"}}
+		diffOptions := Options{OutputFormat: "diff", OutputContext: 10, StripTrailingCR: false, ShowSecrets: true, ShowSecretsDecoded: false, SuppressedKinds: []string{}, FindRenames: 0.0, SuppressedOutputLineRegex: []string{"apiVersion"}}
 
 		if changesSeen := Manifests(specBeta, specRelease, &diffOptions, &buf1); !changesSeen {
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
@@ -328,7 +328,7 @@ annotations:
 
 	t.Run("OnChangeRename", func(t *testing.T) {
 		var buf1 bytes.Buffer
-		diffOptions := Options{"diff", 10, false, true, false, []string{}, 0.5, []string{}}
+		diffOptions := Options{OutputFormat: "diff", OutputContext: 10, StripTrailingCR: false, ShowSecrets: true, ShowSecretsDecoded: false, SuppressedKinds: []string{}, FindRenames: 0.5, SuppressedOutputLineRegex: []string{}}
 
 		if changesSeen := Manifests(specReleaseSpec, specReleaseRenamed, &diffOptions, &buf1); !changesSeen {
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
@@ -349,7 +349,7 @@ annotations:
 
 	t.Run("OnChangeRenameAndUpdate", func(t *testing.T) {
 		var buf1 bytes.Buffer
-		diffOptions := Options{"diff", 10, false, true, false, []string{}, 0.5, []string{}}
+		diffOptions := Options{OutputFormat: "diff", OutputContext: 10, StripTrailingCR: false, ShowSecrets: true, ShowSecretsDecoded: false, SuppressedKinds: []string{}, FindRenames: 0.5, SuppressedOutputLineRegex: []string{}}
 
 		if changesSeen := Manifests(specReleaseSpec, specReleaseRenamedAndUpdated, &diffOptions, &buf1); !changesSeen {
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
@@ -371,7 +371,7 @@ annotations:
 
 	t.Run("OnChangeRenameAndAdded", func(t *testing.T) {
 		var buf1 bytes.Buffer
-		diffOptions := Options{"diff", 10, false, true, false, []string{}, 0.5, []string{}}
+		diffOptions := Options{OutputFormat: "diff", OutputContext: 10, StripTrailingCR: false, ShowSecrets: true, ShowSecretsDecoded: false, SuppressedKinds: []string{}, FindRenames: 0.5, SuppressedOutputLineRegex: []string{}}
 
 		if changesSeen := Manifests(specReleaseSpec, specReleaseRenamedAndAdded, &diffOptions, &buf1); !changesSeen {
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
@@ -395,7 +395,7 @@ annotations:
 
 	t.Run("OnChangeRenameAndAddedWithPartialSuppress", func(t *testing.T) {
 		var buf1 bytes.Buffer
-		diffOptions := Options{"diff", 10, false, true, false, []string{}, 0.5, []string{"app: "}}
+		diffOptions := Options{OutputFormat: "diff", OutputContext: 10, StripTrailingCR: false, ShowSecrets: true, ShowSecretsDecoded: false, SuppressedKinds: []string{}, FindRenames: 0.5, SuppressedOutputLineRegex: []string{"app: "}}
 
 		if changesSeen := Manifests(specReleaseSpec, specReleaseRenamedAndAdded, &diffOptions, &buf1); !changesSeen {
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
@@ -418,7 +418,7 @@ annotations:
 
 	t.Run("OnChangeRenameAndRemoved", func(t *testing.T) {
 		var buf1 bytes.Buffer
-		diffOptions := Options{"diff", 10, false, true, false, []string{}, 0.5, []string{}}
+		diffOptions := Options{OutputFormat: "diff", OutputContext: 10, StripTrailingCR: false, ShowSecrets: true, ShowSecretsDecoded: false, SuppressedKinds: []string{}, FindRenames: 0.5, SuppressedOutputLineRegex: []string{}}
 
 		if changesSeen := Manifests(specReleaseRenamedAndAdded, specReleaseSpec, &diffOptions, &buf1); !changesSeen {
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
@@ -442,7 +442,7 @@ annotations:
 
 	t.Run("OnChangeRenameAndRemovedWithPartialSuppress", func(t *testing.T) {
 		var buf1 bytes.Buffer
-		diffOptions := Options{"diff", 10, false, true, false, []string{}, 0.5, []string{"app: "}}
+		diffOptions := Options{OutputFormat: "diff", OutputContext: 10, StripTrailingCR: false, ShowSecrets: true, ShowSecretsDecoded: false, SuppressedKinds: []string{}, FindRenames: 0.5, SuppressedOutputLineRegex: []string{"app: "}}
 
 		if changesSeen := Manifests(specReleaseRenamedAndAdded, specReleaseSpec, &diffOptions, &buf1); !changesSeen {
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
@@ -465,7 +465,7 @@ annotations:
 
 	t.Run("OnNoChange", func(t *testing.T) {
 		var buf2 bytes.Buffer
-		diffOptions := Options{"diff", 10, false, true, false, []string{}, 0.0, []string{}}
+		diffOptions := Options{OutputFormat: "diff", OutputContext: 10, StripTrailingCR: false, ShowSecrets: true, ShowSecretsDecoded: false, SuppressedKinds: []string{}, FindRenames: 0.0, SuppressedOutputLineRegex: []string{}}
 
 		if changesSeen := Manifests(specRelease, specRelease, &diffOptions, &buf2); changesSeen {
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `false` to indicate that it has NOT seen any change(s), but was `true`")
@@ -476,7 +476,7 @@ annotations:
 
 	t.Run("OnChangeRemoved", func(t *testing.T) {
 		var buf1 bytes.Buffer
-		diffOptions := Options{"diff", 10, false, true, false, []string{}, 0.5, []string{}}
+		diffOptions := Options{OutputFormat: "diff", OutputContext: 10, StripTrailingCR: false, ShowSecrets: true, ShowSecretsDecoded: false, SuppressedKinds: []string{}, FindRenames: 0.5, SuppressedOutputLineRegex: []string{}}
 
 		if changesSeen := Manifests(specRelease, nil, &diffOptions, &buf1); !changesSeen {
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
@@ -494,7 +494,7 @@ annotations:
 
 	t.Run("OnChangeRemovedWithResourcePolicyKeep", func(t *testing.T) {
 		var buf2 bytes.Buffer
-		diffOptions := Options{"diff", 10, false, true, false, []string{}, 0.0, []string{}}
+		diffOptions := Options{OutputFormat: "diff", OutputContext: 10, StripTrailingCR: false, ShowSecrets: true, ShowSecretsDecoded: false, SuppressedKinds: []string{}, FindRenames: 0.0, SuppressedOutputLineRegex: []string{}}
 
 		if changesSeen := Manifests(specReleaseKeep, nil, &diffOptions, &buf2); changesSeen {
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `false` to indicate that it has NOT seen any change(s), but was `true`")
@@ -505,7 +505,7 @@ annotations:
 
 	t.Run("OnChangeSimple", func(t *testing.T) {
 		var buf1 bytes.Buffer
-		diffOptions := Options{"simple", 10, false, true, false, []string{}, 0.0, []string{}}
+		diffOptions := Options{OutputFormat: "simple", OutputContext: 10, StripTrailingCR: false, ShowSecrets: true, ShowSecretsDecoded: false, SuppressedKinds: []string{}, FindRenames: 0.0, SuppressedOutputLineRegex: []string{}}
 
 		if changesSeen := Manifests(specBeta, specRelease, &diffOptions, &buf1); !changesSeen {
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
@@ -518,7 +518,7 @@ Plan: 0 to add, 1 to change, 0 to destroy, 0 to change ownership.
 
 	t.Run("OnNoChangeSimple", func(t *testing.T) {
 		var buf2 bytes.Buffer
-		diffOptions := Options{"simple", 10, false, true, false, []string{}, 0.0, []string{}}
+		diffOptions := Options{OutputFormat: "simple", OutputContext: 10, StripTrailingCR: false, ShowSecrets: true, ShowSecretsDecoded: false, SuppressedKinds: []string{}, FindRenames: 0.0, SuppressedOutputLineRegex: []string{}}
 		if changesSeen := Manifests(specRelease, specRelease, &diffOptions, &buf2); changesSeen {
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `false` to indicate that it has NOT seen any change(s), but was `true`")
 		}
@@ -528,7 +528,7 @@ Plan: 0 to add, 1 to change, 0 to destroy, 0 to change ownership.
 
 	t.Run("OnChangeTemplate", func(t *testing.T) {
 		var buf1 bytes.Buffer
-		diffOptions := Options{"template", 10, false, true, false, []string{}, 0.0, []string{}}
+		diffOptions := Options{OutputFormat: "template", OutputContext: 10, StripTrailingCR: false, ShowSecrets: true, ShowSecretsDecoded: false, SuppressedKinds: []string{}, FindRenames: 0.0, SuppressedOutputLineRegex: []string{}}
 
 		if changesSeen := Manifests(specBeta, specRelease, &diffOptions, &buf1); !changesSeen {
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
@@ -546,7 +546,7 @@ Plan: 0 to add, 1 to change, 0 to destroy, 0 to change ownership.
 
 	t.Run("OnChangeJSON", func(t *testing.T) {
 		var buf1 bytes.Buffer
-		diffOptions := Options{"json", 10, false, true, false, []string{}, 0.0, []string{}}
+		diffOptions := Options{OutputFormat: "json", OutputContext: 10, StripTrailingCR: false, ShowSecrets: true, ShowSecretsDecoded: false, SuppressedKinds: []string{}, FindRenames: 0.0, SuppressedOutputLineRegex: []string{}}
 
 		if changesSeen := Manifests(specBeta, specRelease, &diffOptions, &buf1); !changesSeen {
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
@@ -564,7 +564,7 @@ Plan: 0 to add, 1 to change, 0 to destroy, 0 to change ownership.
 
 	t.Run("OnNoChangeTemplate", func(t *testing.T) {
 		var buf2 bytes.Buffer
-		diffOptions := Options{"template", 10, false, true, false, []string{}, 0.0, []string{}}
+		diffOptions := Options{OutputFormat: "template", OutputContext: 10, StripTrailingCR: false, ShowSecrets: true, ShowSecretsDecoded: false, SuppressedKinds: []string{}, FindRenames: 0.0, SuppressedOutputLineRegex: []string{}}
 
 		if changesSeen := Manifests(specRelease, specRelease, &diffOptions, &buf2); changesSeen {
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `false` to indicate that it has NOT seen any change(s), but was `true`")
@@ -576,7 +576,7 @@ Plan: 0 to add, 1 to change, 0 to destroy, 0 to change ownership.
 	t.Run("OnChangeCustomTemplate", func(t *testing.T) {
 		var buf1 bytes.Buffer
 		os.Setenv("HELM_DIFF_TPL", "testdata/customTemplate.tpl")
-		diffOptions := Options{"template", 10, false, true, false, []string{}, 0.0, []string{}}
+		diffOptions := Options{OutputFormat: "template", OutputContext: 10, StripTrailingCR: false, ShowSecrets: true, ShowSecretsDecoded: false, SuppressedKinds: []string{}, FindRenames: 0.0, SuppressedOutputLineRegex: []string{}}
 
 		if changesSeen := Manifests(specBeta, specRelease, &diffOptions, &buf1); !changesSeen {
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `false` to indicate that it has NOT seen any change(s), but was `true`")
@@ -602,6 +602,23 @@ spec:
       containers:
       - name: app
         image: demo:v1
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: node-type
+                operator: In
+                values:
+                - standard
+      priorities:
+      - 1
+      booleanArrayField:
+      - true
+      multiTypeField:
+      - 3
+      - true
+      - "string"
 `
 	newManifest := `
 apiVersion: apps/v1
@@ -616,9 +633,26 @@ spec:
       containers:
       - name: app
         image: demo:v2
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: node-type
+                operator: In
+                values:
+                - dedicated
+      priorities:
+      - 2
+      booleanArrayField:
+      - false
+      multiTypeField:
+      - false
+      - "new-string"
+      - 2
 `
-	oldIndex := manifest.Parse(oldManifest, "prod", true)
-	newIndex := manifest.Parse(newManifest, "prod", true)
+	oldIndex := manifest.Parse([]byte(oldManifest), "prod", true)
+	newIndex := manifest.Parse([]byte(newManifest), "prod", true)
 
 	var buf bytes.Buffer
 	changed := Manifests(oldIndex, newIndex, opts, &buf)
@@ -633,7 +667,7 @@ spec:
 	require.Equal(t, "Deployment", entry.Kind)
 	require.Equal(t, "prod", entry.Namespace)
 	require.Equal(t, "web", entry.Name)
-	require.Len(t, entry.Changes, 2)
+	require.Len(t, entry.Changes, 8)
 	replicasChange, ok := findChange(entry.Changes, "spec", "replicas")
 	require.True(t, ok)
 	require.InDelta(t, float64(2), replicasChange.OldValue, 0.001)
@@ -643,6 +677,36 @@ spec:
 	require.True(t, ok)
 	require.Equal(t, "demo:v1", imageChange.OldValue)
 	require.Equal(t, "demo:v2", imageChange.NewValue)
+
+	affinityChange, ok := findChange(entry.Changes, "spec.template.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].values", "0")
+	require.True(t, ok)
+	require.Equal(t, "standard", affinityChange.OldValue)
+	require.Equal(t, "dedicated", affinityChange.NewValue)
+
+	priorityChange, ok := findChange(entry.Changes, "spec.template.spec.priorities", "0")
+	require.True(t, ok)
+	require.InDelta(t, float64(1), priorityChange.OldValue, 0.001)
+	require.InDelta(t, float64(2), priorityChange.NewValue, 0.001)
+
+	booleanArrayFieldChange, ok := findChange(entry.Changes, "spec.template.spec.booleanArrayField", "0")
+	require.True(t, ok)
+	require.Equal(t, true, booleanArrayFieldChange.OldValue)
+	require.Equal(t, false, booleanArrayFieldChange.NewValue)
+
+	multiTypeFieldChange0, ok := findChange(entry.Changes, "spec.template.spec.multiTypeField", "0")
+	require.True(t, ok)
+	require.InDelta(t, float64(3), multiTypeFieldChange0.OldValue, 0.001)
+	require.Equal(t, false, multiTypeFieldChange0.NewValue)
+
+	multiTypeFieldChange1, ok := findChange(entry.Changes, "spec.template.spec.multiTypeField", "1")
+	require.True(t, ok)
+	require.Equal(t, true, multiTypeFieldChange1.OldValue)
+	require.Equal(t, "new-string", multiTypeFieldChange1.NewValue)
+
+	multiTypeFieldChange2, ok := findChange(entry.Changes, "spec.template.spec.multiTypeField", "2")
+	require.True(t, ok)
+	require.Equal(t, "string", multiTypeFieldChange2.OldValue)
+	require.InDelta(t, float64(2), multiTypeFieldChange2.NewValue, 0.001)
 }
 
 func TestStructuredOutputAddAndRemove(t *testing.T) {
@@ -654,9 +718,22 @@ kind: Job
 metadata:
   name: migrate
   namespace: ops
-spec: {}
+spec:
+  restartPolicy: "Never"
+  containers:
+  - name: app
+    image: demo:v1
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+          - matchExpressions:
+            - key: node-type
+              operator: In
+              values:
+              - standard
 `
-	newIndex := manifest.Parse(newManifest, "ops", true)
+	newIndex := manifest.Parse([]byte(newManifest), "ops", true)
 
 	var buf bytes.Buffer
 	changed := Manifests(map[string]*manifest.MappingResult{}, newIndex, opts, &buf)
@@ -665,6 +742,7 @@ spec: {}
 	var entries []StructuredEntry
 	require.NoError(t, json.Unmarshal(buf.Bytes(), &entries))
 	require.Len(t, entries, 1)
+
 	require.Equal(t, "ADD", entries[0].ChangeType)
 	require.True(t, entries[0].ResourceStatus.NewExists)
 	require.False(t, entries[0].ResourceStatus.OldExists)
@@ -702,8 +780,8 @@ metadata:
 data:
   password: Zm9v
 `
-	oldIndex := manifest.Parse(oldManifest, "default", true)
-	newIndex := manifest.Parse(newManifest, "default", true)
+	oldIndex := manifest.Parse([]byte(oldManifest), "default", true)
+	newIndex := manifest.Parse([]byte(newManifest), "default", true)
 
 	var buf bytes.Buffer
 	changed := Manifests(oldIndex, newIndex, opts, &buf)
@@ -822,8 +900,8 @@ metadata:
   name: test
   namespace: default
 `
-		oldIndex := manifest.Parse(emptyManifest, "default", true)
-		newIndex := manifest.Parse(validManifest, "default", true)
+		oldIndex := manifest.Parse([]byte(emptyManifest), "default", true)
+		newIndex := manifest.Parse([]byte(validManifest), "default", true)
 
 		var buf bytes.Buffer
 		changed := Manifests(oldIndex, newIndex, opts, &buf)
@@ -846,8 +924,8 @@ metadata:
   name: test
   namespace: default
 `
-		oldIndex := manifest.Parse(nullManifest, "default", true)
-		newIndex := manifest.Parse(validManifest, "default", true)
+		oldIndex := manifest.Parse([]byte(nullManifest), "default", true)
+		newIndex := manifest.Parse([]byte(validManifest), "default", true)
 
 		var buf bytes.Buffer
 		changed := Manifests(oldIndex, newIndex, opts, &buf)
@@ -890,8 +968,8 @@ data:
       deeply:
         value: new
 `
-		oldIndex := manifest.Parse(oldManifest, "default", true)
-		newIndex := manifest.Parse(newManifest, "default", true)
+		oldIndex := manifest.Parse([]byte(oldManifest), "default", true)
+		newIndex := manifest.Parse([]byte(newManifest), "default", true)
 
 		var buf bytes.Buffer
 		changed := Manifests(oldIndex, newIndex, opts, &buf)
@@ -944,8 +1022,8 @@ spec:
         - name: KEY2
           value: val2
 `
-		oldIndex := manifest.Parse(oldManifest, "prod", true)
-		newIndex := manifest.Parse(newManifest, "prod", true)
+		oldIndex := manifest.Parse([]byte(oldManifest), "prod", true)
+		newIndex := manifest.Parse([]byte(newManifest), "prod", true)
 
 		var buf bytes.Buffer
 		changed := Manifests(oldIndex, newIndex, opts, &buf)
@@ -967,8 +1045,8 @@ spec:
 		emptyManifest1 := ``
 		emptyManifest2 := ``
 
-		oldIndex := manifest.Parse(emptyManifest1, "default", true)
-		newIndex := manifest.Parse(emptyManifest2, "default", true)
+		oldIndex := manifest.Parse([]byte(emptyManifest1), "default", true)
+		newIndex := manifest.Parse([]byte(emptyManifest2), "default", true)
 
 		var buf bytes.Buffer
 		changed := Manifests(oldIndex, newIndex, opts, &buf)
@@ -1056,7 +1134,7 @@ stringData:
 
 	t.Run("OnChangeSecretWithByteData", func(t *testing.T) {
 		var buf1 bytes.Buffer
-		diffOptions := Options{"diff", 10, false, false, false, []string{}, 0.5, []string{}} // NOTE: ShowSecrets = false
+		diffOptions := Options{OutputFormat: "diff", OutputContext: 10, StripTrailingCR: false, ShowSecrets: false, ShowSecretsDecoded: false, SuppressedKinds: []string{}, FindRenames: 0.5, SuppressedOutputLineRegex: []string{}} // NOTE: ShowSecrets = false
 
 		if changesSeen := Manifests(specSecretWithByteData, specSecretWithByteDataChanged, &diffOptions, &buf1); !changesSeen {
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
@@ -1081,7 +1159,7 @@ stringData:
 
 	t.Run("OnChangeSecretWithStringData", func(t *testing.T) {
 		var buf1 bytes.Buffer
-		diffOptions := Options{"diff", 10, false, false, false, []string{}, 0.5, []string{}} // NOTE: ShowSecrets = false
+		diffOptions := Options{OutputFormat: "diff", OutputContext: 10, StripTrailingCR: false, ShowSecrets: false, ShowSecretsDecoded: false, SuppressedKinds: []string{}, FindRenames: 0.5, SuppressedOutputLineRegex: []string{}} // NOTE: ShowSecrets = false
 
 		if changesSeen := Manifests(specSecretWithStringData, specSecretWithStringDataChanged, &diffOptions, &buf1); !changesSeen {
 			t.Error("Unexpected return value from Manifests: Expected the return value to be `true` to indicate that it has seen any change(s), but was `false`")
@@ -1206,7 +1284,7 @@ data:
 
 	t.Run("OnChangeOwnershipWithoutSpecChange", func(t *testing.T) {
 		var buf1 bytes.Buffer
-		diffOptions := Options{"diff", 10, false, true, false, []string{}, 0.5, []string{}} // NOTE: ShowSecrets = false
+		diffOptions := Options{OutputFormat: "diff", OutputContext: 10, StripTrailingCR: false, ShowSecrets: true, ShowSecretsDecoded: false, SuppressedKinds: []string{}, FindRenames: 0.5, SuppressedOutputLineRegex: []string{}} // NOTE: ShowSecrets = false
 
 		newOwnedReleases := map[string]OwnershipDiff{
 			"default, foobar, ConfigMap (v1)": {
@@ -1226,7 +1304,7 @@ data:
 
 	t.Run("OnChangeOwnershipWithSpecChange", func(t *testing.T) {
 		var buf1 bytes.Buffer
-		diffOptions := Options{"diff", 10, false, true, false, []string{}, 0.5, []string{}} // NOTE: ShowSecrets = false
+		diffOptions := Options{OutputFormat: "diff", OutputContext: 10, StripTrailingCR: false, ShowSecrets: true, ShowSecretsDecoded: false, SuppressedKinds: []string{}, FindRenames: 0.5, SuppressedOutputLineRegex: []string{}} // NOTE: ShowSecrets = false
 
 		specNew := map[string]*manifest.MappingResult{
 			"default, foobar, ConfigMap (v1)": {
@@ -1591,5 +1669,130 @@ data:
 		}
 		redactSecrets(nil, new)
 		require.Contains(t, new.Content, "key1: '++++++++ # (6 bytes)'")
+	})
+}
+
+func TestRenameDetectionLengthRatio(t *testing.T) {
+	ansi.DisableColors(true)
+
+	makeSpec := func(name string, content string) map[string]*manifest.MappingResult {
+		return map[string]*manifest.MappingResult{
+			name: {
+				Name:    name,
+				Kind:    "Deployment",
+				Content: content,
+			},
+		}
+	}
+
+	shortContent := `
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: short
+spec:
+  replicas: 1
+`
+
+	shortContentRenamed := `
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: short-renamed
+spec:
+  replicas: 1
+`
+
+	longContent := `
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: very-long
+spec:
+  replicas: 1
+  template:
+    spec:
+      containers:
+      - name: app
+        image: myapp:v1
+        ports:
+        - containerPort: 8080
+        env:
+        - name: VAR1
+          value: "hello"
+        - name: VAR2
+          value: "world"
+        - name: VAR3
+          value: "foo"
+        - name: VAR4
+          value: "bar"
+        - name: VAR5
+          value: "baz"
+        resources:
+          limits:
+            cpu: "1"
+            memory: "1Gi"
+`
+
+	t.Run("similar length detects rename", func(t *testing.T) {
+		var buf bytes.Buffer
+		opts := &Options{OutputFormat: "diff", OutputContext: 10, ShowSecrets: true, FindRenames: 0.5}
+
+		oldSpec := makeSpec("default, short, Deployment (apps)", shortContent)
+		newSpec := makeSpec("default, short-renamed, Deployment (apps)", shortContentRenamed)
+
+		changed := Manifests(oldSpec, newSpec, opts, &buf)
+		require.True(t, changed)
+		require.Contains(t, buf.String(), "default, short, Deployment (apps) has changed")
+	})
+
+	t.Run("very different length skips rename", func(t *testing.T) {
+		var buf bytes.Buffer
+		opts := &Options{OutputFormat: "diff", OutputContext: 10, ShowSecrets: true, FindRenames: 0.5}
+
+		oldSpec := makeSpec("default, short, Deployment (apps)", shortContent)
+		newSpec := makeSpec("default, very-long, Deployment (apps)", longContent)
+
+		changed := Manifests(oldSpec, newSpec, opts, &buf)
+		require.True(t, changed)
+		require.Contains(t, buf.String(), "default, short, Deployment (apps) has been removed")
+		require.Contains(t, buf.String(), "default, very-long, Deployment (apps) has been added")
+	})
+
+	t.Run("empty content skipped", func(t *testing.T) {
+		var buf bytes.Buffer
+		opts := &Options{OutputFormat: "diff", OutputContext: 10, ShowSecrets: true, FindRenames: 0.5}
+
+		oldSpec := map[string]*manifest.MappingResult{
+			"default, empty, Deployment (apps)": {
+				Name:    "default, empty, Deployment (apps)",
+				Kind:    "Deployment",
+				Content: "",
+			},
+		}
+		newSpec := makeSpec("default, short-renamed, Deployment (apps)", shortContentRenamed)
+
+		changed := Manifests(oldSpec, newSpec, opts, &buf)
+		require.True(t, changed)
+		require.Contains(t, buf.String(), "has been added")
+	})
+
+	t.Run("different kind skipped", func(t *testing.T) {
+		var buf bytes.Buffer
+		opts := &Options{OutputFormat: "diff", OutputContext: 10, ShowSecrets: true, FindRenames: 0.5}
+
+		oldSpec := map[string]*manifest.MappingResult{
+			"default, svc, Service (v1)": {
+				Name:    "default, svc, Service (v1)",
+				Kind:    "Service",
+				Content: shortContent,
+			},
+		}
+		newSpec := makeSpec("default, svc-renamed, Deployment (apps)", shortContentRenamed)
+
+		changed := Manifests(oldSpec, newSpec, opts, &buf)
+		require.True(t, changed)
+		require.Contains(t, buf.String(), "has been removed")
+		require.Contains(t, buf.String(), "has been added")
 	})
 }

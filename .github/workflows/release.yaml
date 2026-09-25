@@ -1,3 +1,15 @@
+# Release workflow
+#
+# Prerequisites (configure in Settings > Secrets and variables > Actions):
+#   - GPG_PRIVATE_KEY: base64-encoded GPG private key for signing release artifacts
+#   - GPG_FINGERPRINT: Fingerprint of the GPG key
+#   - GPG_PASSPHRASE: Passphrase for the GPG private key
+#
+# Key management notes:
+#   - Use a key with no expiration or set a calendar reminder before expiry
+#   - To rotate: generate a new keypair, update all three secrets, and verify
+#     with a test release (see the provenance-smoke-test job)
+
 name: Release
 
 on:
@@ -11,6 +23,7 @@ on:
     branches:
       - 'main'
       - 'master'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -21,23 +34,183 @@ jobs:
     steps:
       -
         if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
-        run: echo "flags=--snapshot" >> $GITHUB_ENV
+        run: echo "flags=--snapshot --skip=sign" >> $GITHUB_ENV
       -
         name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
       -
         name: Set up Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
           go-version-file: 'go.mod'
       -
+        name: Import GPG key
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        run: |
+          gpgconf --launch gpg-agent
+          printf '%s' "${{ secrets.GPG_PRIVATE_KEY }}" | base64 --decode | gpg --batch --import
+      -
+        name: Set GPG environment for signing
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        run: |
+          echo "GPG_FINGERPRINT=${{ secrets.GPG_FINGERPRINT }}" >> "$GITHUB_ENV"
+          echo "GPG_PASSPHRASE=${{ secrets.GPG_PASSPHRASE }}" >> "$GITHUB_ENV"
+      -
         name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v6
+        uses: goreleaser/goreleaser-action@v7
         with:
           distribution: goreleaser
           version: '~> v1'
           args: release --clean ${{ env.flags }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      -
+        name: Verify archives bundle plugin files (snapshot only)
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        run: |
+          set -e
+          missing=0
+          for f in dist/helm-diff-*.tgz; do
+            echo "== $f =="
+            tar tzf "$f"
+            # Archives are wrapped in a directory named after the archive
+            # itself (required by helm 4 installs from a tarball, see #1071)
+            base="$(basename "$f" .tgz)"
+            for member in "$base/plugin.yaml" "$base/install-binary.sh" "$base/install-binary.ps1"; do
+              if ! tar tzf "$f" | grep -q "^${member}$"; then
+                echo "ERROR: ${member} missing from ${f}"
+                missing=1
+              fi
+            done
+            # the binary has a .exe suffix on windows archives
+            if ! tar tzf "$f" | grep -qE "^${base}/bin/diff(\\.exe)?$"; then
+              echo "ERROR: ${base}/bin/diff missing from ${f}"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo "Smoke test failed: required plugin files missing from one or more archives"
+            exit 1
+          fi
+          echo "Smoke test passed: all archives bundle plugin.yaml, install scripts, and binary"
+      -
+        name: Set up Helm
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        uses: azure/setup-helm@v5
+        with:
+          version: v3.18.6
+      -
+        name: End-to-end archive install test (snapshot only)
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        run: |
+          set -e
+          # Reproduce issue #504: extract a release archive and install from it.
+          mkdir -p /tmp/archive-test
+          tar xzf dist/helm-diff-linux-amd64.tgz -C /tmp/archive-test
+          echo "Extracted archive layout:"
+          find /tmp/archive-test/helm-diff-linux-amd64 -maxdepth 2 -type f | sort
+
+          out="$(helm plugin install /tmp/archive-test/helm-diff-linux-amd64 2>&1)"
+          echo "$out"
+          # The install hook must find the bundled binary already staged in
+          # HELM_PLUGIN_DIR and skip the network download.
+          echo "$out" | grep -q "skipping download" || {
+            echo "ERROR: install hook did not skip the download."
+            echo "Archive install must not hit the network (binary is already bundled)."
+            exit 1
+          }
+          helm diff version
+          echo "End-to-end archive install test passed: installed from archive without downloading"
+      -
+        name: Set up Helm 4
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        uses: azure/setup-helm@v5
+        with:
+          version: v4.3.0
+      -
+        # Regression test for issue #1071: helm 4 must be able to install
+        # directly from a local tarball (which it verifies by default), so
+        # archives must be wrapped in a directory named after the tarball.
+        name: Helm 4 offline tarball install test (snapshot only)
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        env:
+          HELM_DATA_HOME: /tmp/helm4-data
+        run: |
+          set -e
+          archive="dist/helm-diff-linux-amd64.tgz"
+
+          export GNUPGHOME="$(mktemp -d)"
+          chmod 700 "$GNUPGHOME"
+          gpg --batch --pinentry-mode loopback --passphrase '' \
+            --quick-generate-key "helm-diff-test" rsa3072 sign 0
+          GPG_FINGERPRINT=$(gpg --batch --with-colons --list-secret-keys "helm-diff-test" \
+            | grep '^fpr:' | head -1 | cut -d: -f10)
+          export GPG_FINGERPRINT GPG_PASSPHRASE=""
+
+          ./scripts/sign-provenance.sh "$archive" "$archive.prov"
+          gpg --export --armor "helm-diff-test" > /tmp/keyring.gpg
+
+          out="$(helm plugin install "$archive" --keyring /tmp/keyring.gpg 2>&1)"
+          echo "$out"
+          echo "$out" | grep -q "Plugin Hash Verified" || {
+            echo "ERROR: helm 4 did not verify the signed archive."
+            exit 1
+          }
+          helm diff version
+          echo "Helm 4 offline tarball install test passed: installed and verified from a local tarball"
+      -
+        name: Export and upload public key
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        run: |
+          gpg --export --armor "${{ secrets.GPG_FINGERPRINT }}" > pubkey.asc
+          gh release upload ${{ github.ref_name }} pubkey.asc
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  provenance-smoke-test:
+    runs-on: ubuntu-latest
+    if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v7
+      -
+        name: Test provenance signing with disposable key
+        run: |
+          export GNUPGHOME="$(mktemp -d)"
+          tmpdir="$(mktemp -d)"
+          trap 'rm -rf "$GNUPGHOME" "$tmpdir"' EXIT
+          chmod 700 "$GNUPGHOME"
+
+          gpg --batch --pinentry-mode loopback --passphrase '' \
+            --quick-generate-key "helm-diff-test" ed25519 sign 0
+          GPG_FINGERPRINT=$(gpg --batch --with-colons --list-secret-keys "helm-diff-test" \
+            | grep '^fpr:' | head -1 | cut -d: -f10)
+          export GPG_FINGERPRINT
+          export GPG_PASSPHRASE=""
+
+          echo "dummy binary" > "$tmpdir/bin"
+          tar czf "$tmpdir/helm-diff-linux-amd64.tgz" -C "$tmpdir" bin
+
+          ./scripts/sign-provenance.sh "$tmpdir/helm-diff-linux-amd64.tgz" "$tmpdir/helm-diff-linux-amd64.tgz.prov"
+
+          if [ ! -f "$tmpdir/helm-diff-linux-amd64.tgz.prov" ]; then
+            echo "ERROR: provenance file was not created"
+            exit 1
+          fi
+
+          echo "=== gpg --verify ==="
+          gpg --verify "$tmpdir/helm-diff-linux-amd64.tgz.prov"
+
+          echo ""
+          echo "=== Signed .prov content ==="
+          cat "$tmpdir/helm-diff-linux-amd64.tgz.prov"
+
+          echo ""
+          echo "=== Parsed provenance block ==="
+          gpg --batch --output - "$tmpdir/helm-diff-linux-amd64.tgz.prov" 2>/dev/null
+
+          echo ""
+          echo "Provenance smoke test passed"

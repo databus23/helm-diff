@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -14,7 +15,9 @@ import (
 	"helm.sh/helm/v4/pkg/action"
 	"helm.sh/helm/v4/pkg/cli"
 	"helm.sh/helm/v4/pkg/kube"
+	releasev1 "helm.sh/helm/v4/pkg/release/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/cli-runtime/pkg/resource"
 
 	"github.com/databus23/helm-diff/v3/diff"
@@ -22,11 +25,17 @@ import (
 )
 
 var (
-	validDryRunValues = []string{"server", "client", "true", "false"}
+	validDryRunValues   = []string{dryRunServer, dryRunNoOptDefVal, envTrue, envFalse}
+	validServerSideVals = []string{envTrue, envFalse, serverSideAuto}
 )
 
 const (
 	dryRunNoOptDefVal = "client"
+	dryRunNone        = "none"
+	dryRunServer      = "server"
+	envTrue           = "true"
+	envFalse          = "false"
+	serverSideAuto    = "auto"
 )
 
 type diffCmd struct {
@@ -40,7 +49,7 @@ type diffCmd struct {
 	disableOpenAPIValidation bool
 	enableDNS                bool
 	SkipSchemaValidation     bool
-	namespace                string // namespace to assume the release to be installed into. Defaults to the current kube config namespace.
+	namespaces               // target namespace (-n/--namespace) and helm release storage namespace (--storage-namespace)
 	valueFiles               valueFiles
 	values                   []string
 	stringValues             []string
@@ -61,9 +70,12 @@ type diffCmd struct {
 	normalizeManifests       bool
 	takeOwnership            bool
 	threeWayMerge            bool
+	threeWayMergeMode        string
+	serverSide               string
 	extraAPIs                []string
 	kubeVersion              string
 	useUpgradeDryRun         bool
+	revision                 int // 0 = newest, which is what helm returns by default.
 	diff.Options
 
 	// dryRunMode can take the following values:
@@ -72,7 +84,8 @@ type diffCmd struct {
 	// - "server": dry run is performed with remote cluster access
 	// - "true": same as "client"
 	// - "false": same as "none"
-	dryRunMode string
+	dryRunMode  string
+	kubeContext string
 }
 
 func (d *diffCmd) isAllowUnreleased() bool {
@@ -99,7 +112,22 @@ func (d *diffCmd) isAllowUnreleased() bool {
 //
 // See also https://github.com/helm/helm/pull/9426#discussion_r1181397259
 func (d *diffCmd) clusterAccessAllowed() bool {
-	return d.dryRunMode == "none" || d.dryRunMode == "false" || d.dryRunMode == "server"
+	return d.dryRunMode == dryRunNone || d.dryRunMode == envFalse || d.dryRunMode == dryRunServer
+}
+
+// validateRevision checks the --revision flag, which is only meaningful when the
+// flag was set and helm-diff is allowed to read the release from the cluster.
+func (d *diffCmd) validateRevision(changed bool) error {
+	if !changed {
+		return nil
+	}
+	if d.revision < 1 {
+		return fmt.Errorf("flag %q must be a positive revision number, but got %d", "revision", d.revision)
+	}
+	if !d.clusterAccessAllowed() {
+		return fmt.Errorf("flag %q requires cluster access, so it cannot be used with --dry-run=%s", "revision", d.dryRunMode)
+	}
+	return nil
 }
 
 const globalUsage = `Show a diff explaining what a helm upgrade would change.
@@ -110,13 +138,9 @@ This can be used to visualize what changes a helm upgrade will
 perform.
 `
 
-var envSettings = cli.New()
-
 func newChartCommand() *cobra.Command {
-	diff := diffCmd{
-		namespace: os.Getenv("HELM_NAMESPACE"),
-	}
-	unknownFlags := os.Getenv("HELM_DIFF_IGNORE_UNKNOWN_FLAGS") == "true"
+	diff := diffCmd{}
+	unknownFlags := os.Getenv("HELM_DIFF_IGNORE_UNKNOWN_FLAGS") == envTrue
 
 	cmd := &cobra.Command{
 		Use:   "upgrade [flags] [RELEASE] [CHART]",
@@ -141,6 +165,13 @@ func newChartCommand() *cobra.Command {
 			"  # Read the flag usage below for more information on --three-way-merge.",
 			"  HELM_DIFF_THREE_WAY_MERGE=true helm diff upgrade my-release datadog/datadog",
 			"",
+			"  # Set HELM_DIFF_THREE_WAY_MERGE_MODE=client to compute the three-way merge",
+			"  # locally, so that no permission to patch the cluster resources is needed.",
+			"  # It is only read once the three-way merge is on, hence the flag below.",
+			"  # This is equivalent to specifying the --three-way-merge-mode flag.",
+			"  # Read the flag usage below for more information on --three-way-merge-mode.",
+			"  HELM_DIFF_THREE_WAY_MERGE_MODE=client helm diff upgrade my-release datadog/datadog --three-way-merge",
+			"",
 			"  # Set HELM_DIFF_NORMALIZE_MANIFESTS=true to",
 			"  # normalize the yaml file content when using helm diff.",
 			"  # This is equivalent to specifying the --normalize-manifests flag.",
@@ -157,19 +188,31 @@ func newChartCommand() *cobra.Command {
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if diff.dryRunMode == "" {
-				diff.dryRunMode = "none"
+				diff.dryRunMode = dryRunNone
 			} else if !slices.Contains(validDryRunValues, diff.dryRunMode) {
-				return fmt.Errorf("flag %q must take a bool value or either %q or %q, but got %q", "dry-run", "client", "server", diff.dryRunMode)
+				return fmt.Errorf("flag %q must take a bool value or either %q or %q, but got %q", "dry-run", dryRunNoOptDefVal, dryRunServer, diff.dryRunMode)
+			}
+
+			if !slices.Contains(validServerSideVals, diff.serverSide) {
+				return fmt.Errorf("flag %q must be %q, %q or %q, but got %q", "server-side", envTrue, envFalse, serverSideAuto, diff.serverSide)
+			}
+
+			if !slices.Contains(manifest.ValidThreeWayMergeModes, diff.threeWayMergeMode) {
+				return fmt.Errorf("flag %q must be one of %q, but got %q", "three-way-merge-mode", manifest.ValidThreeWayMergeModes, diff.threeWayMergeMode)
+			}
+
+			if err := diff.validateRevision(cmd.Flags().Changed("revision")); err != nil {
+				return err
 			}
 
 			// Suppress the command usage on error. See #77 for more info
 			cmd.SilenceUsage = true
 
 			// See https://github.com/databus23/helm-diff/issues/253
-			diff.useUpgradeDryRun = os.Getenv("HELM_DIFF_USE_UPGRADE_DRY_RUN") == "true"
+			diff.useUpgradeDryRun = os.Getenv("HELM_DIFF_USE_UPGRADE_DRY_RUN") == envTrue
 
 			if !diff.threeWayMerge && !cmd.Flags().Changed("three-way-merge") {
-				enabled := os.Getenv("HELM_DIFF_THREE_WAY_MERGE") == "true"
+				enabled := os.Getenv("HELM_DIFF_THREE_WAY_MERGE") == envTrue
 				diff.threeWayMerge = enabled
 
 				if enabled {
@@ -177,8 +220,21 @@ func newChartCommand() *cobra.Command {
 				}
 			}
 
+			// Only consulted when the run actually performs a three-way merge:
+			// the variable may well be set for a different invocation, and an
+			// unrelated `helm diff upgrade` should not fail over a value it is
+			// never going to use. --take-ownership turns the merge on as well.
+			if (diff.threeWayMerge || diff.takeOwnership) && !cmd.Flags().Changed("three-way-merge-mode") {
+				if mode := os.Getenv("HELM_DIFF_THREE_WAY_MERGE_MODE"); mode != "" {
+					if !slices.Contains(manifest.ValidThreeWayMergeModes, mode) {
+						return fmt.Errorf("env var %q must be one of %q, but got %q", "HELM_DIFF_THREE_WAY_MERGE_MODE", manifest.ValidThreeWayMergeModes, mode)
+					}
+					diff.threeWayMergeMode = mode
+				}
+			}
+
 			if !diff.normalizeManifests && !cmd.Flags().Changed("normalize-manifests") {
-				enabled := os.Getenv("HELM_DIFF_NORMALIZE_MANIFESTS") == "true"
+				enabled := os.Getenv("HELM_DIFF_NORMALIZE_MANIFESTS") == envTrue
 				diff.normalizeManifests = enabled
 
 				if enabled {
@@ -210,8 +266,10 @@ func newChartCommand() *cobra.Command {
 	f := cmd.Flags()
 	var kubeconfig string
 	f.StringVar(&kubeconfig, "kubeconfig", "", "This flag is ignored, to allow passing of this top level flag to helm")
+	addNamespaceFlags(f, &diff.namespaces)
 	f.BoolVar(&diff.threeWayMerge, "three-way-merge", false, "use three-way-merge to compute patch and generate diff output")
-	// f.StringVar(&diff.kubeContext, "kube-context", "", "name of the kubeconfig context to use")
+	f.StringVar(&diff.threeWayMergeMode, "three-way-merge-mode", string(manifest.ThreeWayMergeAuto), `how --three-way-merge applies the computed patch. Must be "auto", "server" or "client". "server" dry-runs the patch against the API server, which requires the patch permission. "client" merges locally and needs read access only, at the cost of not applying server-side defaulting and mutating webhooks. "auto" uses the server and falls back to the client when patching is not permitted`)
+	f.StringVar(&diff.kubeContext, "kube-context", "", "name of the kubeconfig context to use")
 	f.StringVar(&diff.chartVersion, "version", "", "specify the exact chart version to use. If this is not specified, the latest version is used")
 	f.StringVar(&diff.chartRepo, "repo", "", "specify the chart repository url to locate the requested chart")
 	f.BoolVar(&diff.detailedExitCode, "detailed-exitcode", false, "return a non-zero exit code when there are changes")
@@ -248,6 +306,8 @@ func newChartCommand() *cobra.Command {
 	f.BoolVar(&diff.insecureSkipTLSVerify, "insecure-skip-tls-verify", false, "skip tls certificate checks for the chart download")
 	f.BoolVar(&diff.normalizeManifests, "normalize-manifests", false, "normalize manifests before running diff to exclude style differences from the output")
 	f.BoolVar(&diff.takeOwnership, "take-ownership", false, "if set, upgrade will ignore the check for helm annotations and take ownership of the existing resources")
+	f.IntVar(&diff.revision, "revision", 0, "revision of the release to use as the diff baseline instead of the newest one")
+	f.StringVar(&diff.serverSide, "server-side", serverSideAuto, `must be "true", "false" or "auto". Object updates run in the server instead of the client ("auto" defaults the value from the previous chart release's method)`)
 
 	AddDiffOptions(f, &diff.Options)
 
@@ -270,11 +330,14 @@ func (d *diffCmd) runHelm3() error {
 	}
 
 	if d.clusterAccessAllowed() {
-		releaseManifest, err = getRelease(d.release, d.namespace)
+		releaseManifest, err = getRelease(d.release, d.revision, d.storage(), d.kubeContext)
 	}
 
 	var newInstall bool
 	if err != nil && strings.Contains(err.Error(), "release: not found") {
+		if d.revision > 0 {
+			return fmt.Errorf("Failed to get revision %d of release %s in namespace %s: %w", d.revision, d.release, d.storage(), err)
+		}
 		if d.isAllowUnreleased() {
 			newInstall = true
 			err = nil
@@ -284,7 +347,7 @@ func (d *diffCmd) runHelm3() error {
 		}
 	}
 	if err != nil {
-		return fmt.Errorf("Failed to get release %s in namespace %s: %w", d.release, d.namespace, err)
+		return fmt.Errorf("Failed to get release %s in namespace %s: %w", d.release, d.storage(), err)
 	}
 
 	installManifest, err := d.template(!newInstall)
@@ -295,7 +358,12 @@ func (d *diffCmd) runHelm3() error {
 	var actionConfig *action.Configuration
 	if d.threeWayMerge || d.takeOwnership {
 		actionConfig = new(action.Configuration)
-		if err := actionConfig.Init(envSettings.RESTClientGetter(), envSettings.Namespace(), os.Getenv("HELM_DRIVER")); err != nil {
+		localEnv := prepareEnvSettings(d.kubeContext)
+		storageNs := d.storage()
+		if storageNs == "" {
+			storageNs = localEnv.Namespace()
+		}
+		if err := actionConfig.Init(localEnv.RESTClientGetter(), storageNs, os.Getenv("HELM_DRIVER")); err != nil {
 			log.Fatalf("%+v", err)
 		}
 		if err := actionConfig.KubeClient.IsReachable(); err != nil {
@@ -304,7 +372,8 @@ func (d *diffCmd) runHelm3() error {
 	}
 
 	if d.threeWayMerge {
-		releaseManifest, installManifest, err = manifest.Generate(actionConfig, releaseManifest, installManifest)
+		releaseManifest, installManifest, err = manifest.Generate(actionConfig, releaseManifest, installManifest,
+			manifest.WithThreeWayMergeMode(manifest.ThreeWayMergeMode(d.threeWayMergeMode)))
 		if err != nil {
 			return fmt.Errorf("unable to generate manifests: %w", err)
 		}
@@ -313,18 +382,19 @@ func (d *diffCmd) runHelm3() error {
 	currentSpecs := make(map[string]*manifest.MappingResult)
 	if !newInstall && d.clusterAccessAllowed() {
 		if !d.noHooks && !d.threeWayMerge {
-			hooks, err := getHooks(d.release, d.namespace)
+			hooks, err := getHooks(d.release, d.revision, d.storage(), d.kubeContext)
 			if err != nil {
 				return err
 			}
 			releaseManifest = append(releaseManifest, hooks...)
 		}
 		if d.includeTests {
-			currentSpecs = manifest.Parse(string(releaseManifest), d.namespace, d.normalizeManifests)
+			currentSpecs = manifest.Parse(releaseManifest, d.namespace, d.normalizeManifests)
 		} else {
-			currentSpecs = manifest.Parse(string(releaseManifest), d.namespace, d.normalizeManifests, manifest.Helm3TestHook, manifest.Helm2TestSuccessHook)
+			currentSpecs = manifest.Parse(releaseManifest, d.namespace, d.normalizeManifests, manifest.Helm3TestHook, manifest.Helm2TestSuccessHook)
 		}
 	}
+	releaseManifest = nil //nolint:ineffassign // nil to allow GC to reclaim raw bytes before diff computation
 
 	var newOwnedReleases map[string]diff.OwnershipDiff
 	if d.takeOwnership {
@@ -340,10 +410,11 @@ func (d *diffCmd) runHelm3() error {
 
 	var newSpecs map[string]*manifest.MappingResult
 	if d.includeTests {
-		newSpecs = manifest.Parse(string(installManifest), d.namespace, d.normalizeManifests)
+		newSpecs = manifest.Parse(installManifest, d.namespace, d.normalizeManifests)
 	} else {
-		newSpecs = manifest.Parse(string(installManifest), d.namespace, d.normalizeManifests, manifest.Helm3TestHook, manifest.Helm2TestSuccessHook)
+		newSpecs = manifest.Parse(installManifest, d.namespace, d.normalizeManifests, manifest.Helm3TestHook, manifest.Helm2TestSuccessHook)
 	}
+	installManifest = nil //nolint:ineffassign // nil to allow GC to reclaim raw bytes before diff computation
 
 	seenAnyChanges := diff.ManifestsOwnership(currentSpecs, newSpecs, newOwnedReleases, &d.Options, os.Stdout)
 
@@ -362,6 +433,16 @@ func checkOwnership(d *diffCmd, resources kube.ResourceList, currentSpecs map[st
 	err := resources.Visit(func(info *resource.Info, err error) error {
 		if err != nil {
 			return err
+		}
+
+		// Helm only adopts resources from the release manifest. Hooks are kept
+		// out of it and carry no ownership annotations, so skip them here.
+		accessor, err := meta.Accessor(info.Object)
+		if err != nil {
+			return err
+		}
+		if _, isHook := accessor.GetAnnotations()[releasev1.HookAnnotation]; isHook {
+			return nil
 		}
 
 		helper := resource.NewHelper(info.Client, info.Mapping)
@@ -399,4 +480,15 @@ func checkOwnership(d *diffCmd, resources kube.ResourceList, currentSpecs map[st
 		return nil
 	})
 	return newOwnedReleases, err
+}
+
+func prepareEnvSettings(kubeContext string) *cli.EnvSettings {
+	localEnv := cli.New()
+	if len(filepath.SplitList(localEnv.KubeConfig)) > 1 {
+		localEnv.KubeConfig = ""
+	}
+	if kubeContext != "" {
+		localEnv.KubeContext = kubeContext
+	}
+	return localEnv
 }

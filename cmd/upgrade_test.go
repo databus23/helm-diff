@@ -1,6 +1,24 @@
 package cmd
 
-import "testing"
+import (
+	"io"
+	"net/http"
+	"os"
+	"path"
+	"path/filepath"
+	"slices"
+	"strings"
+	"testing"
+
+	"helm.sh/helm/v4/pkg/kube"
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/cli-runtime/pkg/resource"
+	"k8s.io/client-go/rest/fake"
+
+	"github.com/databus23/helm-diff/v3/manifest"
+)
 
 func TestIsRemoteAccessAllowed(t *testing.T) {
 	cases := []struct {
@@ -59,5 +77,468 @@ func TestIsRemoteAccessAllowed(t *testing.T) {
 				t.Errorf("Expected %v, got %v", tc.expected, actual)
 			}
 		})
+	}
+}
+
+func TestPrepareEnvSettings_MultiFileKubeconfig(t *testing.T) {
+	original := os.Getenv("KUBECONFIG")
+	defer os.Setenv("KUBECONFIG", original)
+
+	cases := []struct {
+		name            string
+		kubeconfig      string
+		kubeContext     string
+		wantKubeConfig  string
+		wantKubeContext string
+	}{
+		{
+			name:            "single file kubeconfig is preserved",
+			kubeconfig:      "/path/to/config",
+			kubeContext:     "",
+			wantKubeConfig:  "/path/to/config",
+			wantKubeContext: "",
+		},
+		{
+			name:            "multi-file kubeconfig is cleared",
+			kubeconfig:      "/path/to/file1" + string(filepath.ListSeparator) + "/path/to/file2",
+			kubeContext:     "",
+			wantKubeConfig:  "",
+			wantKubeContext: "",
+		},
+		{
+			name:            "multi-file kubeconfig with three files is cleared",
+			kubeconfig:      "/a" + string(filepath.ListSeparator) + "/b" + string(filepath.ListSeparator) + "/c",
+			kubeContext:     "",
+			wantKubeConfig:  "",
+			wantKubeContext: "",
+		},
+		{
+			name:            "empty kubeconfig is preserved",
+			kubeconfig:      "",
+			kubeContext:     "",
+			wantKubeConfig:  "",
+			wantKubeContext: "",
+		},
+		{
+			name:            "kube-context override is applied",
+			kubeconfig:      "/path/to/config",
+			kubeContext:     "my-context",
+			wantKubeConfig:  "/path/to/config",
+			wantKubeContext: "my-context",
+		},
+		{
+			name:            "multi-file kubeconfig with kube-context override",
+			kubeconfig:      "/path/to/file1" + string(filepath.ListSeparator) + "/path/to/file2",
+			kubeContext:     "my-context",
+			wantKubeConfig:  "",
+			wantKubeContext: "my-context",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			os.Setenv("KUBECONFIG", tc.kubeconfig)
+
+			env := prepareEnvSettings(tc.kubeContext)
+
+			if env.KubeConfig != tc.wantKubeConfig {
+				t.Errorf("KubeConfig: got %q, want %q", env.KubeConfig, tc.wantKubeConfig)
+			}
+			if env.KubeContext != tc.wantKubeContext {
+				t.Errorf("KubeContext: got %q, want %q", env.KubeContext, tc.wantKubeContext)
+			}
+		})
+	}
+}
+
+func TestPrepareEnvSettings_ConfigFlagsPointToCorrectFields(t *testing.T) {
+	original := os.Getenv("KUBECONFIG")
+	defer os.Setenv("KUBECONFIG", original)
+
+	t.Run("config flags reflect kube-context override", func(t *testing.T) {
+		os.Setenv("KUBECONFIG", "/some/config")
+		env := prepareEnvSettings("my-override-context")
+
+		if env.KubeContext != "my-override-context" {
+			t.Errorf("env.KubeContext = %q, want %q", env.KubeContext, "my-override-context")
+		}
+	})
+
+	t.Run("multi-file kubeconfig does not set ExplicitPath", func(t *testing.T) {
+		multiPath := "/tmp/file1" + string(filepath.ListSeparator) + "/tmp/file2"
+		os.Setenv("KUBECONFIG", multiPath)
+
+		env := prepareEnvSettings("")
+
+		if env.KubeConfig != "" {
+			t.Errorf("env.KubeConfig = %q, want empty string for multi-file KUBECONFIG", env.KubeConfig)
+		}
+
+		getter := env.RESTClientGetter()
+		rawConfig := getter.ToRawKubeConfigLoader()
+		loadingRules := rawConfig.ConfigAccess()
+
+		if loadingRules != nil {
+			if explicitPath := loadingRules.GetExplicitFile(); explicitPath != "" {
+				t.Errorf("ExplicitPath = %q, want empty string for multi-file KUBECONFIG", explicitPath)
+			}
+		}
+	})
+
+	t.Run("single file kubeconfig preserves ExplicitPath", func(t *testing.T) {
+		os.Setenv("KUBECONFIG", "/tmp/single-config")
+
+		env := prepareEnvSettings("")
+
+		if env.KubeConfig != "/tmp/single-config" {
+			t.Errorf("env.KubeConfig = %q, want %q", env.KubeConfig, "/tmp/single-config")
+		}
+	})
+}
+
+func TestServerSideFlagValidation(t *testing.T) {
+	cases := []struct {
+		name      string
+		value     string
+		expectErr bool
+	}{
+		{name: "true", value: "true", expectErr: false},
+		{name: "false", value: "false", expectErr: false},
+		{name: "auto", value: "auto", expectErr: false},
+		{name: "invalid", value: "yes", expectErr: true},
+		{name: "empty", value: "", expectErr: true},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			valid := slices.Contains(validServerSideVals, tc.value)
+			if valid == tc.expectErr {
+				t.Errorf("value %q: expected valid=%v, got valid=%v", tc.value, !tc.expectErr, valid)
+			}
+		})
+	}
+}
+
+func TestValidateRevision(t *testing.T) {
+	cases := []struct {
+		name       string
+		revision   int
+		changed    bool
+		dryRunMode string
+		expectErr  bool
+	}{
+		{name: "unset", revision: 0, changed: false, dryRunMode: dryRunNone, expectErr: false},
+		{name: "positive revision", revision: 2, changed: true, dryRunMode: dryRunNone, expectErr: false},
+		{name: "positive revision with dry-run=server", revision: 2, changed: true, dryRunMode: dryRunServer, expectErr: false},
+		{name: "explicit zero", revision: 0, changed: true, dryRunMode: dryRunNone, expectErr: true},
+		{name: "negative revision", revision: -1, changed: true, dryRunMode: dryRunNone, expectErr: true},
+		{name: "dry-run=client denies cluster access", revision: 2, changed: true, dryRunMode: dryRunNoOptDefVal, expectErr: true},
+		{name: "dry-run=true denies cluster access", revision: 2, changed: true, dryRunMode: envTrue, expectErr: true},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			d := diffCmd{revision: tc.revision, dryRunMode: tc.dryRunMode}
+			err := d.validateRevision(tc.changed)
+			if (err != nil) != tc.expectErr {
+				t.Errorf("expected error=%v, got %v", tc.expectErr, err)
+			}
+		})
+	}
+}
+
+func TestUpgradeCommand_StorageNamespaceFlag(t *testing.T) {
+	cmd := newChartCommand()
+	f := cmd.Flags()
+
+	if f.Lookup("storage-namespace") == nil {
+		t.Fatal("expected flag --storage-namespace to be registered")
+	}
+
+	if f.Lookup("namespace") == nil {
+		t.Fatal("expected flag --namespace to be registered")
+	}
+
+	if f.ShorthandLookup("n") == nil {
+		t.Fatal("expected shorthand flag -n to be registered")
+	}
+
+	err := cmd.ParseFlags([]string{"--storage-namespace", "flux-system", "-n", "prod-apps"})
+	if err != nil {
+		t.Fatalf("unexpected error parsing flags: %v", err)
+	}
+
+	storageNs, err := cmd.Flags().GetString("storage-namespace")
+	if err != nil || storageNs != "flux-system" {
+		t.Errorf("expected storage-namespace=flux-system, got %q (err: %v)", storageNs, err)
+	}
+
+	ns, err := cmd.Flags().GetString("namespace")
+	if err != nil || ns != "prod-apps" {
+		t.Errorf("expected namespace=prod-apps, got %q (err: %v)", ns, err)
+	}
+}
+
+func TestUpgradeCommand_Execution_StorageNamespace(t *testing.T) {
+	manifestYAML := `---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-config
+  namespace: prod-apps
+data:
+  key: value
+`
+
+	t.Run("explicit flag separates storage and target namespace", func(t *testing.T) {
+		argsFile := t.TempDir() + "/args"
+		setupFakeHelm(t, "capture_args", manifestYAML, argsFile, "")
+
+		chartDir := t.TempDir()
+		cmd := newChartCommand()
+		cmd.SetArgs([]string{"my-release", chartDir, "--storage-namespace", "flux-system", "-n", "prod-apps"})
+
+		err := cmd.Execute()
+		if err != nil {
+			t.Fatalf("unexpected error executing upgrade command: %v", err)
+		}
+
+		data, err := os.ReadFile(argsFile)
+		if err != nil {
+			t.Fatalf("failed to read fake helm args: %v", err)
+		}
+		argsContent := string(data)
+
+		// get manifest should use storage namespace
+		if !strings.Contains(argsContent, "get manifest my-release --namespace flux-system") {
+			t.Errorf("expected 'helm get manifest' to use --namespace flux-system, got:\n%s", argsContent)
+		}
+		// template should use target namespace
+		if !strings.Contains(argsContent, "template my-release "+chartDir+" --namespace prod-apps") {
+			t.Errorf("expected 'helm template' to use --namespace prod-apps, got:\n%s", argsContent)
+		}
+	})
+
+	t.Run("env var sets storage namespace when flag is omitted", func(t *testing.T) {
+		argsFile := t.TempDir() + "/args"
+		setupFakeHelm(t, "capture_args", manifestYAML, argsFile, "")
+		t.Setenv("HELM_DIFF_STORAGE_NAMESPACE", "flux-system-env")
+
+		chartDir := t.TempDir()
+		cmd := newChartCommand()
+		cmd.SetArgs([]string{"my-release", chartDir, "-n", "prod-apps"})
+
+		err := cmd.Execute()
+		if err != nil {
+			t.Fatalf("unexpected error executing upgrade command: %v", err)
+		}
+
+		data, err := os.ReadFile(argsFile)
+		if err != nil {
+			t.Fatalf("failed to read fake helm args: %v", err)
+		}
+		argsContent := string(data)
+
+		// get manifest should use storage namespace from env var
+		if !strings.Contains(argsContent, "get manifest my-release --namespace flux-system-env") {
+			t.Errorf("expected 'helm get manifest' to use --namespace flux-system-env, got:\n%s", argsContent)
+		}
+		// template should use target namespace
+		if !strings.Contains(argsContent, "template my-release "+chartDir+" --namespace prod-apps") {
+			t.Errorf("expected 'helm template' to use --namespace prod-apps, got:\n%s", argsContent)
+		}
+	})
+
+	t.Run("defaults to target namespace when storage namespace is omitted", func(t *testing.T) {
+		argsFile := t.TempDir() + "/args"
+		setupFakeHelm(t, "capture_args", manifestYAML, argsFile, "")
+		t.Setenv("HELM_DIFF_STORAGE_NAMESPACE", "")
+
+		chartDir := t.TempDir()
+		cmd := newChartCommand()
+		cmd.SetArgs([]string{"my-release", chartDir, "-n", "prod-apps"})
+
+		err := cmd.Execute()
+		if err != nil {
+			t.Fatalf("unexpected error executing upgrade command: %v", err)
+		}
+
+		data, err := os.ReadFile(argsFile)
+		if err != nil {
+			t.Fatalf("failed to read fake helm args: %v", err)
+		}
+		argsContent := string(data)
+
+		// get manifest should use target namespace as fallback
+		if !strings.Contains(argsContent, "get manifest my-release --namespace prod-apps") {
+			t.Errorf("expected 'helm get manifest' to fall back to --namespace prod-apps, got:\n%s", argsContent)
+		}
+		// template should use target namespace
+		if !strings.Contains(argsContent, "template my-release "+chartDir+" --namespace prod-apps") {
+			t.Errorf("expected 'helm template' to use --namespace prod-apps, got:\n%s", argsContent)
+		}
+	})
+}
+
+func TestThreeWayMergeModeFlag(t *testing.T) {
+	if f := newChartCommand().Flags().Lookup("three-way-merge-mode"); f == nil {
+		t.Fatal("expected flag --three-way-merge-mode to be registered")
+	} else if f.DefValue != "auto" {
+		t.Errorf("expected --three-way-merge-mode to default to auto, got %q", f.DefValue)
+	}
+
+	cases := []struct {
+		name      string
+		args      []string
+		env       string
+		expectErr string
+	}{
+		{name: "server", args: []string{"--three-way-merge-mode", "server"}},
+		{name: "client", args: []string{"--three-way-merge-mode", "client"}},
+		{name: "auto", args: []string{"--three-way-merge-mode", "auto"}},
+		{name: "invalid flag", args: []string{"--three-way-merge-mode", "local"}, expectErr: "three-way-merge-mode"},
+		{name: "empty flag", args: []string{"--three-way-merge-mode", ""}, expectErr: "three-way-merge-mode"},
+		// The env var is only consulted when the run performs a three-way merge,
+		// so on its own it can neither take effect nor fail the command.
+		{name: "env var without three-way-merge", env: "client"},
+		{name: "invalid env var without three-way-merge", env: "local"},
+		{name: "flag wins over invalid env var", args: []string{"--three-way-merge-mode", "client"}, env: "local"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("HELM_DIFF_THREE_WAY_MERGE_MODE", tc.env)
+
+			chartDir := t.TempDir()
+			setupFakeHelm(t, "capture_args", "", chartDir+"/args", "")
+
+			cmd := newChartCommand()
+			cmd.SetArgs(append([]string{"my-release", chartDir}, tc.args...))
+
+			err := cmd.Execute()
+			switch {
+			case tc.expectErr == "" && err != nil:
+				t.Fatalf("unexpected error: %v", err)
+			case tc.expectErr != "" && err == nil:
+				t.Fatalf("expected an error mentioning %q, got none", tc.expectErr)
+			case tc.expectErr != "" && !strings.Contains(err.Error(), tc.expectErr):
+				t.Fatalf("expected error mentioning %q, got %v", tc.expectErr, err)
+			}
+		})
+	}
+}
+
+// The env var is rejected only where it is actually used, so that a value left
+// over in the environment cannot fail an unrelated `helm diff upgrade`.
+func TestThreeWayMergeModeEnvVarOnlyAppliesToThreeWayMerge(t *testing.T) {
+	cases := []struct {
+		name      string
+		args      []string
+		env       string
+		expectErr bool
+	}{
+		{name: "--three-way-merge", args: []string{"--three-way-merge"}, env: "local", expectErr: true},
+		{name: "--take-ownership", args: []string{"--take-ownership"}, env: "local", expectErr: true},
+		{name: "neither", env: "local", expectErr: false},
+		{name: "valid value with --three-way-merge", args: []string{"--three-way-merge"}, env: "client", expectErr: false},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("HELM_DIFF_THREE_WAY_MERGE_MODE", tc.env)
+
+			chartDir := t.TempDir()
+			setupFakeHelm(t, "capture_args", "", chartDir+"/args", "")
+
+			cmd := newChartCommand()
+			cmd.SetArgs(append([]string{"my-release", chartDir}, tc.args...))
+
+			err := cmd.Execute()
+			mentionsEnvVar := err != nil && strings.Contains(err.Error(), "HELM_DIFF_THREE_WAY_MERGE_MODE")
+
+			// A run that gets past validation goes on to reach for the cluster,
+			// which is not available here, so only the env var complaint itself
+			// is meaningful - not whether the command as a whole succeeded.
+			if mentionsEnvVar != tc.expectErr {
+				t.Fatalf("expected the env var to be rejected=%v, got err=%v", tc.expectErr, err)
+			}
+		})
+	}
+}
+
+// ownershipTestInfo returns a rendered ConfigMap backed by a fake API server
+// that serves the given live objects by name. Fetching a name listed in
+// mustNotGet fails the test.
+func ownershipTestInfo(t *testing.T, name string, annotations map[string]interface{}, live map[string]string, mustNotGet map[string]bool) *resource.Info {
+	t.Helper()
+	obj := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata": map[string]interface{}{
+			"name":        name,
+			"namespace":   "default",
+			"annotations": annotations,
+		},
+	}}
+	client := &fake.RESTClient{
+		NegotiatedSerializer: resource.UnstructuredPlusDefaultContentConfig().NegotiatedSerializer,
+		Client: fake.CreateHTTPClient(func(req *http.Request) (*http.Response, error) {
+			header := http.Header{"Content-Type": []string{"application/json"}}
+			liveName := path.Base(req.URL.Path)
+			if mustNotGet[liveName] {
+				t.Errorf("checkOwnership fetched the live object of hook %q", liveName)
+			}
+			body, ok := live[liveName]
+			if !ok {
+				return &http.Response{StatusCode: http.StatusNotFound, Header: header, Body: io.NopCloser(strings.NewReader(`{"kind":"Status","apiVersion":"v1","status":"Failure","reason":"NotFound","code":404}`))}, nil
+			}
+			return &http.Response{StatusCode: http.StatusOK, Header: header, Body: io.NopCloser(strings.NewReader(body))}, nil
+		}),
+	}
+	return &resource.Info{
+		Client:    client,
+		Namespace: "default",
+		Name:      name,
+		Object:    obj,
+		Mapping: &meta.RESTMapping{
+			Resource:         schema.GroupVersionResource{Version: "v1", Resource: "configmaps"},
+			GroupVersionKind: schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"},
+			Scope:            meta.RESTScopeNamespace,
+		},
+	}
+}
+
+func TestCheckOwnershipSkipsHooks(t *testing.T) {
+	live := map[string]string{
+		// A live object without the hook annotation: the check has to rely on
+		// the rendered object, like Helm does.
+		"hook":      `{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"hook","namespace":"default"}}`,
+		"test-hook": `{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"test-hook","namespace":"default","annotations":{"helm.sh/hook":"test"}}}`,
+		"unmanaged": `{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"unmanaged","namespace":"default"}}`,
+		"owned":     `{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"owned","namespace":"default","annotations":{"meta.helm.sh/release-name":"rel","meta.helm.sh/release-namespace":"default"}}}`,
+	}
+	hooks := map[string]bool{"hook": true, "test-hook": true}
+	resources := kube.ResourceList{
+		ownershipTestInfo(t, "hook", map[string]interface{}{"helm.sh/hook": "pre-install,pre-upgrade"}, live, hooks),
+		ownershipTestInfo(t, "test-hook", map[string]interface{}{"helm.sh/hook": "test"}, live, hooks),
+		ownershipTestInfo(t, "unmanaged", nil, live, hooks),
+		ownershipTestInfo(t, "owned", nil, live, hooks),
+	}
+	currentSpecs := make(map[string]*manifest.MappingResult)
+
+	newOwnedReleases, err := checkOwnership(&diffCmd{release: "rel", namespaces: namespaces{namespace: "default"}}, resources, currentSpecs)
+	if err != nil {
+		t.Fatalf("checkOwnership returned an error: %v", err)
+	}
+
+	const unmanagedKey = "default, unmanaged, ConfigMap (v1)"
+	if len(newOwnedReleases) != 1 {
+		t.Fatalf("expected an ownership change for %q only, got %v", unmanagedKey, newOwnedReleases)
+	}
+	if got := newOwnedReleases[unmanagedKey]; got.OldRelease != "" || got.NewRelease != "default/rel" {
+		t.Errorf("unexpected ownership change for %q: %+v", unmanagedKey, got)
+	}
+	if _, ok := currentSpecs[unmanagedKey]; !ok || len(currentSpecs) != 1 {
+		t.Errorf("expected only %q in the current specs, got %v", unmanagedKey, currentSpecs)
 	}
 }

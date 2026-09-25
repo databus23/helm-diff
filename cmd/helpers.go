@@ -17,7 +17,7 @@ var (
 )
 
 func isDebug() bool {
-	return os.Getenv("HELM_DEBUG") == "true"
+	return os.Getenv("HELM_DEBUG") == envTrue
 }
 func debugPrint(format string, a ...interface{}) {
 	if isDebug() {

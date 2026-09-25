@@ -3,6 +3,7 @@ package manifest_test
 import (
 	"os"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -27,8 +28,98 @@ func TestPod(t *testing.T) {
 
 	require.Equal(t,
 		[]string{"default, nginx, Pod (v1)"},
-		foundObjects(Parse(string(spec), "default", false)),
+		foundObjects(Parse(spec, "default", false)),
 	)
+}
+
+func TestParseStripsEmptyMetadataKeys(t *testing.T) {
+	tests := []struct {
+		name     string
+		manifest string
+		wantName string
+		want     []string
+	}{
+		{
+			name: "null labels line is removed",
+			manifest: `# Source: chart/templates/cm.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: example
+  labels:
+data:
+  foo: bar
+`,
+			wantName: "default, example, ConfigMap (v1)",
+			want:     []string{"# Source: chart/templates/cm.yaml", "apiVersion: v1", "kind: ConfigMap", "metadata:", "  name: example", "data:", "  foo: bar"},
+		},
+		{
+			name: "empty flow labels map is removed",
+			manifest: `apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: example
+  labels: {}
+data:
+  foo: bar
+`,
+			wantName: "default, example, ConfigMap (v1)",
+			want:     []string{"apiVersion: v1", "kind: ConfigMap", "metadata:", "  name: example", "data:", "  foo: bar"},
+		},
+		{
+			name: "null annotations line is removed",
+			manifest: `apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: example
+  annotations:
+data:
+  foo: bar
+`,
+			wantName: "default, example, ConfigMap (v1)",
+			want:     []string{"apiVersion: v1", "kind: ConfigMap", "metadata:", "  name: example", "data:", "  foo: bar"},
+		},
+		{
+			name: "labels with content are kept",
+			manifest: `apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: example
+  labels:
+    app: kept
+data:
+  foo: bar
+`,
+			wantName: "default, example, ConfigMap (v1)",
+			want:     []string{"apiVersion: v1", "kind: ConfigMap", "metadata:", "  name: example", "  labels:", "    app: kept", "data:", "  foo: bar"},
+		},
+		{
+			name: "nested spec template labels are kept",
+			manifest: `apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: example
+  labels:
+spec:
+  template:
+    metadata:
+      labels:
+        app: kept
+`,
+			wantName: "default, example, Deployment (apps)",
+			want:     []string{"apiVersion: apps/v1", "kind: Deployment", "metadata:", "  name: example", "spec:", "  template:", "    metadata:", "      labels:", "        app: kept"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := Parse([]byte(tt.manifest), "default", false)
+			require.Len(t, result, 1)
+			mapping, ok := result[tt.wantName]
+			require.True(t, ok, "expected resource %q in %v", tt.wantName, foundObjects(result))
+			require.Equal(t, tt.want, strings.Split(mapping.Content, "\n"))
+		})
+	}
 }
 
 func TestPodNamespace(t *testing.T) {
@@ -37,7 +128,7 @@ func TestPodNamespace(t *testing.T) {
 
 	require.Equal(t,
 		[]string{"batcave, nginx, Pod (v1)"},
-		foundObjects(Parse(string(spec), "default", false)),
+		foundObjects(Parse(spec, "default", false)),
 	)
 }
 
@@ -47,17 +138,17 @@ func TestPodHook(t *testing.T) {
 
 	require.Equal(t,
 		[]string{"default, nginx, Pod (v1)"},
-		foundObjects(Parse(string(spec), "default", false)),
+		foundObjects(Parse(spec, "default", false)),
 	)
 
 	require.Equal(t,
 		[]string{"default, nginx, Pod (v1)"},
-		foundObjects(Parse(string(spec), "default", false, "test-success")),
+		foundObjects(Parse(spec, "default", false, "test-success")),
 	)
 
 	require.Equal(t,
 		[]string{},
-		foundObjects(Parse(string(spec), "default", false, "test")),
+		foundObjects(Parse(spec, "default", false, "test")),
 	)
 }
 
@@ -67,7 +158,7 @@ func TestDeployV1(t *testing.T) {
 
 	require.Equal(t,
 		[]string{"default, nginx, Deployment (apps)"},
-		foundObjects(Parse(string(spec), "default", false)),
+		foundObjects(Parse(spec, "default", false)),
 	)
 }
 
@@ -77,7 +168,7 @@ func TestDeployV1Beta1(t *testing.T) {
 
 	require.Equal(t,
 		[]string{"default, nginx, Deployment (apps)"},
-		foundObjects(Parse(string(spec), "default", false)),
+		foundObjects(Parse(spec, "default", false)),
 	)
 }
 
@@ -90,7 +181,7 @@ func TestList(t *testing.T) {
 			"default, prometheus-operator-example, PrometheusRule (monitoring.coreos.com)",
 			"default, prometheus-operator-example2, PrometheusRule (monitoring.coreos.com)",
 		},
-		foundObjects(Parse(string(spec), "default", false)),
+		foundObjects(Parse(spec, "default", false)),
 	)
 }
 
@@ -103,7 +194,7 @@ func TestConfigMapList(t *testing.T) {
 			"default, configmap-2-1, ConfigMap (v1)",
 			"default, configmap-2-2, ConfigMap (v1)",
 		},
-		foundObjects(Parse(string(spec), "default", false)),
+		foundObjects(Parse(spec, "default", false)),
 	)
 }
 
@@ -116,7 +207,7 @@ func TestSecretList(t *testing.T) {
 			"default, my-secret-1, Secret (v1)",
 			"default, my-secret-2, Secret (v1)",
 		},
-		foundObjects(Parse(string(spec), "default", false)),
+		foundObjects(Parse(spec, "default", false)),
 	)
 }
 
@@ -126,7 +217,7 @@ func TestEmpty(t *testing.T) {
 
 	require.Equal(t,
 		[]string{},
-		foundObjects(Parse(string(spec), "default", false)),
+		foundObjects(Parse(spec, "default", false)),
 	)
 }
 
@@ -136,7 +227,7 @@ func TestBaseNameAnnotation(t *testing.T) {
 
 	require.Equal(t,
 		[]string{"default, bat-secret, Secret (v1)"},
-		foundObjects(Parse(string(spec), "default", false)),
+		foundObjects(Parse(spec, "default", false)),
 	)
 }
 

@@ -20,9 +20,15 @@ import (
 
 // Report to store report data and format
 type Report struct {
-	format  ReportFormat
-	Entries []ReportEntry
-	mode    string
+	format      ReportFormat
+	Entries     []ReportEntry
+	mode        string
+	findRenames float32
+	// diffToolCommand is the external diff tool command, resolved once when
+	// the report is generated (Options.configuredDiffToolCommand); it is empty
+	// when the built-in renderers are in use. Printing never re-reads the
+	// process environment.
+	diffToolCommand string
 }
 
 // ReportEntry to store changes between releases
@@ -61,17 +67,20 @@ type ReportTemplateSpec struct {
 func (r *Report) setupReportFormat(format string) {
 	r.mode = format
 	switch format {
-	case "simple":
+	case outputFormatDiff:
+		setupDiffReport(r)
+	case outputFormatSimple:
 		setupSimpleReport(r)
-	case "template":
+	case outputFormatTemplate:
 		setupTemplateReport(r)
-	case "json":
+	case outputFormatJSON:
 		setupJSONReport(r)
-	case "structured":
+	case outputFormatStructured:
 		setupStructuredReport(r)
-	case "dyff":
+	case outputFormatDyff:
 		setupDyffReport(r)
 	default:
+		// Unknown formats fall back to the default output (pre-existing behavior).
 		setupDiffReport(r)
 	}
 }
@@ -110,7 +119,15 @@ func printDyffReport(r *Report, to io.Writer) {
 
 	currentInputFile, newInputFile, _ := ytbx.LoadFiles(currentFile.Name(), newFile.Name())
 
-	report, _ := dyff.CompareInputFiles(currentInputFile, newInputFile)
+	var compareOptions []dyff.CompareOption
+	compareOptions = append(compareOptions,
+		dyff.IgnoreWhitespaceChanges(true),
+		dyff.KubernetesEntityDetection(true),
+	)
+	if r.findRenames > 0 {
+		compareOptions = append(compareOptions, dyff.DetectRenames(true))
+	}
+	report, _ := dyff.CompareInputFiles(currentInputFile, newInputFile, compareOptions...)
 	reportWriter := &dyff.HumanReport{
 		Report:               report,
 		OmitHeader:           true,
@@ -147,11 +164,11 @@ func (r *Report) clean() {
 func setupDiffReport(r *Report) {
 	r.format.output = printDiffReport
 	r.format.changestyles = make(map[string]ChangeStyle)
-	r.format.changestyles["ADD"] = ChangeStyle{color: "green", message: "has been added:"}
-	r.format.changestyles["REMOVE"] = ChangeStyle{color: "red", message: "has been removed:"}
-	r.format.changestyles["MODIFY"] = ChangeStyle{color: "yellow", message: "has changed:"}
-	r.format.changestyles["OWNERSHIP"] = ChangeStyle{color: "magenta", message: "changed ownership:"}
-	r.format.changestyles["MODIFY_SUPPRESSED"] = ChangeStyle{color: "blue+h", message: "has changed, but diff is empty after suppression."}
+	r.format.changestyles[changeTypeAdd] = ChangeStyle{color: "green", message: "has been added:"}
+	r.format.changestyles[changeTypeRemove] = ChangeStyle{color: "red", message: "has been removed:"}
+	r.format.changestyles[changeTypeModify] = ChangeStyle{color: "yellow", message: "has changed:"}
+	r.format.changestyles[changeTypeOwnership] = ChangeStyle{color: "magenta", message: "changed ownership:"}
+	r.format.changestyles[changeTypeModifySuppressed] = ChangeStyle{color: "blue+h", message: "has changed, but diff is empty after suppression."}
 }
 
 // print report for default output: diff
@@ -171,21 +188,21 @@ func printDiffReport(r *Report, to io.Writer) {
 func setupSimpleReport(r *Report) {
 	r.format.output = printSimpleReport
 	r.format.changestyles = make(map[string]ChangeStyle)
-	r.format.changestyles["ADD"] = ChangeStyle{color: "green", message: "to be added."}
-	r.format.changestyles["REMOVE"] = ChangeStyle{color: "red", message: "to be removed."}
-	r.format.changestyles["MODIFY"] = ChangeStyle{color: "yellow", message: "to be changed."}
-	r.format.changestyles["OWNERSHIP"] = ChangeStyle{color: "magenta", message: "to change ownership."}
-	r.format.changestyles["MODIFY_SUPPRESSED"] = ChangeStyle{color: "blue+h", message: "has changed, but diff is empty after suppression."}
+	r.format.changestyles[changeTypeAdd] = ChangeStyle{color: "green", message: "to be added."}
+	r.format.changestyles[changeTypeRemove] = ChangeStyle{color: "red", message: "to be removed."}
+	r.format.changestyles[changeTypeModify] = ChangeStyle{color: "yellow", message: "to be changed."}
+	r.format.changestyles[changeTypeOwnership] = ChangeStyle{color: "magenta", message: "to change ownership."}
+	r.format.changestyles[changeTypeModifySuppressed] = ChangeStyle{color: "blue+h", message: "has changed, but diff is empty after suppression."}
 }
 
 // print report for simple output
 func printSimpleReport(r *Report, to io.Writer) {
 	summary := map[string]int{
-		"ADD":               0,
-		"REMOVE":            0,
-		"MODIFY":            0,
-		"OWNERSHIP":         0,
-		"MODIFY_SUPPRESSED": 0,
+		changeTypeAdd:              0,
+		changeTypeRemove:           0,
+		changeTypeModify:           0,
+		changeTypeOwnership:        0,
+		changeTypeModifySuppressed: 0,
 	}
 	for _, entry := range r.Entries {
 		_, _ = fmt.Fprintf(to, ansi.Color("%s %s", r.format.changestyles[entry.ChangeType].color)+"\n",
@@ -194,7 +211,7 @@ func printSimpleReport(r *Report, to io.Writer) {
 		)
 		summary[entry.ChangeType]++
 	}
-	_, _ = fmt.Fprintf(to, "Plan: %d to add, %d to change, %d to destroy, %d to change ownership.\n", summary["ADD"], summary["MODIFY"], summary["REMOVE"], summary["OWNERSHIP"])
+	_, _ = fmt.Fprintf(to, "Plan: %d to add, %d to change, %d to destroy, %d to change ownership.\n", summary[changeTypeAdd], summary[changeTypeModify], summary[changeTypeRemove], summary[changeTypeOwnership])
 }
 
 func newTemplate(name string) *template.Template {
@@ -217,11 +234,11 @@ func setupJSONReport(r *Report) {
 
 	r.format.output = templateReportPrinter(t)
 	r.format.changestyles = make(map[string]ChangeStyle)
-	r.format.changestyles["ADD"] = ChangeStyle{color: "green", message: ""}
-	r.format.changestyles["REMOVE"] = ChangeStyle{color: "red", message: ""}
-	r.format.changestyles["MODIFY"] = ChangeStyle{color: "yellow", message: ""}
-	r.format.changestyles["OWNERSHIP"] = ChangeStyle{color: "magenta", message: ""}
-	r.format.changestyles["MODIFY_SUPPRESSED"] = ChangeStyle{color: "blue+h", message: ""}
+	r.format.changestyles[changeTypeAdd] = ChangeStyle{color: "green", message: ""}
+	r.format.changestyles[changeTypeRemove] = ChangeStyle{color: "red", message: ""}
+	r.format.changestyles[changeTypeModify] = ChangeStyle{color: "yellow", message: ""}
+	r.format.changestyles[changeTypeOwnership] = ChangeStyle{color: "magenta", message: ""}
+	r.format.changestyles[changeTypeModifySuppressed] = ChangeStyle{color: "blue+h", message: ""}
 }
 
 // setup report for template output
@@ -249,11 +266,11 @@ func setupTemplateReport(r *Report) {
 
 	r.format.output = templateReportPrinter(tpl)
 	r.format.changestyles = make(map[string]ChangeStyle)
-	r.format.changestyles["ADD"] = ChangeStyle{color: "green", message: ""}
-	r.format.changestyles["REMOVE"] = ChangeStyle{color: "red", message: ""}
-	r.format.changestyles["MODIFY"] = ChangeStyle{color: "yellow", message: ""}
-	r.format.changestyles["OWNERSHIP"] = ChangeStyle{color: "magenta", message: ""}
-	r.format.changestyles["MODIFY_SUPPRESSED"] = ChangeStyle{color: "blue+h", message: ""}
+	r.format.changestyles[changeTypeAdd] = ChangeStyle{color: "green", message: ""}
+	r.format.changestyles[changeTypeRemove] = ChangeStyle{color: "red", message: ""}
+	r.format.changestyles[changeTypeModify] = ChangeStyle{color: "yellow", message: ""}
+	r.format.changestyles[changeTypeOwnership] = ChangeStyle{color: "magenta", message: ""}
+	r.format.changestyles[changeTypeModifySuppressed] = ChangeStyle{color: "blue+h", message: ""}
 }
 
 func setupStructuredReport(r *Report) {

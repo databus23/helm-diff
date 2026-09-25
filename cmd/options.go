@@ -14,6 +14,7 @@ func AddDiffOptions(f *pflag.FlagSet, o *diff.Options) {
 	f.StringArrayVar(&o.SuppressedKinds, "suppress", []string{}, "allows suppression of the kinds listed in the diff output (can specify multiple, like '--suppress Deployment --suppress Service')")
 	f.IntVarP(&o.OutputContext, "context", "C", -1, "output NUM lines of context around changes")
 	f.StringVar(&o.OutputFormat, "output", "diff", "Possible values: diff, simple, template, json, structured, dyff. When set to \"template\", use the env var HELM_DIFF_TPL to specify the template.")
+	f.StringVar(&o.DiffToolCommand, "diff-tool", "", "command used to compare the manifests instead of the built-in --output renderers (can also be set via the env var HELM_DIFF_TOOL). The old and the new manifest file paths are appended as the last two arguments")
 	f.BoolVar(&o.StripTrailingCR, "strip-trailing-cr", false, "strip trailing carriage return on input")
 	f.Float32VarP(&o.FindRenames, "find-renames", "D", 0, "Enable rename detection if set to any value greater than 0. If specified, the value denotes the maximum fraction of changed content as lines added + removed compared to total lines in a diff for considering it a rename. Only objects of the same Kind are attempted to be matched")
 	f.StringArrayVar(&o.SuppressedOutputLineRegex, "suppress-output-line-regex", []string{}, "a regex to suppress diff output lines that match")
@@ -23,5 +24,14 @@ func AddDiffOptions(f *pflag.FlagSet, o *diff.Options) {
 func ProcessDiffOptions(f *pflag.FlagSet, o *diff.Options) {
 	if q, _ := f.GetBool("suppress-secrets"); q {
 		o.SuppressedKinds = append(o.SuppressedKinds, "Secret")
+	}
+
+	// HELM_DIFF_TOOL is a convenience for interactive use (e.g. set in a shell
+	// profile). An explicit flag is a deliberate choice and must win over it —
+	// explicit flag > environment > default — so that e.g. a CI job parsing
+	// `--output json` stdout cannot be silently broken by an inherited variable.
+	// An explicitly empty --diff-tool likewise disables the tool outright.
+	if f.Changed("diff-tool") || f.Changed("output") {
+		o.IgnoreDiffToolEnvVar()
 	}
 }

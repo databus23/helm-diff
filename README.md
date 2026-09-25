@@ -6,8 +6,8 @@
 
 This is a Helm plugin giving you a preview of what a `helm upgrade` would change.
 It basically generates a diff between the latest deployed version of a release
-and a `helm upgrade --debug --dry-run`. This can also be used to compare two
-revisions/versions of your helm release.
+and a `helm template`-rendered manifest (or `helm upgrade --dry-run` when `HELM_DIFF_USE_UPGRADE_DRY_RUN=true` is set).
+This can also be used to compare two revisions/versions of your helm release.
 
 <a href="https://asciinema.org/a/105326" target="_blank"><img src="https://asciinema.org/a/105326.png" /></a>
 
@@ -21,13 +21,70 @@ revisions/versions of your helm release.
 helm plugin install https://github.com/databus23/helm-diff
 ```
 
+### Installing offline
+
+If installing this in an offline/airgapped environment, download the platform-specific binary archive (e.g., `helm-diff-linux-amd64.tgz` or `helm-diff-windows-amd64.tgz`) from [releases](https://github.com/databus23/helm-diff/releases). Make sure to select the correct `.tgz` file for your operating system and architecture.
+
+The release archives include everything needed to install the plugin (binary, `plugin.yaml`, and the install scripts). Each archive wraps its content in a directory named after the archive itself (e.g. `helm-diff-linux-amd64/`), which is what Helm 4 expects when installing from a tarball.
+
+The simplest way to install offline is to extract the archive and point `helm plugin install` at the extracted directory:
+
+```
+tar xzf helm-diff-linux-amd64.tgz   # extracts into a ./helm-diff-linux-amd64 directory
+helm plugin install ./helm-diff-linux-amd64
+```
+
+The install script detects that the binary is already bundled and skips the GitHub download.
+
+Alternatively, if you keep a separate local checkout of the plugin source, you can point the installer at a downloaded `.tgz` via the `HELM_DIFF_BIN_TGZ` environment variable.
+
+Set `HELM_DIFF_BIN_TGZ` to the absolute path to the downloaded binary archive:
+
+**POSIX shell:**
+```sh
+export HELM_DIFF_BIN_TGZ=/path/to/helm-diff-linux-amd64.tgz
+
+
+**PowerShell:**
+```powershell
+$env:HELM_DIFF_BIN_TGZ = "C:\path\to\helm-diff-bin.tgz"
+```
+
+Now, run `helm plugin install /path/to/helm-diff/`.
+Here, `/path/to/helm-diff/` must be a local copy of the Helm Diff plugin source directory (including `plugin.yaml` and the install scripts), for example from a repo you cloned or a source archive you downloaded earlier and transferred into the offline environment.
+The install script will skip the GitHub download and instead install from the `.tgz`.
+
 **For Helm 4 users:**
 
-Helm 4 requires plugin verification by default. Since this plugin does not yet provide provenance artifacts, you need to use the `--verify=false` flag:
+Helm 4 verifies plugin provenance by default. This project publishes GPG-signed provenance artifacts (`.prov`) alongside release tarballs. To verify, import the project's public key into your keyring and install from a direct tarball URL (git repo URLs do not support provenance verification):
 
 ```shell
-helm plugin install https://github.com/databus23/helm-diff --verify=false
+curl -sL https://github.com/databus23.gpg | gpg --import
+gpg --list-keys --with-fingerprint EA17A2A206AFF8CD
+# Expected fingerprint: C5645EF4 7482257A 1F806D2B EA17A2A2 06AFF8CD
+helm plugin install https://github.com/databus23/helm-diff/releases/latest/download/helm-diff-linux-amd64.tgz
 ```
+
+For offline/airgapped environments with Helm 4, transfer the release tarball **together with its `.prov` file** (and keep the original tarball file name — provenance verification matches the file name against the checksums recorded in the `.prov` file) and install directly from the tarball:
+
+```shell
+curl -LO https://github.com/databus23/helm-diff/releases/download/<TAG>/helm-diff-linux-amd64.tgz
+curl -LO https://github.com/databus23/helm-diff/releases/download/<TAG>/helm-diff-linux-amd64.tgz.prov
+helm plugin install helm-diff-linux-amd64.tgz --keyring <path-to-keyring.gpg>
+```
+
+(Replace `<TAG>` with the release you are installing. The direct tarball install requires Helm 4. On Helm 3, extract the archive and install from the extracted directory as described above.)
+
+For offline/airgapped environments, download the public key from the maintainer's GitHub profile on a connected machine, transfer it, and import it locally:
+
+```shell
+curl -sL https://github.com/databus23.gpg -o pubkey.asc
+gpg --import pubkey.asc
+gpg --list-keys --with-fingerprint EA17A2A206AFF8CD
+# Expected fingerprint: C5645EF4 7482257A 1F806D2B EA17A2A2 06AFF8CD
+```
+
+The public key fingerprint is published in the notes for each GitHub release.
 
 For more information about Helm 4's plugin verification, see:
 - [Helm 4 Overview](https://helm.sh/docs/overview)
@@ -37,11 +94,12 @@ For more information about Helm 4's plugin verification, see:
 ### Pre Helm 2.3.0 Installation
 Pick a release tarball from the [releases](https://github.com/databus23/helm-diff/releases) page.
 
-Unpack the tarball in your helm plugins directory (`$(helm home)/plugins`).
+Unpack the tarball in your helm plugins directory (`$(helm home)/plugins`) into a `diff` directory.
 
 E.g.
 ```
-curl -L $TARBALL_URL | tar -C $(helm home)/plugins -xzv
+mkdir -p $(helm home)/plugins/diff
+curl -L $TARBALL_URL | tar -C $(helm home)/plugins/diff --strip-components=1 -xzv
 ```
 
 ### From Source
@@ -87,6 +145,7 @@ Usage:
 
 Available Commands:
   completion  Generate the autocompletion script for the specified shell
+  local       Shows diff between two local chart directories
   release     Shows diff between release's manifests
   revision    Shows diff between revision's manifests
   rollback    Show a diff explaining what a helm rollback could perform
@@ -100,6 +159,7 @@ Flags:
   -C, --context int                              output NUM lines of context around changes (default -1)
       --detailed-exitcode                        return a non-zero exit code when there are changes
       --devel                                    use development versions, too. Equivalent to version '>0.0.0-0'. If --version is set, this is ignored.
+      --diff-tool string                         command used to compare the manifests instead of the built-in --output renderers (can also be set via the env var HELM_DIFF_TOOL). The old and the new manifest file paths are appended as the last two arguments
       --disable-openapi-validation               disables rendered templates validation against the Kubernetes OpenAPI Schema
       --disable-validation                       disables rendered templates validation against the Kubernetes cluster you are currently pointing to. This is the same validation performed on an install
       --dry-run string[="client"]                --dry-run, --dry-run=client, or --dry-run=true disables cluster access and show diff as if it was install. Implies --install, --reset-values, and --disable-validation. --dry-run=server enables the cluster access with helm-get and the lookup template function.
@@ -110,8 +170,10 @@ Flags:
       --include-tests                            enable the diffing of the helm test hooks
       --insecure-skip-tls-verify                 skip tls certificate checks for the chart download
       --install                                  enables diffing of releases that are not yet deployed via Helm (equivalent to --allow-unreleased, added to match "helm upgrade --install" command
+      --kube-context string                      name of the kubeconfig context to use
       --kube-version string                      Kubernetes version used for Capabilities.KubeVersion
       --kubeconfig string                        This flag is ignored, to allow passing of this top level flag to helm
+  -n, --namespace string                         namespace to assume the release to be installed into. Defaults to the current kube config namespace.
       --no-color                                 remove colors from the output. If both --no-color and --color are unspecified, coloring enabled only when the stdout is a term and TERM is not "dumb"
       --no-hooks                                 disable diffing of hooks
       --normalize-manifests                      normalize manifests before running diff to exclude style differences from the output
@@ -122,6 +184,8 @@ Flags:
       --reset-then-reuse-values                  reset the values to the ones built into the chart, apply the last release's values and merge in any new values. If '--reset-values' or '--reuse-values' is specified, this is ignored
       --reset-values                             reset the values to the ones built into the chart and merge in any new values
       --reuse-values                             reuse the last release's values and merge in any new values. If '--reset-values' is specified, this is ignored
+      --revision int                             revision of the release to use as the diff baseline instead of the newest one
+      --server-side string                       must be "true", "false" or "auto". Object updates run in the server instead of the client ("auto" defaults the value from the previous chart release's method) (default "auto")
       --set stringArray                          set values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)
       --set-file stringArray                     set values from respective files specified via the command line (can specify multiple or separate values with commas: key1=path1,key2=path2)
       --set-json stringArray                     set JSON values on the command line (can specify multiple or separate values with commas: key1=jsonval1,key2=jsonval2)
@@ -130,16 +194,18 @@ Flags:
       --show-secrets                             do not redact secret values in the output
       --show-secrets-decoded                     decode secret values in the output
       --skip-schema-validation                   skip validation of the rendered manifests against the Kubernetes OpenAPI schema
+      --storage-namespace string                 namespace where the helm release storage (Secret/ConfigMap) is located. Defaults to the target namespace (-n/--namespace)
       --strip-trailing-cr                        strip trailing carriage return on input
       --suppress stringArray                     allows suppression of the kinds listed in the diff output (can specify multiple, like '--suppress Deployment --suppress Service')
       --suppress-output-line-regex stringArray   a regex to suppress diff output lines that match
   -q, --suppress-secrets                         suppress secrets in the output
       --take-ownership                           if set, upgrade will ignore the check for helm annotations and take ownership of the existing resources
       --three-way-merge                          use three-way-merge to compute patch and generate diff output
+      --three-way-merge-mode string              how --three-way-merge applies the computed patch. Must be "auto", "server" or "client". "server" dry-runs the patch against the API server, which requires the patch permission. "client" merges locally and needs read access only, at the cost of not applying server-side defaulting and mutating webhooks. "auto" uses the server and falls back to the client when patching is not permitted (default "auto")
   -f, --values valueFiles                        specify values in a YAML file (can specify multiple) (default [])
       --version string                           specify the exact chart version to use. If this is not specified, the latest version is used
 
-Additional help topcis:
+Additional help topics:
   diff
 
 Use "diff [command] --help" for more information about a command.
@@ -172,7 +238,157 @@ helm diff upgrade prod api ./charts/api --output structured
 
 When a kind is suppressed via `--suppress`, `changesSuppressed` is set to `true` and field details are omitted. Nested metadata such as labels show the container path (`metadata.labels`) and expose the label key through the `field` property (for example `app.kubernetes.io/version`).
 
+### External diff tool
+
+Set `--diff-tool` to a command and helm-diff renders the diff with that command instead of its built-in renderers. It writes the old and the new manifests into two temporary files (named `old.yaml` and `new.yaml` in a private temporary directory) and appends their paths as the last two arguments:
+
+```shell
+# any tool that accepts two file paths works
+helm diff upgrade api ./charts/api --diff-tool "diff -u -N"
+helm diff upgrade api ./charts/api --diff-tool "difft --language yaml"
+helm diff upgrade api ./charts/api --diff-tool "git --no-pager diff --no-index --color"
+helm diff upgrade api ./charts/api --diff-tool "delta --side-by-side"
+```
+
+The command can also be set through the `HELM_DIFF_TOOL` environment variable, which is convenient in a shell profile:
+
+```shell
+export HELM_DIFF_TOOL="difft --language yaml"
+helm diff upgrade api ./charts/api
+```
+
+`--diff-tool` overrides both `--output` and `HELM_DIFF_TOOL`. `HELM_DIFF_TOOL` applies only when neither `--output` nor `--diff-tool` is explicitly given, so scripts that parse a specific output format cannot be broken by a variable inherited from a shell profile; an explicitly empty `--diff-tool ""` disables the external tool. There is no default command: without one, the built-in `--output` renderer is used.
+
+Notes:
+
+- The command is executed directly, not through a shell, so pipes and shell expansion are not available. Wrap arguments containing spaces in quotes, for example `--diff-tool '"/opt/my tools/diff" -u'`; an unclosed quote is rejected with an error. For anything more involved, point the flag at a wrapper script.
+- Each resource in the temporary files is preceded by a `# Resource:`/`# Change:` header comment (change types: `ADD`, `REMOVE`, `MODIFY`, `OWNERSHIP`, and `MODIFY_SUPPRESSED` when the diff is empty after `--suppress-output-line-regex`), because an external tool would otherwise have no way to show them.
+- The manifests handed to the tool are the ones from the diff report, so `--suppress`, `--suppress-output-line-regex` and secret redaction still apply. Secrets are redacted unless `--show-secrets` is given; suppressed kinds — and entries whose diff is empty after `--suppress-output-line-regex` — are replaced by a placeholder on both sides.
+- The command must block until it has finished reading the two files. GUI tools that return immediately (for example `code --diff`) may find the temporary directory already deleted before they display it; make them wait (for example `code --wait --diff`) or wrap them in a script that waits.
+- There is no timeout around the command: a tool that never exits keeps helm-diff running.
+- An exit code of `1` from the tool is treated as "differences found" and ignored. Other failures are reported on stderr without aborting helm-diff.
+- helm-diff's own exit code is unaffected by the tool: `--detailed-exitcode` still returns `2` based on the changes helm-diff detected.
+- `--context`/`-C` is not applied; use the equivalent option of the external tool (for example `diff -U3`).
+
+### Three-way merge
+
+`--three-way-merge` diffs against what is actually in the cluster rather than against the manifests of the last release, so changes made outside of Helm show up too. To do that helm-diff has to compute the object that the upgrade would produce: it reads the live object, builds a three-way merge patch from the old release manifest, the new release manifest and the live object, and then applies that patch.
+
+`--three-way-merge-mode` controls how the patch is applied:
+
+- `server` sends the patch to the API server as a dry-run (`PATCH ...?dryRun=All`). The API server fills in defaults and runs mutating webhooks, so the result is the most faithful preview of the upgrade — but the credentials need the `patch` permission on every diffed resource.
+- `client` applies the patch locally, using the same strategic-merge (or JSON merge patch, for custom resources) logic the API server would use. Only `get` is required. The merged object is then round-tripped through its Go type, the way the API server does before it answers, and a field is copied back from the live object whenever the old and the new release manifest agree about it — without that, the defaults the API server re-applies after patching would show up as spurious removals. An empty list, an empty map and a `null` are also treated as the same value, because Kubernetes stores objects as protobuf and cannot tell them apart: a chart that writes `rules: []` gets `rules: null` back from the cluster. Validation and mutating webhooks are still not applied.
+- `auto` (the default) tries `server` first and falls back to `client` per run when the API server rejects the dry-run with `Forbidden` or `MethodNotAllowed`, printing a note on stderr. Any other error still aborts the diff.
+
+Because the defaulting functions are not part of client-go, `client` mode cannot reproduce them exactly. What it can do is leave the live value alone: a field is only reported as gone when the two release manifests disagree about it. That matters more than it sounds, because a chart that leaves a value unset usually renders the field as an explicit `null` — a bare `replicas:` — and a `null` in a manifest reaches the patch as a change rather than a deletion, wiping a value the API server had defaulted in even when the chart did not change at all.
+
+Four known deviations from `server` mode remain.
+
+**A field the chart stops pinning is reported as removed** rather than as changing to its default. `server` mode shows `replicas: 3` becoming the defaulted `1`; `client` mode reports the field going away, because it cannot name the value that replaces it. The change is reported either way.
+
+**Drift can be hidden inside a `retainKeys` struct or an atomic list.** The restoration described above copies back every live-only field that the patch replaced wholesale, and locally there is no way to tell a value the API server defaulted from one somebody set by hand — both are simply fields neither manifest mentions. If a NetworkPolicy port carries a hand-added `endPort`, the upgrade removes it and `server` mode says so, while `client` mode restores it along with the defaulted `protocol: TCP` and reports nothing. This is the one case where `client` mode can be quieter than the truth; everywhere else it errs towards reporting a change that does not happen. Use `--three-way-merge-mode=server` where that matters.
+
+**Server defaults are dropped from an atomic-list entry the chart changes.** Changing a NetworkPolicy port from `27017` to `27018` also drops the defaulted `protocol: TCP` from the diff, because positions in a list the chart rewrote can no longer be matched up safely.
+
+**A field unknown to the compiled-in Kubernetes libraries is dropped.** To strip explicit zero values, `client` mode round-trips the merged object through the Go types helm-diff was built with. A field on a built-in kind that those libraries do not know — a freshly introduced field, on a cluster newer than the libraries this build was compiled against — does not survive that round-trip: a chart that adds it gets no diff line, and a chart that changes it sees it reported as removed instead. Custom resources are unaffected, since they are merged as JSON without a typed round-trip. `server` mode reports such fields, because the dry-run response is kept exactly as the API server sent it.
+
+So a read-only account is enough for a three-way merge diff out of the box. Set `--three-way-merge-mode=client` (or `HELM_DIFF_THREE_WAY_MERGE_MODE=client`, which is only read once the three-way merge is enabled) to skip the rejected dry-run request entirely, and `--three-way-merge-mode=server` to make a missing `patch` permission a hard error instead of silently degrading the diff.
+
+`client` mode needs `get` on every kind the chart renders, plus `get` **and `list`** on the Secret or ConfigMap holding the release — without an explicit `--revision`, Helm lists the storage backend to find the newest one. The role below is the blunt version, read access to everything, which is convenient but broader than a diff requires:
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: helm-diff
+rules:
+  - apiGroups: ["*"]
+    resources: ["*"]
+    verbs: ["get", "list"]
+```
+
+For least privilege, list only the kinds the chart actually renders, for example:
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: helm-diff
+rules:
+  # Release storage: `list` is what lets Helm find the newest revision.
+  - apiGroups: [""]
+    resources: ["configmaps", "secrets"]
+    verbs: ["get", "list"]
+  # Everything else the chart renders needs `get` only.
+  - apiGroups: [""]
+    resources: ["services", "serviceaccounts"]
+    verbs: ["get"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets", "daemonsets"]
+    verbs: ["get"]
+```
+
+A kind that is missing from the role makes the diff fail on that resource, so the set has to cover everything the chart renders — including the kinds it only renders under some values.
+
 ## Commands:
+
+### local:
+
+```
+$ helm diff local -h
+
+This command compares the manifests of two local chart directories.
+
+It renders both charts using 'helm template' and shows the differences
+between the resulting manifests.
+
+This is useful for:
+ - Comparing different versions of a chart
+ - Previewing changes before committing
+ - Validating chart modifications
+
+Usage:
+  diff local [flags] CHART1 CHART2
+
+Examples:
+  helm diff local ./chart-v1 ./chart-v2
+  helm diff local ./chart-v1 ./chart-v2 -f values.yaml
+  helm diff local /path/to/chart-a /path/to/chart-b --set replicas=3
+
+Flags:
+  -a, --api-versions stringArray                 Kubernetes api versions used for Capabilities.APIVersions
+  -C, --context int                              output NUM lines of context around changes (default -1)
+      --detailed-exitcode                        return a non-zero exit code when there are changes
+      --diff-tool string                         command used to compare the manifests instead of the built-in --output renderers (can also be set via the env var HELM_DIFF_TOOL). The old and the new manifest file paths are appended as the last two arguments
+      --enable-dns                               enable DNS lookups when rendering templates
+  -D, --find-renames float32                     Enable rename detection if set to any value greater than 0. If specified, the value denotes the maximum fraction of changed content as lines added + removed compared to total lines in a diff for considering it a rename. Only objects of the same Kind are attempted to be matched
+  -h, --help                                     help for local
+      --include-crds                             include CRDs in the diffing
+      --include-tests                            enable the diffing of the helm test hooks
+      --kube-version string                      Kubernetes version used for Capabilities.KubeVersion
+      --namespace string                         namespace to use for template rendering
+      --normalize-manifests                      normalize manifests before running diff to exclude style differences from the output
+      --output string                            Possible values: diff, simple, template, json, structured, dyff. When set to "template", use the env var HELM_DIFF_TPL to specify the template. (default "diff")
+      --post-renderer string                     the path to an executable to be used for post rendering. If it exists in $PATH, the binary will be used, otherwise it will try to look for the executable at the given path
+      --post-renderer-args stringArray           an argument to the post-renderer (can specify multiple)
+      --release string                           release name to use for template rendering (default "release")
+      --set stringArray                          set values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)
+      --set-file stringArray                     set values from respective files specified via the command line (can specify multiple or separate values with commas: key1=path1,key2=path2)
+      --set-json stringArray                     set JSON values on the command line (can specify multiple or separate values with commas: key1=jsonval1,key2=jsonval2)
+      --set-literal stringArray                  set STRING literal values on the command line
+      --set-string stringArray                   set STRING values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)
+      --show-secrets                             do not redact secret values in the output
+      --show-secrets-decoded                     decode secret values in the output
+      --strip-trailing-cr                        strip trailing carriage return on input
+      --suppress stringArray                     allows suppression of the kinds listed in the diff output (can specify multiple, like '--suppress Deployment --suppress Service')
+      --suppress-output-line-regex stringArray   a regex to suppress diff output lines that match
+  -q, --suppress-secrets                         suppress secrets in the output
+  -f, --values valueFiles                        specify values in a YAML file (can specify multiple) (default [])
+
+Global Flags:
+      --color      color output. You can control the value for this flag via HELM_DIFF_COLOR=[true|false]. If both --no-color and --color are unspecified, coloring enabled only when the stdout is a term and TERM is not "dumb"
+      --no-color   remove colors from the output. If both --no-color and --color are unspecified, coloring enabled only when the stdout is a term and TERM is not "dumb"
+```
 
 ### upgrade:
 
@@ -207,6 +423,13 @@ Examples:
   # Read the flag usage below for more information on --three-way-merge.
   HELM_DIFF_THREE_WAY_MERGE=true helm diff upgrade my-release datadog/datadog
 
+  # Set HELM_DIFF_THREE_WAY_MERGE_MODE=client to compute the three-way merge
+  # locally, so that no permission to patch the cluster resources is needed.
+  # It is only read once the three-way merge is on, hence the flag below.
+  # This is equivalent to specifying the --three-way-merge-mode flag.
+  # Read the flag usage below for more information on --three-way-merge-mode.
+  HELM_DIFF_THREE_WAY_MERGE_MODE=client helm diff upgrade my-release datadog/datadog --three-way-merge
+
   # Set HELM_DIFF_NORMALIZE_MANIFESTS=true to
   # normalize the yaml file content when using helm diff.
   # This is equivalent to specifying the --normalize-manifests flag.
@@ -218,12 +441,24 @@ Examples:
 # Read the flag usage below for more information on --context.
 HELM_DIFF_OUTPUT_CONTEXT=5 helm diff upgrade my-release datadog/datadog
 
+  # Set HELM_DIFF_STORAGE_NAMESPACE=flux-system to
+  # fetch release manifests/values/hooks from a storage namespace different from the target namespace.
+  # This is equivalent to specifying the --storage-namespace flag.
+  HELM_DIFF_STORAGE_NAMESPACE=flux-system helm diff upgrade -n prod-apps my-release datadog/datadog
+
+  # NOTE: The storage namespace separation is not supported in combination with
+  # HELM_DIFF_USE_UPGRADE_DRY_RUN=true, because rendering then goes through
+  # `helm upgrade --dry-run`, which resolves the release storage in the target
+  # namespace. If the release exists only in the storage namespace, keep the
+  # default `helm template` based rendering instead.
+
 Flags:
       --allow-unreleased                         enables diffing of releases that are not yet deployed via Helm
   -a, --api-versions stringArray                 Kubernetes api versions used for Capabilities.APIVersions
   -C, --context int                              output NUM lines of context around changes (default -1)
       --detailed-exitcode                        return a non-zero exit code when there are changes
       --devel                                    use development versions, too. Equivalent to version '>0.0.0-0'. If --version is set, this is ignored.
+      --diff-tool string                         command used to compare the manifests instead of the built-in --output renderers (can also be set via the env var HELM_DIFF_TOOL). The old and the new manifest file paths are appended as the last two arguments
       --disable-openapi-validation               disables rendered templates validation against the Kubernetes OpenAPI Schema
       --disable-validation                       disables rendered templates validation against the Kubernetes cluster you are currently pointing to. This is the same validation performed on an install
       --dry-run string[="client"]                --dry-run, --dry-run=client, or --dry-run=true disables cluster access and show diff as if it was install. Implies --install, --reset-values, and --disable-validation. --dry-run=server enables the cluster access with helm-get and the lookup template function.
@@ -234,8 +469,10 @@ Flags:
       --include-tests                            enable the diffing of the helm test hooks
       --insecure-skip-tls-verify                 skip tls certificate checks for the chart download
       --install                                  enables diffing of releases that are not yet deployed via Helm (equivalent to --allow-unreleased, added to match "helm upgrade --install" command
+      --kube-context string                      name of the kubeconfig context to use
       --kube-version string                      Kubernetes version used for Capabilities.KubeVersion
       --kubeconfig string                        This flag is ignored, to allow passing of this top level flag to helm
+  -n, --namespace string                         namespace to assume the release to be installed into. Defaults to the current kube config namespace.
       --no-hooks                                 disable diffing of hooks
       --normalize-manifests                      normalize manifests before running diff to exclude style differences from the output
       --output string                            Possible values: diff, simple, template, json, structured, dyff. When set to "template", use the env var HELM_DIFF_TPL to specify the template. (default "diff")
@@ -245,6 +482,8 @@ Flags:
       --reset-then-reuse-values                  reset the values to the ones built into the chart, apply the last release's values and merge in any new values. If '--reset-values' or '--reuse-values' is specified, this is ignored
       --reset-values                             reset the values to the ones built into the chart and merge in any new values
       --reuse-values                             reuse the last release's values and merge in any new values. If '--reset-values' is specified, this is ignored
+      --revision int                             revision of the release to use as the diff baseline instead of the newest one
+      --server-side string                       must be "true", "false" or "auto". Object updates run in the server instead of the client ("auto" defaults the value from the previous chart release's method) (default "auto")
       --set stringArray                          set values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)
       --set-file stringArray                     set values from respective files specified via the command line (can specify multiple or separate values with commas: key1=path1,key2=path2)
       --set-json stringArray                     set JSON values on the command line (can specify multiple or separate values with commas: key1=jsonval1,key2=jsonval2)
@@ -253,12 +492,14 @@ Flags:
       --show-secrets                             do not redact secret values in the output
       --show-secrets-decoded                     decode secret values in the output
       --skip-schema-validation                   skip validation of the rendered manifests against the Kubernetes OpenAPI schema
+      --storage-namespace string                 namespace where the helm release storage (Secret/ConfigMap) is located. Defaults to the target namespace (-n/--namespace)
       --strip-trailing-cr                        strip trailing carriage return on input
       --suppress stringArray                     allows suppression of the kinds listed in the diff output (can specify multiple, like '--suppress Deployment --suppress Service')
       --suppress-output-line-regex stringArray   a regex to suppress diff output lines that match
   -q, --suppress-secrets                         suppress secrets in the output
       --take-ownership                           if set, upgrade will ignore the check for helm annotations and take ownership of the existing resources
       --three-way-merge                          use three-way-merge to compute patch and generate diff output
+      --three-way-merge-mode string              how --three-way-merge applies the computed patch. Must be "auto", "server" or "client". "server" dry-runs the patch against the API server, which requires the patch permission. "client" merges locally and needs read access only, at the cost of not applying server-side defaulting and mutating webhooks. "auto" uses the server and falls back to the client when patching is not permitted (default "auto")
   -f, --values valueFiles                        specify values in a YAML file (can specify multiple) (default [])
       --version string                           specify the exact chart version to use. If this is not specified, the latest version is used
 
@@ -289,12 +530,15 @@ Usage:
 Flags:
   -C, --context int                              output NUM lines of context around changes (default -1)
       --detailed-exitcode                        return a non-zero exit code when there are changes
+      --diff-tool string                         command used to compare the manifests instead of the built-in --output renderers (can also be set via the env var HELM_DIFF_TOOL). The old and the new manifest file paths are appended as the last two arguments
   -D, --find-renames float32                     Enable rename detection if set to any value greater than 0. If specified, the value denotes the maximum fraction of changed content as lines added + removed compared to total lines in a diff for considering it a rename. Only objects of the same Kind are attempted to be matched
   -h, --help                                     help for release
       --include-tests                            enable the diffing of the helm test hooks
+      --kube-context string                      name of the kubeconfig context to use
       --normalize-manifests                      normalize manifests before running diff to exclude style differences from the output
       --output string                            Possible values: diff, simple, template, json, structured, dyff. When set to "template", use the env var HELM_DIFF_TPL to specify the template. (default "diff")
       --show-secrets                             do not redact secret values in the output
+      --show-secrets-decoded                     decode secret values in the output
       --strip-trailing-cr                        strip trailing carriage return on input
       --suppress stringArray                     allows suppression of the kinds listed in the diff output (can specify multiple, like '--suppress Deployment --suppress Service')
       --suppress-output-line-regex stringArray   a regex to suppress diff output lines that match
@@ -329,15 +573,18 @@ Usage:
 
 Flags:
   -C, --context int                              output NUM lines of context around changes (default -1)
-      --show-secrets-decoded                     decode secret values in the output
       --detailed-exitcode                        return a non-zero exit code when there are changes
+      --diff-tool string                         command used to compare the manifests instead of the built-in --output renderers (can also be set via the env var HELM_DIFF_TOOL). The old and the new manifest file paths are appended as the last two arguments
   -D, --find-renames float32                     Enable rename detection if set to any value greater than 0. If specified, the value denotes the maximum fraction of changed content as lines added + removed compared to total lines in a diff for considering it a rename. Only objects of the same Kind are attempted to be matched
   -h, --help                                     help for revision
       --include-tests                            enable the diffing of the helm test hooks
+      --kube-context string                      name of the kubeconfig context to use
+  -n, --namespace string                         namespace to assume the release to be installed into. Defaults to the current kube config namespace.
       --normalize-manifests                      normalize manifests before running diff to exclude style differences from the output
       --output string                            Possible values: diff, simple, template, json, structured, dyff. When set to "template", use the env var HELM_DIFF_TPL to specify the template. (default "diff")
       --show-secrets                             do not redact secret values in the output
       --show-secrets-decoded                     decode secret values in the output
+      --storage-namespace string                 namespace where the helm release storage (Secret/ConfigMap) is located. Defaults to the target namespace (-n/--namespace)
       --strip-trailing-cr                        strip trailing carriage return on input
       --suppress stringArray                     allows suppression of the kinds listed in the diff output (can specify multiple, like '--suppress Deployment --suppress Service')
       --suppress-output-line-regex stringArray   a regex to suppress diff output lines that match
@@ -367,13 +614,17 @@ Examples:
 Flags:
   -C, --context int                              output NUM lines of context around changes (default -1)
       --detailed-exitcode                        return a non-zero exit code when there are changes
+      --diff-tool string                         command used to compare the manifests instead of the built-in --output renderers (can also be set via the env var HELM_DIFF_TOOL). The old and the new manifest file paths are appended as the last two arguments
   -D, --find-renames float32                     Enable rename detection if set to any value greater than 0. If specified, the value denotes the maximum fraction of changed content as lines added + removed compared to total lines in a diff for considering it a rename. Only objects of the same Kind are attempted to be matched
   -h, --help                                     help for rollback
       --include-tests                            enable the diffing of the helm test hooks
+      --kube-context string                      name of the kubeconfig context to use
+  -n, --namespace string                         namespace to assume the release to be installed into. Defaults to the current kube config namespace.
       --normalize-manifests                      normalize manifests before running diff to exclude style differences from the output
       --output string                            Possible values: diff, simple, template, json, structured, dyff. When set to "template", use the env var HELM_DIFF_TPL to specify the template. (default "diff")
       --show-secrets                             do not redact secret values in the output
       --show-secrets-decoded                     decode secret values in the output
+      --storage-namespace string                 namespace where the helm release storage (Secret/ConfigMap) is located. Defaults to the target namespace (-n/--namespace)
       --strip-trailing-cr                        strip trailing carriage return on input
       --suppress stringArray                     allows suppression of the kinds listed in the diff output (can specify multiple, like '--suppress Deployment --suppress Service')
       --suppress-output-line-regex stringArray   a regex to suppress diff output lines that match
@@ -409,6 +660,15 @@ To run all tests:
 ```
 go test -v ./...
 ```
+
+### Updating the flag tables in this README
+
+The per-command `Flags:` tables above are generated from the actual `--help`
+output. After adding or changing a command flag, regenerate them with:
+```
+make readme
+```
+CI fails if the committed tables do not match the binary (`make verify-readme`).
 
 ## Release
 

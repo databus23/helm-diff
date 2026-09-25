@@ -47,11 +47,27 @@ archives:
     - linux-additional
     format: tgz
     name_template: '{{ .ProjectName }}-{{ if eq .Os "darwin" }}macos{{ else }}{{ .Os }}{{ end }}-{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}'
-    wrap_in_directory: diff
+    # Wrap archives in a directory named after the archive itself
+    # (e.g. helm-diff-linux-amd64/). Helm 4's plugin installer requires this
+    # when installing from a local tarball: it derives the expected directory
+    # from the tarball filename and fails with "plugin.yaml not found in
+    # expected directory" otherwise (see issue #1071).
+    wrap_in_directory: true
     files:
     - README.md
     - plugin.yaml
     - LICENSE
+    - install-binary.sh
+    - install-binary.ps1
+
+signs:
+  - id: plugin-provenance
+    artifacts: archive
+    signature: "${artifact}.prov"
+    cmd: ./scripts/sign-provenance.sh
+    args:
+      - ${artifact}
+      - ${signature}
 changelog:
   use: github-native
 
