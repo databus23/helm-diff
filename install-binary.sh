@@ -110,8 +110,9 @@ rmTempDir() {
 # for that binary.
 downloadFile() {
   # If HELM_DIFF_BIN_TGZ is set, copy the local file instead of downloading.
-  # Keep its original file name: release archives wrap their content in a
-  # directory named after the archive (see installFile below).
+  # Keep its original file name: the 3.15.14 release archives wrapped their
+  # content in a directory named after the archive, which installFile locates
+  # via the file name (see below).
   if [ -n "$HELM_DIFF_BIN_TGZ" ]; then
     echo "Using local package at $HELM_DIFF_BIN_TGZ"
     if [ ! -f "$HELM_DIFF_BIN_TGZ" ]; then
@@ -162,11 +163,13 @@ installFile() {
   if [ "${OS}" = "windows" ]; then
     bin="$bin.exe"
   fi
-  # Release archives wrap their content in a directory named after the
+  # Release archives wrap their content in a "diff/" directory — the layout
+  # the install/update hooks of every released version expect when they
+  # download a tarball, so it must not change (issue #1076). The 3.15.14
+  # release instead wrapped the content in a directory named after the
   # archive itself (e.g. helm-diff-linux-amd64/bin/diff), as required by
-  # helm 4 when installing directly from a tarball (issue #1071).
-  # Archives from earlier releases wrap the content in a directory named
-  # "diff" instead.
+  # helm 4 when installing directly from a tarball (issue #1071); support
+  # that layout as well so 3.15.14 tarballs keep installing and updating.
   wrap_dir="$(basename "$PLUGIN_TMP_FILE" .tgz)"
   HELM_TMP_BIN="$HELM_TMP/$wrap_dir/bin/$bin"
   if [ ! -f "$HELM_TMP_BIN" ] && [ -f "$HELM_TMP/diff/bin/$bin" ]; then

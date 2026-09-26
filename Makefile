@@ -69,20 +69,25 @@ docker-run-release:
 	-w $(pkg) helm-diff-release make release
 
 # dist-package builds the plugin for a single platform and packs it into
-# release/$(1).tgz. The archive content is wrapped in a directory named
-# after the archive itself (e.g. helm-diff-linux-amd64/). Helm 4's plugin
-# installer requires this when installing directly from a tarball: it
-# derives the expected directory from the tarball filename and fails with
-# "plugin.yaml not found in expected directory" otherwise (see issue #1071).
+# release/helm-diff-$(1).tgz, plus a byte-identical copy named
+# release/diff-$(VERSION)-$(1).tgz. Archives wrap their content in a "diff/"
+# directory: that is the layout the install/update hooks of all previously
+# released versions expect when they download a release tarball, so it must
+# not change (issue #1076). The versioned copy exists because helm 4 derives
+# the directory it expects inside a locally installed tarball from the
+# tarball file name: "diff-<version>-<os>-<arch>.tgz" must contain "diff/"
+# (issue #1071); the historical name carries no version to strip, so it
+# cannot serve that flow.
 # Usage: $(call dist-package,<platform>,<GOOS>,<GOARCH>[,<extra env>])
 DIST_PACKAGE_FILES := README.md LICENSE plugin.yaml install-binary.sh install-binary.ps1
 define dist-package
-mkdir -p build/helm-diff-$(1)/bin
-cp $(DIST_PACKAGE_FILES) build/helm-diff-$(1)/
+mkdir -p build/diff/bin
+cp $(DIST_PACKAGE_FILES) build/diff/
 goarch=$(3); bin=diff; [ "$(2)" = "windows" ] && bin=$$bin.exe; \
-	$(4) GOOS=$(2) GOARCH=$$goarch $(GO) build -o build/helm-diff-$(1)/bin/$$bin -trimpath -ldflags="$(LDFLAGS)"
-tar -C build/ -zcvf $(CURDIR)/release/helm-diff-$(1).tgz helm-diff-$(1)/
-rm -rf build/helm-diff-$(1)
+	$(4) GOOS=$(2) GOARCH=$$goarch $(GO) build -o build/diff/bin/$$bin -trimpath -ldflags="$(LDFLAGS)"
+tar -C build/ -zcvf $(CURDIR)/release/helm-diff-$(1).tgz diff/
+cp $(CURDIR)/release/helm-diff-$(1).tgz $(CURDIR)/release/diff-$(VERSION)-$(1).tgz
+rm -rf build/diff
 
 endef
 

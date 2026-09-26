@@ -72,29 +72,38 @@ jobs:
         run: |
           set -e
           missing=0
-          for f in dist/helm-diff-*.tgz; do
+          # Archives wrap their content in a "diff/" directory: the layout
+          # every released install/update hook expects (issues #1071, #1076).
+          # Each platform is published under two names (see .goreleaser.yml):
+          # the historical "helm-diff-<os>-<arch>.tgz" and the versioned
+          # "diff-<version>-<os>-<arch>.tgz" installable by helm 4 directly
+          # from a local tarball.
+          for f in dist/*.tgz; do
             echo "== $f =="
             tar tzf "$f"
-            # Archives are wrapped in a directory named after the archive
-            # itself (required by helm 4 installs from a tarball, see #1071)
-            base="$(basename "$f" .tgz)"
-            for member in "$base/plugin.yaml" "$base/install-binary.sh" "$base/install-binary.ps1"; do
+            for member in "diff/plugin.yaml" "diff/install-binary.sh" "diff/install-binary.ps1"; do
               if ! tar tzf "$f" | grep -q "^${member}$"; then
                 echo "ERROR: ${member} missing from ${f}"
                 missing=1
               fi
             done
             # the binary has a .exe suffix on windows archives
-            if ! tar tzf "$f" | grep -qE "^${base}/bin/diff(\\.exe)?$"; then
-              echo "ERROR: ${base}/bin/diff missing from ${f}"
+            if ! tar tzf "$f" | grep -qE "^diff/bin/diff(\\.exe)?$"; then
+              echo "ERROR: diff/bin/diff missing from ${f}"
               missing=1
             fi
           done
+          legacy_count="$(find dist -maxdepth 1 -name 'helm-diff-*.tgz' | wc -l)"
+          versioned_count="$(find dist -maxdepth 1 -name 'diff-*.tgz' | wc -l)"
+          if [ "$legacy_count" -eq 0 ] || [ "$legacy_count" -ne "$versioned_count" ]; then
+            echo "ERROR: expected an equal, non-zero number of legacy (helm-diff-*) and versioned (diff-*) archives"
+            missing=1
+          fi
           if [ "$missing" -ne 0 ]; then
             echo "Smoke test failed: required plugin files missing from one or more archives"
             exit 1
           fi
-          echo "Smoke test passed: all archives bundle plugin.yaml, install scripts, and binary"
+          echo "Smoke test passed: all archives bundle plugin.yaml, install scripts, and binary in a diff/ directory"
       -
         name: Set up Helm
         if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
@@ -110,9 +119,9 @@ jobs:
           mkdir -p /tmp/archive-test
           tar xzf dist/helm-diff-linux-amd64.tgz -C /tmp/archive-test
           echo "Extracted archive layout:"
-          find /tmp/archive-test/helm-diff-linux-amd64 -maxdepth 2 -type f | sort
+          find /tmp/archive-test/diff -maxdepth 2 -type f | sort
 
-          out="$(helm plugin install /tmp/archive-test/helm-diff-linux-amd64 2>&1)"
+          out="$(helm plugin install /tmp/archive-test/diff 2>&1)"
           echo "$out"
           # The install hook must find the bundled binary already staged in
           # HELM_PLUGIN_DIR and skip the network download.
@@ -130,16 +139,45 @@ jobs:
         with:
           version: v4.3.0
       -
+        # Regression test for issue #1076: `helm plugin update` runs the
+        # *already installed* copy of install-binary.sh, so release tarballs
+        # must keep the layout every previously released hook expects
+        # ("$HELM_TMP/diff/bin/diff" after extraction). Simulate updating a
+        # pre-3.15.14 install (v3.15.13 hook) and a 3.15.14 install by
+        # running their exact install scripts, in update mode, against the
+        # archives just built.
+        name: Legacy update hook regression test (snapshot only)
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        run: |
+          set -e
+          archive="$PWD/dist/helm-diff-linux-amd64.tgz"
+          for hook_version in v3.15.13 v3.15.14; do
+            echo "== simulating 'helm plugin update' with the $hook_version install hook =="
+            plugin_dir="$(mktemp -d)/diff"
+            mkdir -p "$plugin_dir/bin"
+            git show "${hook_version}:install-binary.sh" > "$plugin_dir/install-binary.sh"
+            HELM_BIN=helm HELM_PLUGIN_DIR="$plugin_dir" \
+              HELM_DIFF_BIN_TGZ="$archive" \
+              sh "$plugin_dir/install-binary.sh" -u
+            test -x "$plugin_dir/bin/diff"
+            "$plugin_dir/bin/diff" version
+            echo "$hook_version hook updated the plugin successfully"
+          done
+          echo "Legacy update hook regression test passed"
+      -
         # Regression test for issue #1071: helm 4 must be able to install
-        # directly from a local tarball (which it verifies by default), so
-        # archives must be wrapped in a directory named after the tarball.
+        # directly from a local tarball (which it verifies by default). When
+        # installing from a local file, helm 4 derives the directory it
+        # expects inside the archive from the tarball file name
+        # ("diff-<version>-<os>-<arch>.tgz" -> "diff/"), hence the versioned
+        # archive names.
         name: Helm 4 offline tarball install test (snapshot only)
         if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
         env:
           HELM_DATA_HOME: /tmp/helm4-data
         run: |
           set -e
-          archive="dist/helm-diff-linux-amd64.tgz"
+          archive="$(find dist -maxdepth 1 -name 'diff-*-linux-amd64.tgz')"
 
           export GNUPGHOME="$(mktemp -d)"
           chmod 700 "$GNUPGHOME"

@@ -64,11 +64,13 @@ function Install-Plugin {
   tar -xzf $ArchiveName -C .
   Pop-Location
   New-Item -ItemType Directory -Path $Destination -Force
-  # Release archives wrap their content in a directory named after the
-  # archive itself (e.g. helm-diff-windows-amd64/bin/diff.exe), as required
-  # by helm 4 when installing directly from a tarball (issue #1071).
-  # Archives from earlier releases wrap the content in a
-  # directory named "diff" instead.
+  # Release archives wrap their content in a "diff" directory — the layout
+  # the install/update hooks of every released version expect, so it must not
+  # change (issue #1076). The 3.15.14 release instead wrapped the content in a
+  # directory named after the archive itself (e.g. helm-diff-windows-amd64/
+  # bin/diff.exe), as required by helm 4 when installing directly from a
+  # tarball (issue #1071); support that layout as well so 3.15.14 tarballs
+  # keep installing and updating.
   $wrapDir = [System.IO.Path]::GetFileNameWithoutExtension($ArchiveName)
   $binary = Join-Path $ArchiveDirectory $wrapDir "bin" "diff.exe"
   if (-not (Test-Path $binary -PathType Leaf)) {
@@ -81,9 +83,9 @@ $ErrorActionPreference = "Stop"
 
 $arch = Get-Architecture
 
-# Archives wrap their content in a directory named after the archive
-# itself (see Install-Plugin below), so the temporary copy must keep the
-# original file name.
+# The 3.15.14 release archives wrapped their content in a directory named
+# after the archive itself (see Install-Plugin below), so the temporary copy
+# of HELM_DIFF_BIN_TGZ must keep its original file name.
 $archiveName = "helm-diff-windows-${arch}.tgz"
 
 # If installing (not updating) and the binary is already staged in the
