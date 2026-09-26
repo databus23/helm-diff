@@ -25,13 +25,13 @@ helm plugin install https://github.com/databus23/helm-diff
 
 If installing this in an offline/airgapped environment, download the platform-specific binary archive (e.g., `helm-diff-linux-amd64.tgz` or `helm-diff-windows-amd64.tgz`) from [releases](https://github.com/databus23/helm-diff/releases). Make sure to select the correct `.tgz` file for your operating system and architecture.
 
-The release archives include everything needed to install the plugin (binary, `plugin.yaml`, and the install scripts). Each archive wraps its content in a directory named after the archive itself (e.g. `helm-diff-linux-amd64/`), which is what Helm 4 expects when installing from a tarball.
+The release archives include everything needed to install the plugin (binary, `plugin.yaml`, and the install scripts). Each archive wraps its content in a `diff/` directory — the layout the plugin's install scripts have always expected.
 
 The simplest way to install offline is to extract the archive and point `helm plugin install` at the extracted directory:
 
 ```
-tar xzf helm-diff-linux-amd64.tgz   # extracts into a ./helm-diff-linux-amd64 directory
-helm plugin install ./helm-diff-linux-amd64
+tar xzf helm-diff-linux-amd64.tgz   # extracts into a ./diff directory
+helm plugin install ./diff
 ```
 
 The install script detects that the binary is already bundled and skips the GitHub download.
@@ -65,15 +65,15 @@ gpg --list-keys --with-fingerprint EA17A2A206AFF8CD
 helm plugin install https://github.com/databus23/helm-diff/releases/latest/download/helm-diff-linux-amd64.tgz
 ```
 
-For offline/airgapped environments with Helm 4, transfer the release tarball **together with its `.prov` file** (and keep the original tarball file name — provenance verification matches the file name against the checksums recorded in the `.prov` file) and install directly from the tarball:
+For offline/airgapped environments with Helm 4, transfer the release tarball **together with its `.prov` file** and install directly from the tarball. Use the **versioned** asset name (`diff-<version>-<os>-<arch>.tgz`, e.g. `diff-3.15.15-linux-amd64.tgz`): when installing from a local file, Helm 4 derives the directory it expects inside the archive from the tarball file name (`diff-3.15.15-linux-amd64.tgz` → `diff/`), so keep the original file name as well — provenance verification also matches the file name against the checksums recorded in the `.prov` file:
 
 ```shell
-curl -LO https://github.com/databus23/helm-diff/releases/download/<TAG>/helm-diff-linux-amd64.tgz
-curl -LO https://github.com/databus23/helm-diff/releases/download/<TAG>/helm-diff-linux-amd64.tgz.prov
-helm plugin install helm-diff-linux-amd64.tgz --keyring <path-to-keyring.gpg>
+curl -LO https://github.com/databus23/helm-diff/releases/download/<TAG>/diff-<VERSION>-linux-amd64.tgz
+curl -LO https://github.com/databus23/helm-diff/releases/download/<TAG>/diff-<VERSION>-linux-amd64.tgz.prov
+helm plugin install diff-<VERSION>-linux-amd64.tgz --keyring <path-to-keyring.gpg>
 ```
 
-(Replace `<TAG>` with the release you are installing. The direct tarball install requires Helm 4. On Helm 3, extract the archive and install from the extracted directory as described above.)
+(Replace `<TAG>`/`<VERSION>` with the release you are installing. The versioned asset is only needed for installs directly from a local tarball; on Helm 3, extract the archive and install from the extracted directory as described above.)
 
 For offline/airgapped environments, download the public key from the maintainer's GitHub profile on a connected machine, transfer it, and import it locally:
 
