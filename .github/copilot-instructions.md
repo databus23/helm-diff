@@ -7,7 +7,7 @@ Always reference these instructions first and fallback to search or bash command
 ## Working Effectively
 
 **Prerequisites:**
-- Go >= 1.21 (currently uses Go 1.24.5)
+- Go >= 1.27 (currently uses Go 1.27.1)
 - Helm v3 (tested with v3.17.4 and v3.18.6)
 
 **Build Process:**
