@@ -104,7 +104,7 @@ curl -L $TARBALL_URL | tar -C $(helm home)/plugins/diff --strip-components=1 -xz
 
 ### From Source
 #### Prerequisites
- - GoLang `>= 1.21`
+ - GoLang `>= 1.27`
 
 Make sure you do not have a version of `helm-diff` installed. You can remove it by running `helm plugin uninstall diff`
 
