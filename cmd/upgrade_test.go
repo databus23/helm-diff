@@ -380,6 +380,116 @@ data:
 	})
 }
 
+// A release that is not installed yet has no values to reuse, so the flags that
+// reuse them must not make the diff of a new install fail.
+// See https://github.com/databus23/helm-diff/issues/481
+func TestUpgradeCommand_Execution_ReuseValues(t *testing.T) {
+	manifestYAML := `---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-config
+  namespace: prod-apps
+data:
+  key: value
+`
+
+	cases := []struct {
+		name string
+		// fakeHelmMode is "capture_args" for an existing release and
+		// "unreleased" for a release that does not exist.
+		fakeHelmMode     string
+		args             []string
+		useUpgradeDryRun bool
+		// wantGetValues is the expected `helm get values` call.
+		// Empty means that the values must not be fetched at all.
+		wantGetValues string
+	}{
+		{
+			name:          "existing release with --reuse-values",
+			fakeHelmMode:  "capture_args",
+			args:          []string{"--reuse-values"},
+			wantGetValues: "get values my-release --output yaml --all --namespace prod-apps\n",
+		},
+		{
+			name:          "existing release with --reset-then-reuse-values",
+			fakeHelmMode:  "capture_args",
+			args:          []string{"--reset-then-reuse-values"},
+			wantGetValues: "get values my-release --output yaml --namespace prod-apps\n",
+		},
+		{
+			name:          "existing release with --install --reuse-values",
+			fakeHelmMode:  "capture_args",
+			args:          []string{"--install", "--reuse-values"},
+			wantGetValues: "get values my-release --output yaml --all --namespace prod-apps\n",
+		},
+		{
+			name:         "unreleased with --allow-unreleased --reuse-values",
+			fakeHelmMode: "unreleased",
+			args:         []string{"--allow-unreleased", "--reuse-values"},
+		},
+		{
+			name:         "unreleased with --install --reuse-values",
+			fakeHelmMode: "unreleased",
+			args:         []string{"--install", "--reuse-values"},
+		},
+		{
+			name:         "unreleased with --allow-unreleased --reset-then-reuse-values",
+			fakeHelmMode: "unreleased",
+			args:         []string{"--allow-unreleased", "--reset-then-reuse-values"},
+		},
+		{
+			name:         "unreleased with --install --reset-then-reuse-values",
+			fakeHelmMode: "unreleased",
+			args:         []string{"--install", "--reset-then-reuse-values"},
+		},
+		{
+			name:             "unreleased with --install --reuse-values and HELM_DIFF_USE_UPGRADE_DRY_RUN",
+			fakeHelmMode:     "unreleased",
+			args:             []string{"--install", "--reuse-values"},
+			useUpgradeDryRun: true,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			argsFile := t.TempDir() + "/args"
+			setupFakeHelm(t, tc.fakeHelmMode, manifestYAML, argsFile, "")
+			renderSubcmd := "template"
+			if tc.useUpgradeDryRun {
+				t.Setenv("HELM_DIFF_USE_UPGRADE_DRY_RUN", "true")
+				renderSubcmd = "upgrade"
+			}
+
+			chartDir := t.TempDir()
+			cmd := newChartCommand()
+			cmd.SetArgs(append([]string{"my-release", chartDir, "-n", "prod-apps"}, tc.args...))
+
+			err := cmd.Execute()
+			if err != nil {
+				t.Fatalf("unexpected error executing upgrade command: %v", err)
+			}
+
+			data, err := os.ReadFile(argsFile)
+			if err != nil {
+				t.Fatalf("failed to read fake helm args: %v", err)
+			}
+			argsContent := string(data)
+
+			if !strings.Contains(argsContent, renderSubcmd+" my-release "+chartDir) {
+				t.Errorf("expected the chart to be rendered with 'helm %s', got:\n%s", renderSubcmd, argsContent)
+			}
+			if tc.wantGetValues == "" {
+				if strings.Contains(argsContent, "get values") {
+					t.Errorf("expected no 'helm get values' call, got:\n%s", argsContent)
+				}
+			} else if !strings.Contains(argsContent, tc.wantGetValues) {
+				t.Errorf("expected 'helm %s', got:\n%s", strings.TrimSpace(tc.wantGetValues), argsContent)
+			}
+		})
+	}
+}
+
 func TestThreeWayMergeModeFlag(t *testing.T) {
 	if f := newChartCommand().Flags().Lookup("three-way-merge-mode"); f == nil {
 		t.Fatal("expected flag --three-way-merge-mode to be registered")
