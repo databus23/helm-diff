@@ -424,6 +424,19 @@ data:
 			wantGetValues: "get values my-release --output yaml --all --namespace prod-apps\n",
 		},
 		{
+			// Helm enables --reuse-values by default when there is no --set, --set-string,
+			// --set-literal, --set-json, --values or --set-file flag, so the values of an
+			// existing release are fetched even without any of the reuse flags.
+			name:          "existing release without value flags",
+			fakeHelmMode:  "capture_args",
+			wantGetValues: "get values my-release --output yaml --all --namespace prod-apps\n",
+		},
+		{
+			name:         "unreleased with --install",
+			fakeHelmMode: "unreleased",
+			args:         []string{"--install"},
+		},
+		{
 			name:         "unreleased with --allow-unreleased --reuse-values",
 			fakeHelmMode: "unreleased",
 			args:         []string{"--allow-unreleased", "--reuse-values"},
