@@ -73,7 +73,7 @@ func TestMain(m *testing.M) {
 			} else {
 				fmt.Print(os.Getenv("HELM_DIFF_FAKE_OUTPUT_2"))
 			}
-		case "capture_args":
+		case "capture_args", "unreleased":
 			argsFile := os.Getenv("HELM_DIFF_FAKE_ARGS_FILE")
 			if argsFile != "" {
 				f, err := os.OpenFile(argsFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
@@ -81,6 +81,12 @@ func TestMain(m *testing.M) {
 					_, _ = fmt.Fprintln(f, strings.Join(os.Args[1:], " "))
 					_ = f.Close()
 				}
+			}
+			// "unreleased" captures the args like "capture_args", but every
+			// `helm get` fails the way helm does when the release does not exist.
+			if mode == "unreleased" && len(os.Args) > 1 && os.Args[1] == "get" {
+				fmt.Fprintln(os.Stderr, "Error: release: not found")
+				os.Exit(1)
 			}
 			printFakeHelmOutput()
 		default:

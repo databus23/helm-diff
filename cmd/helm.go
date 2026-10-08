@@ -217,8 +217,10 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 	// Helm automatically enable --reuse-values when there's no --set, --set-string, --set-json, --set-values, --set-file present.
 	// Let's simulate that in helm-diff.
 	// See https://medium.com/@kcatstack/understand-helm-upgrade-flags-reset-values-reuse-values-6e58ac8f127e
-	shouldDefaultReusingValues := isUpgrade && len(d.values) == 0 && len(d.stringValues) == 0 && len(d.stringLiteralValues) == 0 && len(d.jsonValues) == 0 && len(d.valueFiles) == 0 && len(d.fileValues) == 0
-	if (d.reuseValues || d.resetThenReuseValues || shouldDefaultReusingValues) && !d.resetValues && d.clusterAccessAllowed() {
+	shouldDefaultReusingValues := len(d.values) == 0 && len(d.stringValues) == 0 && len(d.stringLiteralValues) == 0 && len(d.jsonValues) == 0 && len(d.valueFiles) == 0 && len(d.fileValues) == 0
+	// A release that is not installed yet has no values to reuse. Like `helm upgrade --install`,
+	// ignore --reuse-values and --reset-then-reuse-values in that case.
+	if isUpgrade && (d.reuseValues || d.resetThenReuseValues || shouldDefaultReusingValues) && !d.resetValues && d.clusterAccessAllowed() {
 		tmpfile, err := os.CreateTemp("", "existing-values")
 		if err != nil {
 			return nil, err
