@@ -32,11 +32,16 @@ func printFakeHelmVersion() {
 }
 
 // printFakeHelmOutput prints the output for a fake helm invocation.
-// A `helm version` call prints helm version build info; any other
+// A `helm version` call prints helm version build info; a `helm get values`
+// call prints HELM_DIFF_FAKE_VALUES_OUTPUT if that is set; any other
 // invocation prints HELM_DIFF_FAKE_OUTPUT.
 func printFakeHelmOutput() {
 	if len(os.Args) > 1 && os.Args[1] == "version" {
 		printFakeHelmVersion()
+		return
+	}
+	if v, ok := os.LookupEnv("HELM_DIFF_FAKE_VALUES_OUTPUT"); ok && len(os.Args) > 2 && os.Args[1] == "get" && os.Args[2] == "values" {
+		fmt.Print(v)
 		return
 	}
 	fmt.Print(os.Getenv("HELM_DIFF_FAKE_OUTPUT"))

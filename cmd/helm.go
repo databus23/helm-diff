@@ -214,7 +214,7 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 	if d.insecureSkipTLSVerify {
 		flags = append(flags, "--insecure-skip-tls-verify")
 	}
-	// Helm automatically enable --reuse-values when there's no --set, --set-string, --set-json, --set-values, --set-file present.
+	// Helm automatically reuses the user-supplied values of the last release when there's no --set, --set-string, --set-json, --set-values, --set-file present.
 	// Let's simulate that in helm-diff.
 	// See https://medium.com/@kcatstack/understand-helm-upgrade-flags-reset-values-reuse-values-6e58ac8f127e
 	shouldDefaultReusingValues := len(d.values) == 0 && len(d.stringValues) == 0 && len(d.stringLiteralValues) == 0 && len(d.jsonValues) == 0 && len(d.valueFiles) == 0 && len(d.fileValues) == 0
@@ -240,12 +240,23 @@ func (d *diffCmd) template(isUpgrade bool) ([]byte, error) {
 			}
 			err = d.writeExistingValues(tmpfile, false)
 		} else {
-			err = d.writeExistingValues(tmpfile, true)
+			// Only --reuse-values also reuses the values of the chart that the release was installed from.
+			// By default, Helm reuses just the user-supplied values, so that changes to the values.yaml
+			// of the chart take effect. See https://github.com/databus23/helm-diff/issues/464
+			err = d.writeExistingValues(tmpfile, d.reuseValues)
 		}
 		if err != nil {
 			return nil, err
 		}
-		flags = append(flags, "--values", tmpfile.Name())
+		existingValues, err := os.ReadFile(tmpfile.Name())
+		if err != nil {
+			return nil, err
+		}
+		// `helm get values` prints "null" for a release without user-supplied values.
+		// There is nothing to reuse then.
+		if v := bytes.TrimSpace(existingValues); len(v) > 0 && !bytes.Equal(v, []byte("null")) {
+			flags = append(flags, "--values", tmpfile.Name())
+		}
 	}
 	for _, value := range d.values {
 		flags = append(flags, "--set", value)

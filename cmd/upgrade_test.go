@@ -401,35 +401,60 @@ data:
 		fakeHelmMode     string
 		args             []string
 		useUpgradeDryRun bool
+		// existingValues is what `helm get values` prints for an existing release.
+		// Empty means that it prints the manifest, which stands in for some values.
+		existingValues string
 		// wantGetValues is the expected `helm get values` call.
 		// Empty means that the values must not be fetched at all.
 		wantGetValues string
+		// wantValues is whether the fetched values must be passed on with --values.
+		wantValues bool
 	}{
 		{
 			name:          "existing release with --reuse-values",
 			fakeHelmMode:  "capture_args",
 			args:          []string{"--reuse-values"},
 			wantGetValues: "get values my-release --output yaml --all --namespace prod-apps\n",
+			wantValues:    true,
 		},
 		{
 			name:          "existing release with --reset-then-reuse-values",
 			fakeHelmMode:  "capture_args",
 			args:          []string{"--reset-then-reuse-values"},
 			wantGetValues: "get values my-release --output yaml --namespace prod-apps\n",
+			wantValues:    true,
 		},
 		{
 			name:          "existing release with --install --reuse-values",
 			fakeHelmMode:  "capture_args",
 			args:          []string{"--install", "--reuse-values"},
 			wantGetValues: "get values my-release --output yaml --all --namespace prod-apps\n",
+			wantValues:    true,
 		},
 		{
-			// Helm enables --reuse-values by default when there is no --set, --set-string,
-			// --set-literal, --set-json, --values or --set-file flag, so the values of an
-			// existing release are fetched even without any of the reuse flags.
+			// Helm reuses the user-supplied values of an existing release when there is no
+			// --set, --set-string, --set-literal, --set-json, --values or --set-file flag.
+			// Unlike with --reuse-values, the values of the chart that the release was installed
+			// from are not reused, so the values are fetched without --all.
+			// See https://github.com/databus23/helm-diff/issues/464
 			name:          "existing release without value flags",
 			fakeHelmMode:  "capture_args",
-			wantGetValues: "get values my-release --output yaml --all --namespace prod-apps\n",
+			wantGetValues: "get values my-release --output yaml --namespace prod-apps\n",
+			wantValues:    true,
+		},
+		{
+			name:             "existing release without value flags and HELM_DIFF_USE_UPGRADE_DRY_RUN",
+			fakeHelmMode:     "capture_args",
+			useUpgradeDryRun: true,
+			wantGetValues:    "get values my-release --output yaml --namespace prod-apps\n",
+			wantValues:       true,
+		},
+		{
+			// `helm get values` prints "null" for a release without user-supplied values.
+			name:           "existing release without value flags and without user-supplied values",
+			fakeHelmMode:   "capture_args",
+			existingValues: "null\n",
+			wantGetValues:  "get values my-release --output yaml --namespace prod-apps\n",
 		},
 		{
 			name:         "unreleased with --install",
@@ -468,6 +493,9 @@ data:
 		t.Run(tc.name, func(t *testing.T) {
 			argsFile := t.TempDir() + "/args"
 			setupFakeHelm(t, tc.fakeHelmMode, manifestYAML, argsFile, "")
+			if tc.existingValues != "" {
+				t.Setenv("HELM_DIFF_FAKE_VALUES_OUTPUT", tc.existingValues)
+			}
 			renderSubcmd := "template"
 			if tc.useUpgradeDryRun {
 				t.Setenv("HELM_DIFF_USE_UPGRADE_DRY_RUN", "true")
@@ -498,6 +526,9 @@ data:
 				}
 			} else if !strings.Contains(argsContent, tc.wantGetValues) {
 				t.Errorf("expected 'helm %s', got:\n%s", strings.TrimSpace(tc.wantGetValues), argsContent)
+			}
+			if strings.Contains(argsContent, " --values ") != tc.wantValues {
+				t.Errorf("expected the existing values to be passed with --values: %t, got:\n%s", tc.wantValues, argsContent)
 			}
 		})
 	}
