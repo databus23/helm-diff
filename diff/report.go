@@ -133,6 +133,10 @@ func printDyffReport(r *Report, to io.Writer) {
 		OmitHeader:           true,
 		MinorChangeThreshold: 0.1,
 	}
+	// dyff omits the root description for a single-document comparison.
+	if len(r.Entries) == 1 {
+		_, _ = fmt.Fprintln(to, r.Entries[0].Key)
+	}
 	_ = reportWriter.WriteReport(to)
 }
 
