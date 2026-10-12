@@ -67,6 +67,33 @@ func TestPrintDyffReport(t *testing.T) {
 	require.Contains(t, output, "+ 3", "Expected dyff output to show updated replicas value")
 }
 
+func TestPrintDyffReportSingleChangeIncludesResourceIdentity(t *testing.T) {
+	report := &Report{
+		Entries: []ReportEntry{{
+			Key:        "default, heat-trusts, Job (batch)",
+			Kind:       "Job",
+			ChangeType: "MODIFY",
+			Diffs: []difflib.DiffRecord{
+				{Payload: "apiVersion: batch/v1", Delta: difflib.Common},
+				{Payload: "kind: Job", Delta: difflib.Common},
+				{Payload: "metadata:", Delta: difflib.Common},
+				{Payload: "  name: heat-trusts", Delta: difflib.Common},
+				{Payload: "spec:", Delta: difflib.Common},
+				{Payload: "  parallelism: 1", Delta: difflib.LeftOnly},
+				{Payload: "  parallelism: 2", Delta: difflib.RightOnly},
+			},
+		}},
+	}
+
+	var buf bytes.Buffer
+	printDyffReport(report, &buf)
+	output := buf.String()
+	require.Contains(t, output, "default, heat-trusts, Job (batch)")
+	require.Contains(t, output, "spec.parallelism")
+	require.Contains(t, output, "- 1")
+	require.Contains(t, output, "+ 2")
+}
+
 func TestPrintDyffReportWithAddAndRemove(t *testing.T) {
 	report := &Report{
 		Entries: []ReportEntry{
