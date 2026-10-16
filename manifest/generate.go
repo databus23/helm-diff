@@ -328,16 +328,6 @@ func (p *resourcePatch) apply(liveData []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	// A JSON merge patch carries only what the chart changed between the two
-	// release manifests, so it never prunes a field the cluster populated and
-	// there is nothing to put back. Custom resources are also stored as JSON
-	// rather than protobuf, which keeps `null`, `[]` and `{}` apart, so the
-	// restoration pass would misread a chart changing one into another as noise
-	// and undo it.
-	if p.patchType == types.MergePatchType {
-		return merged, nil
-	}
-
 	return p.restoreServerPopulatedFields(merged, liveData)
 }
 
@@ -378,12 +368,15 @@ func (p *resourcePatch) normalize(merged []byte) ([]byte, error) {
 // replaces `retainKeys` structs and atomic lists as a whole, which drops what
 // the API server had defaulted into them - the rolling update strategy of a
 // Deployment, the `protocol: TCP` of a NetworkPolicy port, the `volumeMode` of a
-// volume claim template. And a manifest that renders a field as an explicit
-// `null`, the way a chart writes `replicas:` for a value it leaves unset, turns
-// into a `null` in the patch: the key is in both manifests, so it counts as a
-// change rather than a deletion and deletes the live value. Either way the API
-// server defaults the field straight back, but client-go does not ship the
-// defaulting functions, so the local merge has to recover the value differently.
+// volume claim template. A JSON merge patch, which is what custom resources get,
+// replaces every list as a whole, so the defaults a CRD schema put into the
+// list elements go the same way. And a manifest that renders a field as an
+// explicit `null`, the way a chart writes `replicas:` for a value it leaves
+// unset, turns into a `null` in the patch: the key is in both manifests, so it
+// counts as a change rather than a deletion and deletes the live value. Either
+// way the API server defaults the field straight back, but client-go does not
+// ship the defaulting functions, so the local merge has to recover the value
+// differently.
 //
 // A field is copied back from the live object when the old and the new release
 // manifest agree about it - neither mentions it, or both give it the same value,
@@ -395,6 +388,12 @@ func (p *resourcePatch) normalize(merged []byte) ([]byte, error) {
 // Only fields missing from the merged object are restored, never values that it
 // already carries, so drift between the cluster and the chart is still
 // reported.
+//
+// Built-in kinds are stored as protobuf, which cannot tell `null`, `[]` and `{}`
+// apart, so for a strategic merge patch two empty values are read as the same
+// value. A custom resource is stored as JSON and keeps the three apart: a chart
+// changing one into another is a change the upgrade makes, so for a JSON merge
+// patch the equivalence is off.
 func (p *resourcePatch) restoreServerPopulatedFields(merged, liveData []byte) ([]byte, error) {
 	var mergedObj, liveObj, originalObj, modifiedObj interface{}
 
@@ -415,7 +414,8 @@ func (p *resourcePatch) restoreServerPopulatedFields(merged, liveData []byte) ([
 		}
 	}
 
-	restored := restoreMissing(mergedObj, liveObj, originalObj, modifiedObj)
+	coalesceEmpty := p.patchType == types.StrategicMergePatchType
+	restored := restoreMissing(mergedObj, liveObj, originalObj, modifiedObj, coalesceEmpty)
 
 	out, err := json.Marshal(restored)
 	if err != nil {
@@ -443,7 +443,9 @@ func isEmpty(v interface{}) bool {
 // live that merged lost without either release manifest asking for it. It
 // returns the updated merged value and never overwrites a value merged already
 // has, so a field the chart does specify keeps whatever the patch made of it.
-func restoreMissing(merged, live, original, modified interface{}) interface{} {
+// coalesceEmpty reads `null`, `[]` and `{}` as the same value, which only holds
+// for objects the API server stores as protobuf.
+func restoreMissing(merged, live, original, modified interface{}, coalesceEmpty bool) interface{} {
 	switch live := live.(type) {
 	case map[string]interface{}:
 		mergedMap, ok := merged.(map[string]interface{})
@@ -455,7 +457,7 @@ func restoreMissing(merged, live, original, modified interface{}) interface{} {
 
 		for key, liveValue := range live {
 			mergedValue, inMerged := mergedMap[key]
-			if inMerged && isEmpty(mergedValue) && isEmpty(liveValue) {
+			if coalesceEmpty && inMerged && isEmpty(mergedValue) && isEmpty(liveValue) {
 				// Two empty values that differ only in how they are written are
 				// not a change: the API server stores objects as protobuf,
 				// which cannot tell an empty list from an absent one, so a
@@ -477,7 +479,7 @@ func restoreMissing(merged, live, original, modified interface{}) interface{} {
 				}
 				continue
 			}
-			mergedMap[key] = restoreMissing(mergedValue, liveValue, originalMap[key], modifiedMap[key])
+			mergedMap[key] = restoreMissing(mergedValue, liveValue, originalMap[key], modifiedMap[key], coalesceEmpty)
 		}
 		return mergedMap
 
@@ -497,7 +499,7 @@ func restoreMissing(merged, live, original, modified interface{}) interface{} {
 		}
 
 		for i := range mergedList {
-			mergedList[i] = restoreMissing(mergedList[i], live[i], originalList[i], modifiedList[i])
+			mergedList[i] = restoreMissing(mergedList[i], live[i], originalList[i], modifiedList[i], coalesceEmpty)
 		}
 		return mergedList
 
