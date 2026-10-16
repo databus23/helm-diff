@@ -691,10 +691,12 @@ spec:
 		"a chart-owned value must not be restored from the cluster, got hostNetwork=%v", value)
 }
 
-// A custom resource is stored as JSON, which keeps null, [] and {} apart, and a
-// JSON merge patch already leaves untouched live fields alone. Neither the
-// empty-value equivalence nor the restoration pass may run over one.
-func TestLocalMerge_LeavesCustomResourcesToTheMergePatch(t *testing.T) {
+// A custom resource is stored as JSON, which keeps null, [] and {} apart, so
+// the empty-value equivalence must not run over one: a chart turning one into
+// another is a change the upgrade makes. The restoration pass still runs, and
+// must leave the fields the merge patch never touched exactly as the cluster
+// has them.
+func TestLocalMerge_KeepsEmptyValuesApartOnCustomResources(t *testing.T) {
 	widget := func(items string) string {
 		return fmt.Sprintf(`
 apiVersion: example.com/v1
@@ -732,6 +734,97 @@ spec:
 		observed, found := nested(t, got, "spec", "status", "observed")
 		require.True(t, found, "a JSON merge patch must not prune a field it never mentions")
 		assert.EqualValues(t, 3, observed)
+	})
+}
+
+// A JSON merge patch replaces a list as a whole, so the fields the CRD defaulted
+// into its elements - `name: ""` on every watched resource below - are lost
+// whenever the list reaches the patch, which it does on every run that renders
+// the chart unchanged. The API server would default them straight back, so
+// they must be restored the same way they are for an atomic list of a built-in
+// kind.
+func TestLocalMerge_KeepsDefaultedFieldsInCustomResourceLists(t *testing.T) {
+	policy := func(resources string) string {
+		return fmt.Sprintf(`
+apiVersion: example.com/v1
+kind: Policy
+metadata: {name: p}
+spec:
+  watchedResources:
+%s
+`, resources)
+	}
+	chart := policy(`    - {group: apps, version: v1, resource: deployments}
+    - {group: apps, version: v1, resource: statefulsets}`)
+	live := policy(`    - {group: apps, version: v1, resource: deployments, name: "", namespace: ""}
+    - {group: apps, version: v1, resource: statefulsets, name: "", namespace: ""}`)
+
+	t.Run("defaults inside a list the chart leaves alone are restored", func(t *testing.T) {
+		got := applyLocally(t, chart, live, chart)
+		resources, _ := nested(t, got, "spec", "watchedResources")
+		require.Len(t, resources, 2)
+		for i, resource := range resources.([]interface{}) {
+			element := resource.(map[string]interface{})
+			name, found := element["name"]
+			require.True(t, found, "element %d lost the defaulted name", i)
+			assert.Empty(t, name)
+			namespace, found := element["namespace"]
+			require.True(t, found, "element %d lost the defaulted namespace", i)
+			assert.Empty(t, namespace)
+		}
+	})
+
+	t.Run("drift inside the list is still reported", func(t *testing.T) {
+		drifted := policy(`    - {group: apps, version: v1, resource: deployments, name: "", namespace: ""}
+    - {group: apps, version: v1, resource: daemonsets, name: "", namespace: ""}`)
+		got := applyLocally(t, chart, drifted, chart)
+		resources, _ := nested(t, got, "spec", "watchedResources")
+		require.Len(t, resources, 2)
+		second := resources.([]interface{})[1].(map[string]interface{})
+		assert.Equal(t, "statefulsets", second["resource"], "the chart-owned value must win over the drifted one")
+		name, found := second["name"]
+		require.True(t, found, "a default next to a drifted value is still a default")
+		assert.Empty(t, name)
+	})
+
+	t.Run("a list the chart changes is left to the patch", func(t *testing.T) {
+		extended := policy(`    - {group: apps, version: v1, resource: deployments}
+    - {group: apps, version: v1, resource: statefulsets}
+    - {group: apps, version: v1, resource: daemonsets}`)
+		got := applyLocally(t, chart, live, extended)
+		resources, _ := nested(t, got, "spec", "watchedResources")
+		require.Len(t, resources, 3, "the element the chart adds must be reported")
+		for i, resource := range resources.([]interface{}) {
+			_, found := resource.(map[string]interface{})["name"]
+			assert.False(t, found, "element %d: positions cannot be paired once the chart changes the list", i)
+		}
+	})
+
+	// Helm patches an unstructured object with a two-way merge patch from the
+	// old to the new manifest, which is empty when they agree, so a value the
+	// chart renders as `null` on both sides is left in the cluster untouched.
+	t.Run("a null in both manifests leaves the live value alone", func(t *testing.T) {
+		unset := policy(`    - {group: apps, version: v1, resource: deployments, namespace: null}
+    - {group: apps, version: v1, resource: statefulsets}`)
+		got := applyLocally(t, unset, live, unset)
+		resources, _ := nested(t, got, "spec", "watchedResources")
+		require.Len(t, resources, 2)
+		namespace, found := resources.([]interface{})[0].(map[string]interface{})["namespace"]
+		require.True(t, found, "the upgrade sends no patch for a field both manifests leave unset")
+		assert.Empty(t, namespace)
+	})
+
+	t.Run("a field the chart drops from an element is reported", func(t *testing.T) {
+		pinned := policy(`    - {group: apps, version: v1, resource: deployments, namespace: kube-system}
+    - {group: apps, version: v1, resource: statefulsets}`)
+		livePinned := policy(`    - {group: apps, version: v1, resource: deployments, name: "", namespace: kube-system}
+    - {group: apps, version: v1, resource: statefulsets, name: "", namespace: ""}`)
+		got := applyLocally(t, pinned, livePinned, chart)
+		resources, _ := nested(t, got, "spec", "watchedResources")
+		require.Len(t, resources, 2)
+		first := resources.([]interface{})[0].(map[string]interface{})
+		_, found := first["namespace"]
+		assert.False(t, found, "the chart stopped pinning the namespace, which is a change to report")
 	})
 }
 
