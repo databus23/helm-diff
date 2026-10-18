@@ -50,7 +50,9 @@ expect() {
 }
 
 # new_chart <dir> <default> writes a chart with a single ConfigMap whose
-# only value comes from the chart's values.yaml.
+# only value comes from the chart's values.yaml. The ConfigMap is named
+# after the release so the two releases below can coexist in one namespace:
+# helm (3.18+ and v4) refuses to import a resource another release owns.
 new_chart() {
   mkdir -p "$1/templates"
   cat > "$1/Chart.yaml" <<'YAML'
@@ -63,7 +65,7 @@ YAML
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: cm
+  name: cm-{{ .Release.Name }}
 data:
   key: {{ .Values.key | quote }}
 YAML
