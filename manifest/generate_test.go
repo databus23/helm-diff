@@ -841,7 +841,9 @@ spec:
 		require.Len(t, resources, 2)
 		namespace, found := resources.([]interface{})[0].(map[string]interface{})["namespace"]
 		require.True(t, found, "the upgrade sends no patch for a field both manifests leave unset")
-		assert.Equal(t, "", namespace, "the value the cluster carries must survive, not the null the chart renders")
+		ns, isString := namespace.(string)
+		require.True(t, isString, "the value the cluster carries must survive, not the null the chart renders")
+		assert.Empty(t, ns)
 	})
 
 	// The guard holds on the live side as well: an element somebody added to
