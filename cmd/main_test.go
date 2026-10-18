@@ -32,11 +32,16 @@ func printFakeHelmVersion() {
 }
 
 // printFakeHelmOutput prints the output for a fake helm invocation.
-// A `helm version` call prints helm version build info; any other
+// A `helm version` call prints helm version build info; a `helm get values`
+// call prints HELM_DIFF_FAKE_VALUES_OUTPUT if that is set; any other
 // invocation prints HELM_DIFF_FAKE_OUTPUT.
 func printFakeHelmOutput() {
 	if len(os.Args) > 1 && os.Args[1] == "version" {
 		printFakeHelmVersion()
+		return
+	}
+	if v, ok := os.LookupEnv("HELM_DIFF_FAKE_VALUES_OUTPUT"); ok && len(os.Args) > 2 && os.Args[1] == "get" && os.Args[2] == "values" {
+		fmt.Print(v)
 		return
 	}
 	fmt.Print(os.Getenv("HELM_DIFF_FAKE_OUTPUT"))
@@ -128,5 +133,27 @@ func TestFakeHelmVersionOutput(t *testing.T) {
 		out, err := exec.Command(exe, "get", "manifest").CombinedOutput()
 		require.NoError(t, err)
 		require.Equal(t, "manifest-output", string(out))
+	})
+
+	t.Run("get values prints HELM_DIFF_FAKE_VALUES_OUTPUT when set", func(t *testing.T) {
+		t.Setenv("HELM_DIFF_FAKE_HELM", "1")
+		t.Setenv("HELM_DIFF_FAKE_HELM_MODE", "default")
+		t.Setenv("HELM_DIFF_FAKE_VALUES_OUTPUT", "user: value\n")
+		t.Setenv("HELM_DIFF_FAKE_OUTPUT", "manifest-output")
+
+		out, err := exec.Command(exe, "get", "values", "my-release").CombinedOutput()
+		require.NoError(t, err)
+		require.Equal(t, "user: value\n", string(out))
+	})
+
+	t.Run("get values prints empty output when HELM_DIFF_FAKE_VALUES_OUTPUT is set but empty", func(t *testing.T) {
+		t.Setenv("HELM_DIFF_FAKE_HELM", "1")
+		t.Setenv("HELM_DIFF_FAKE_HELM_MODE", "default")
+		t.Setenv("HELM_DIFF_FAKE_VALUES_OUTPUT", "")
+		t.Setenv("HELM_DIFF_FAKE_OUTPUT", "manifest-output")
+
+		out, err := exec.Command(exe, "get", "values", "my-release").CombinedOutput()
+		require.NoError(t, err)
+		require.Empty(t, out)
 	})
 }
