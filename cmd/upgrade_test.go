@@ -457,6 +457,38 @@ data:
 			wantGetValues:  "get values my-release --output yaml --namespace prod-apps\n",
 		},
 		{
+			// Helm reuses the values of an existing release only when no new values are
+			// given, so with --set there is nothing to fetch and the release values are dropped.
+			name:         "existing release with --set",
+			fakeHelmMode: "capture_args",
+			args:         []string{"--set", "key=val"},
+		},
+		{
+			// --reset-values resets to the values built into the chart, so the values
+			// of the release are not fetched at all.
+			name:         "existing release with --reset-values",
+			fakeHelmMode: "capture_args",
+			args:         []string{"--reset-values"},
+		},
+		{
+			// An explicit --reuse-values also reuses the values of the chart that the
+			// release was installed from, even when --set is given on top.
+			name:          "existing release with --reuse-values and --set",
+			fakeHelmMode:  "capture_args",
+			args:          []string{"--reuse-values", "--set", "key=val"},
+			wantGetValues: "get values my-release --output yaml --all --namespace prod-apps\n",
+			wantValues:    true,
+		},
+		{
+			// `helm get values` prints "null" for a release without user-supplied values,
+			// so --reset-then-reuse-values has nothing to pass on with --values either.
+			name:           "existing release with --reset-then-reuse-values and without user-supplied values",
+			fakeHelmMode:   "capture_args",
+			args:           []string{"--reset-then-reuse-values"},
+			existingValues: "null\n",
+			wantGetValues:  "get values my-release --output yaml --namespace prod-apps\n",
+		},
+		{
 			name:         "unreleased with --install",
 			fakeHelmMode: "unreleased",
 			args:         []string{"--install"},

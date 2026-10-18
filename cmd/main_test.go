@@ -134,4 +134,26 @@ func TestFakeHelmVersionOutput(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, "manifest-output", string(out))
 	})
+
+	t.Run("get values prints HELM_DIFF_FAKE_VALUES_OUTPUT when set", func(t *testing.T) {
+		t.Setenv("HELM_DIFF_FAKE_HELM", "1")
+		t.Setenv("HELM_DIFF_FAKE_HELM_MODE", "default")
+		t.Setenv("HELM_DIFF_FAKE_VALUES_OUTPUT", "user: value\n")
+		t.Setenv("HELM_DIFF_FAKE_OUTPUT", "manifest-output")
+
+		out, err := exec.Command(exe, "get", "values", "my-release").CombinedOutput()
+		require.NoError(t, err)
+		require.Equal(t, "user: value\n", string(out))
+	})
+
+	t.Run("get values prints empty output when HELM_DIFF_FAKE_VALUES_OUTPUT is set but empty", func(t *testing.T) {
+		t.Setenv("HELM_DIFF_FAKE_HELM", "1")
+		t.Setenv("HELM_DIFF_FAKE_HELM_MODE", "default")
+		t.Setenv("HELM_DIFF_FAKE_VALUES_OUTPUT", "")
+		t.Setenv("HELM_DIFF_FAKE_OUTPUT", "manifest-output")
+
+		out, err := exec.Command(exe, "get", "values", "my-release").CombinedOutput()
+		require.NoError(t, err)
+		require.Empty(t, out)
+	})
 }
