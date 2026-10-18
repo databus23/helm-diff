@@ -2,6 +2,7 @@ package diff
 
 import (
 	"bytes"
+	"strings"
 	"testing"
 
 	"github.com/aryann/difflib"
@@ -65,6 +66,82 @@ func TestPrintDyffReport(t *testing.T) {
 	require.Contains(t, output, "replicas", "Expected dyff output to mention replicas field")
 	require.Contains(t, output, "- 2", "Expected dyff output to show original replicas value")
 	require.Contains(t, output, "+ 3", "Expected dyff output to show updated replicas value")
+}
+
+func TestPrintDyffReportSingleChangeIncludesResourceIdentity(t *testing.T) {
+	report := &Report{
+		Entries: []ReportEntry{{
+			Key:        "default, heat-trusts, Job (batch)",
+			Kind:       "Job",
+			ChangeType: "MODIFY",
+			Diffs: []difflib.DiffRecord{
+				{Payload: "apiVersion: batch/v1", Delta: difflib.Common},
+				{Payload: "kind: Job", Delta: difflib.Common},
+				{Payload: "metadata:", Delta: difflib.Common},
+				{Payload: "  name: heat-trusts", Delta: difflib.Common},
+				{Payload: "spec:", Delta: difflib.Common},
+				{Payload: "  parallelism: 1", Delta: difflib.LeftOnly},
+				{Payload: "  parallelism: 2", Delta: difflib.RightOnly},
+			},
+		}},
+	}
+
+	var buf bytes.Buffer
+	printDyffReport(report, &buf)
+	output := buf.String()
+	require.True(t, strings.HasPrefix(output, "default, heat-trusts, Job (batch)\n"),
+		"Expected the resource identity to lead the single-change dyff output")
+	require.Equal(t, 1, strings.Count(output, "default, heat-trusts, Job (batch)"),
+		"Expected the resource identity to be printed exactly once")
+	require.Contains(t, output, "spec.parallelism")
+	require.Contains(t, output, "- 1")
+	require.Contains(t, output, "+ 2")
+}
+
+func TestPrintDyffReportSingleChangeWithSuppressedEntryIncludesResourceIdentity(t *testing.T) {
+	suppressedEntry := ReportEntry{
+		Key:        "default, heat-trusts-config, ConfigMap (v1)",
+		Kind:       "ConfigMap",
+		ChangeType: "MODIFY_SUPPRESSED",
+	}
+	changedEntry := ReportEntry{
+		Key:        "default, heat-trusts, Job (batch)",
+		Kind:       "Job",
+		ChangeType: "MODIFY",
+		Diffs: []difflib.DiffRecord{
+			{Payload: "apiVersion: batch/v1", Delta: difflib.Common},
+			{Payload: "kind: Job", Delta: difflib.Common},
+			{Payload: "metadata:", Delta: difflib.Common},
+			{Payload: "  name: heat-trusts", Delta: difflib.Common},
+			{Payload: "spec:", Delta: difflib.Common},
+			{Payload: "  parallelism: 1", Delta: difflib.LeftOnly},
+			{Payload: "  parallelism: 2", Delta: difflib.RightOnly},
+		},
+	}
+
+	var buf bytes.Buffer
+	printDyffReport(&Report{Entries: []ReportEntry{suppressedEntry, changedEntry}}, &buf)
+	output := buf.String()
+	require.True(t, strings.HasPrefix(output, "default, heat-trusts, Job (batch)\n"),
+		"A fully suppressed entry yields an empty document that dyff drops, so the changed entry is still a single-document comparison and must lead the output with its identity")
+	require.Contains(t, output, "spec.parallelism")
+	require.Contains(t, output, "+ 2")
+}
+
+func TestPrintDyffReportOnlySuppressedEntryStillNamesResource(t *testing.T) {
+	report := &Report{
+		Entries: []ReportEntry{{
+			Key:        "default, heat-trusts-config, ConfigMap (v1)",
+			Kind:       "ConfigMap",
+			ChangeType: "MODIFY_SUPPRESSED",
+		}},
+	}
+
+	var buf bytes.Buffer
+	printDyffReport(report, &buf)
+	output := buf.String()
+	require.Contains(t, output, "default, heat-trusts-config, ConfigMap (v1)",
+		"Expected a sole fully suppressed entry to still name its resource, like the other output formats")
 }
 
 func TestPrintDyffReportWithAddAndRemove(t *testing.T) {
