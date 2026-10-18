@@ -133,11 +133,42 @@ func printDyffReport(r *Report, to io.Writer) {
 		OmitHeader:           true,
 		MinorChangeThreshold: 0.1,
 	}
-	// dyff omits the root description for a single-document comparison.
-	if len(r.Entries) == 1 {
-		_, _ = fmt.Fprintln(to, r.Entries[0].Key)
+	// dyff only prints the per-document root description when it compares
+	// more than one document, so a report with a single changed resource
+	// would come out without any resource identity. Print the report key of
+	// that resource instead, like the other output formats do.
+	if key := singleChangedEntryKey(r.Entries); key != "" {
+		_, _ = fmt.Fprintln(to, key)
 	}
 	_ = reportWriter.WriteReport(to)
+}
+
+// singleChangedEntryKey returns the resource identity that dyff would omit:
+// the key of the only entry carrying diff records. Entries without diff
+// records (fully suppressed changes) only produce empty documents, which dyff
+// drops, so they do not turn the comparison into a multi-document one. When
+// no entry has diff records, the key of a sole entry is returned so that a
+// fully suppressed change still names its resource like the other reporters
+// do. It returns an empty string whenever more than one entry carries diffs,
+// because dyff prints the root description for each document in that case.
+func singleChangedEntryKey(entries []ReportEntry) string {
+	var single *ReportEntry
+	for i := range entries {
+		if len(entries[i].Diffs) == 0 {
+			continue
+		}
+		if single != nil {
+			return ""
+		}
+		single = &entries[i]
+	}
+	if single != nil {
+		return single.Key
+	}
+	if len(entries) == 1 {
+		return entries[0].Key
+	}
+	return ""
 }
 
 // addEntry: stores diff changes.
