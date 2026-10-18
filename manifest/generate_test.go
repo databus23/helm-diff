@@ -735,6 +735,36 @@ spec:
 		require.True(t, found, "a JSON merge patch must not prune a field it never mentions")
 		assert.EqualValues(t, 3, observed)
 	})
+
+	// A `null` the two manifests share is not a change: the upgrade sends no
+	// patch for the field, so what the cluster carries - here a whole nested
+	// object - is what the upgrade result keeps. The restoration pass is what
+	// recovers it: applying the chart's null to the live object drops the
+	// field, and the manifests agree it should say nothing.
+	t.Run("a null both manifests share leaves the live value alone", func(t *testing.T) {
+		unset := `
+apiVersion: example.com/v1
+kind: Widget
+metadata: {name: w, namespace: default}
+spec:
+  items: null
+  template: null
+  size: large
+`
+		liveTemplate := `
+apiVersion: example.com/v1
+kind: Widget
+metadata: {name: w, namespace: default}
+spec:
+  items: null
+  template: {greeting: hi}
+  size: large
+`
+		got := applyLocally(t, unset, liveTemplate, unset)
+		template, found := nested(t, got, "spec", "template")
+		require.True(t, found, "a field both manifests render as null keeps what the cluster carries")
+		assert.Equal(t, map[string]interface{}{"greeting": "hi"}, template)
+	})
 }
 
 // A JSON merge patch replaces a list as a whole, so the fields the CRD defaulted
@@ -811,7 +841,25 @@ spec:
 		require.Len(t, resources, 2)
 		namespace, found := resources.([]interface{})[0].(map[string]interface{})["namespace"]
 		require.True(t, found, "the upgrade sends no patch for a field both manifests leave unset")
-		assert.Empty(t, namespace)
+		assert.Equal(t, "", namespace, "the value the cluster carries must survive, not the null the chart renders")
+	})
+
+	// The guard holds on the live side as well: an element somebody added to
+	// the cluster breaks the pairing of positions even though the chart left
+	// the list alone, so the list is left as the patch produced it and the
+	// defaults go un-restored - the same trade-off an atomic list of a built-in
+	// kind makes.
+	t.Run("a list the cluster has drifted in length is left to the patch", func(t *testing.T) {
+		drifted := policy(`    - {group: apps, version: v1, resource: deployments, name: ""}
+    - {group: apps, version: v1, resource: statefulsets, name: ""}
+    - {group: apps, version: v1, resource: daemonsets, name: ""}`)
+		got := applyLocally(t, chart, drifted, chart)
+		resources, _ := nested(t, got, "spec", "watchedResources")
+		require.Len(t, resources, 2, "the element somebody added by hand is reported as removed")
+		for i, resource := range resources.([]interface{}) {
+			_, found := resource.(map[string]interface{})["name"]
+			assert.False(t, found, "element %d: positions cannot be paired once the lengths drift", i)
+		}
 	})
 
 	t.Run("a field the chart drops from an element is reported", func(t *testing.T) {
