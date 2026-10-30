@@ -137,7 +137,7 @@ jobs:
         if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
         uses: azure/setup-helm@v5
         with:
-          version: v4.3.0
+          version: v4.3.1
       -
         # Regression test for issue #1076: `helm plugin update` runs the
         # *already installed* copy of install-binary.sh, so release tarballs
