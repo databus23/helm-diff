@@ -639,7 +639,15 @@ func createPatch(originalObj, currentObj runtime.Object, target *resource.Info) 
 		// from the chart state on chart-owned fields.
 		// Build desired state by applying new onto current (preserves live-only additions),
 		// then diff current -> desired to detect drift on chart-owned fields.
-		desiredData, err := jsonpatch.MergePatch(cleanedCurrentData, cleanedNewData)
+		// A merge patch reads a null as "delete this key", but a null the chart
+		// renders here is in both manifests, so the upgrade sends nothing for it
+		// and leaves the live value as it is. Drop the chart's nulls first, so
+		// they do not read as drift.
+		desiredPatch, err := dropNulls(cleanedNewData)
+		if err != nil {
+			return nil, fmt.Errorf("dropping nulls from new: %w", err)
+		}
+		desiredData, err := jsonpatch.MergePatch(cleanedCurrentData, desiredPatch)
 		if err != nil {
 			return nil, fmt.Errorf("building desired state: %w", err)
 		}
@@ -663,6 +671,31 @@ func createPatch(originalObj, currentObj runtime.Object, target *resource.Info) 
 	patch.patchType = types.StrategicMergePatchType
 	patch.patchMeta = patchMeta
 	return patch, nil
+}
+
+// dropNulls removes every null-valued key from the JSON object in data, at any
+// depth of nested objects. A list is left as it is, since a merge patch
+// replaces a list whole.
+func dropNulls(data []byte) ([]byte, error) {
+	var obj interface{}
+	if err := json.Unmarshal(data, &obj); err != nil {
+		return nil, err
+	}
+	return json.Marshal(dropNullValues(obj))
+}
+
+func dropNullValues(v interface{}) interface{} {
+	switch t := v.(type) {
+	case map[string]interface{}:
+		for k, val := range t {
+			if val == nil {
+				delete(t, k)
+				continue
+			}
+			t[k] = dropNullValues(val)
+		}
+	}
+	return v
 }
 
 func isPatchEmpty(patch []byte) bool {

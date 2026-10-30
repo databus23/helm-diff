@@ -1235,6 +1235,118 @@ func TestCreatePatchForUnstructured(t *testing.T) {
 			expectedChange: true,
 			description:    "Chart explicitly changes maxReplicaCount from 10 to 20, overriding manual value of 30",
 		},
+		{
+			name: "CR whose chart renders explicit nulls the live object stores (chart doesn't change anything)",
+			original: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "keda.sh/v1alpha1",
+					"kind":       "ScaledObject",
+					"metadata": map[string]interface{}{
+						"name":      "test-so",
+						"namespace": "default",
+					},
+					"spec": map[string]interface{}{
+						"maxReplicaCount": 10,
+						"fallback":        nil,
+					},
+				},
+			},
+			current: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "keda.sh/v1alpha1",
+					"kind":       "ScaledObject",
+					"metadata": map[string]interface{}{
+						"name":      "test-so",
+						"namespace": "default",
+					},
+					"spec": map[string]interface{}{
+						"maxReplicaCount": 10,
+						"fallback":        nil,
+					},
+				},
+			},
+			target: &resource.Info{
+				Mapping: &meta.RESTMapping{
+					GroupVersionKind: schema.GroupVersionKind{
+						Group:   "keda.sh",
+						Version: "v1alpha1",
+						Kind:    "ScaledObject",
+					},
+				},
+				Object: &unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"apiVersion": "keda.sh/v1alpha1",
+						"kind":       "ScaledObject",
+						"metadata": map[string]interface{}{
+							"name":      "test-so",
+							"namespace": "default",
+						},
+						"spec": map[string]interface{}{
+							"maxReplicaCount": 10,
+							"fallback":        nil,
+						},
+					},
+				},
+			},
+			expectedChange: false,
+			description:    "A null in both manifests, also stored live, is not drift",
+		},
+		{
+			name: "CR whose chart renders a null where the live object has a value (chart doesn't change anything)",
+			original: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "keda.sh/v1alpha1",
+					"kind":       "ScaledObject",
+					"metadata": map[string]interface{}{
+						"name":      "test-so",
+						"namespace": "default",
+					},
+					"spec": map[string]interface{}{
+						"maxReplicaCount": 10,
+						"fallback":        nil,
+					},
+				},
+			},
+			current: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "keda.sh/v1alpha1",
+					"kind":       "ScaledObject",
+					"metadata": map[string]interface{}{
+						"name":      "test-so",
+						"namespace": "default",
+					},
+					"spec": map[string]interface{}{
+						"maxReplicaCount": 10,
+						"fallback":        map[string]interface{}{"replicas": 2},
+					},
+				},
+			},
+			target: &resource.Info{
+				Mapping: &meta.RESTMapping{
+					GroupVersionKind: schema.GroupVersionKind{
+						Group:   "keda.sh",
+						Version: "v1alpha1",
+						Kind:    "ScaledObject",
+					},
+				},
+				Object: &unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"apiVersion": "keda.sh/v1alpha1",
+						"kind":       "ScaledObject",
+						"metadata": map[string]interface{}{
+							"name":      "test-so",
+							"namespace": "default",
+						},
+						"spec": map[string]interface{}{
+							"maxReplicaCount": 10,
+							"fallback":        nil,
+						},
+					},
+				},
+			},
+			expectedChange: false,
+			description:    "A null the chart renders leaves the field unset, so the upgrade keeps the live value and there is no drift",
+		},
 	}
 
 	for _, tt := range tests {
