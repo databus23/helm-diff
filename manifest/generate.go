@@ -16,6 +16,7 @@ import (
 	authorizationv1 "k8s.io/api/authorization/v1"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -54,7 +55,9 @@ var ValidThreeWayMergeModes = []string{
 }
 
 type generateOptions struct {
-	mergeMode ThreeWayMergeMode
+	mergeMode        ThreeWayMergeMode
+	release          string
+	releaseNamespace string
 }
 
 // GenerateOption customizes the behavior of Generate.
@@ -65,6 +68,16 @@ type GenerateOption func(*generateOptions)
 func WithThreeWayMergeMode(mode ThreeWayMergeMode) GenerateOption {
 	return func(o *generateOptions) {
 		o.mergeMode = mode
+	}
+}
+
+// WithRelease names the release the manifests belong to. The three-way merge
+// then adds the release's ownership metadata to the new manifest, the way helm
+// upgrade does, so that the computed patch matches the one the upgrade sends.
+func WithRelease(name, namespace string) GenerateOption {
+	return func(o *generateOptions) {
+		o.release = name
+		o.releaseNamespace = namespace
 	}
 }
 
@@ -165,7 +178,16 @@ func Generate(actionConfig *action.Configuration, originalManifest, targetManife
 			return fmt.Errorf("could not find %q", info.Name)
 		}
 
-		patch, err := createPatch(originalInfo.Object, currentObj, info)
+		target := info
+		if options.release != "" {
+			withMetadata := *info
+			if withMetadata.Object, err = withReleaseMetadata(info.Object, options.release, options.releaseNamespace); err != nil {
+				return fmt.Errorf("adding release metadata to %q with kind %s: %w", info.Name, kind, err)
+			}
+			target = &withMetadata
+		}
+
+		patch, err := createPatch(originalInfo.Object, currentObj, target)
 		if err != nil {
 			return err
 		}
@@ -671,6 +693,38 @@ func createPatch(originalObj, currentObj runtime.Object, target *resource.Info) 
 	patch.patchType = types.StrategicMergePatchType
 	patch.patchMeta = patchMeta
 	return patch, nil
+}
+
+// withReleaseMetadata returns a copy of obj carrying the ownership metadata that
+// helm install, upgrade and rollback merge into every object before computing
+// the patch. A three-way patch built without it nulls a map the chart renders
+// empty, and with it everything that was added to the map outside the chart.
+func withReleaseMetadata(obj runtime.Object, release, namespace string) (runtime.Object, error) {
+	obj = obj.DeepCopyObject()
+	accessor, err := meta.Accessor(obj)
+	if err != nil {
+		return nil, err
+	}
+
+	accessor.SetLabels(withEntries(accessor.GetLabels(), map[string]string{
+		"app.kubernetes.io/managed-by": "Helm",
+	}))
+	accessor.SetAnnotations(withEntries(accessor.GetAnnotations(), map[string]string{
+		"meta.helm.sh/release-name":      release,
+		"meta.helm.sh/release-namespace": namespace,
+	}))
+	return obj, nil
+}
+
+// withEntries adds entries to m, allocating m if it is nil.
+func withEntries(m, entries map[string]string) map[string]string {
+	if m == nil {
+		m = make(map[string]string, len(entries))
+	}
+	for k, v := range entries {
+		m[k] = v
+	}
+	return m
 }
 
 // dropNulls removes every null-valued key from the JSON object in data, at any
