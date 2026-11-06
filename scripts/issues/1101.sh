@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Reproduction test: --three-way-merge reports the removal of every live
+# Reproduction test for https://github.com/databus23/helm-diff/issues/1101
+#
+# Bug: --three-way-merge reports the removal of every live
 # annotation (or label) when the chart renders the map as null.
 #
 # A chart that renders `annotations:` with nothing under it produces a null map.
@@ -17,7 +19,7 @@
 
 set -euo pipefail
 
-ISSUE=three-way-null-metadata
+ISSUE=1101
 # shellcheck source=lib.sh
 source "$(dirname "$0")/lib.sh"
 
