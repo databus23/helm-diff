@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/cli-runtime/pkg/resource"
 	"sigs.k8s.io/yaml"
 )
@@ -111,6 +112,60 @@ func TestCreatePatchApplyLocally_StrategicRemoval(t *testing.T) {
 	require.NoError(t, yaml.Unmarshal(merged, &got))
 
 	assert.Equal(t, map[string]string{"keep": "me"}, got.ObjectMeta.Labels)
+}
+
+// A chart that renders `annotations:` or `labels:` with nothing under it leaves
+// the map null in both manifests. helm upgrade adds its ownership metadata to
+// the object before it computes the patch, so the patch it sends does not null
+// the map, and what was added to it outside the chart survives. The patch sent
+// for the server-side dry-run must do the same.
+func TestCreatePatch_KeepsMetadataAddedOutsideTheChartUnderANullMap(t *testing.T) {
+	chart := `
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: res
+  namespace: default
+  annotations:
+  labels:
+data: {foo: bar}
+`
+	live := fromYAML(t, `
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: res
+  namespace: default
+  annotations:
+    meta.helm.sh/release-name: rel
+    meta.helm.sh/release-namespace: default
+    example.com/added-outside: "yes"
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    example.com/added-outside: "yes"
+data: {foo: bar}
+`)
+
+	target, err := withReleaseMetadata(fromYAML(t, chart), "rel", "default")
+	require.NoError(t, err)
+
+	patch, err := createPatch(fromYAML(t, chart), live, infoFor(t, target, corev1.SchemeGroupVersion.WithKind("ConfigMap")))
+	require.NoError(t, err)
+
+	liveJSON, err := live.MarshalJSON()
+	require.NoError(t, err)
+	// Apply the patch the way the API server does, without the post-processing
+	// of the local merge.
+	merged, err := strategicpatch.StrategicMergePatchUsingLookupPatchMeta(liveJSON, patch.data, patch.patchMeta)
+	require.NoError(t, err)
+
+	var got map[string]interface{}
+	require.NoError(t, json.Unmarshal(merged, &got))
+	for _, field := range []string{"annotations", "labels"} {
+		value, found := nested(t, got, "metadata", field, "example.com/added-outside")
+		assert.True(t, found, "the %s added outside the chart must survive", field)
+		assert.Equal(t, "yes", value)
+	}
 }
 
 // TestCreatePatchApplyLocally_Unstructured covers custom resources, which use a

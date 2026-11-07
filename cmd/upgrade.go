@@ -356,9 +356,13 @@ func (d *diffCmd) runHelm3() error {
 	}
 
 	var actionConfig *action.Configuration
+	releaseNs := d.namespace
 	if d.threeWayMerge || d.takeOwnership {
 		actionConfig = new(action.Configuration)
 		localEnv := prepareEnvSettings(d.kubeContext)
+		if releaseNs == "" {
+			releaseNs = localEnv.Namespace()
+		}
 		storageNs := d.storage()
 		if storageNs == "" {
 			storageNs = localEnv.Namespace()
@@ -373,7 +377,8 @@ func (d *diffCmd) runHelm3() error {
 
 	if d.threeWayMerge {
 		releaseManifest, installManifest, err = manifest.Generate(actionConfig, releaseManifest, installManifest,
-			manifest.WithThreeWayMergeMode(manifest.ThreeWayMergeMode(d.threeWayMergeMode)))
+			manifest.WithThreeWayMergeMode(manifest.ThreeWayMergeMode(d.threeWayMergeMode)),
+			manifest.WithRelease(d.release, releaseNs))
 		if err != nil {
 			return fmt.Errorf("unable to generate manifests: %w", err)
 		}
