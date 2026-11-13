@@ -62,18 +62,24 @@ Helm 4 verifies plugin provenance by default. This project publishes GPG-signed 
 curl -sL https://github.com/databus23.gpg | gpg --import
 gpg --list-keys --with-fingerprint EA17A2A206AFF8CD
 # Expected fingerprint: C5645EF4 7482257A 1F806D2B EA17A2A2 06AFF8CD
-helm plugin install https://github.com/databus23/helm-diff/releases/latest/download/helm-diff-linux-amd64.tgz
+OS_NAME=$(uname -s | tr '[:upper:]' '[:lower:]' | sed 's/darwin/macos/')
+ARCH=$(uname -m | sed -e 's/x86_64/amd64/' -e 's/aarch64/arm64/')
+helm plugin install https://github.com/databus23/helm-diff/releases/latest/download/helm-diff-${OS_NAME}-${ARCH}.tgz
 ```
 
 For offline/airgapped environments with Helm 4, transfer the release tarball **together with its `.prov` file** and install directly from the tarball. Use the **versioned** asset name (`diff-<version>-<os>-<arch>.tgz`, e.g. `diff-3.15.15-linux-amd64.tgz`): when installing from a local file, Helm 4 derives the directory it expects inside the archive from the tarball file name (`diff-3.15.15-linux-amd64.tgz` → `diff/`), so keep the original file name as well — provenance verification also matches the file name against the checksums recorded in the `.prov` file:
 
 ```shell
-curl -LO https://github.com/databus23/helm-diff/releases/download/<TAG>/diff-<VERSION>-linux-amd64.tgz
-curl -LO https://github.com/databus23/helm-diff/releases/download/<TAG>/diff-<VERSION>-linux-amd64.tgz.prov
-helm plugin install diff-<VERSION>-linux-amd64.tgz --keyring <path-to-keyring.gpg>
+VERSION=3.15.15
+TAG=v${VERSION}
+OS_NAME=$(uname -s | tr '[:upper:]' '[:lower:]' | sed 's/darwin/macos/')
+ARCH=$(uname -m | sed -e 's/x86_64/amd64/' -e 's/aarch64/arm64/')
+curl -LO https://github.com/databus23/helm-diff/releases/download/${TAG}/diff-${VERSION}-${OS_NAME}-${ARCH}.tgz
+curl -LO https://github.com/databus23/helm-diff/releases/download/${TAG}/diff-${VERSION}-${OS_NAME}-${ARCH}.tgz.prov
+helm plugin install diff-${VERSION}-${OS_NAME}-${ARCH}.tgz --keyring <path-to-keyring.gpg>
 ```
 
-(Replace `<TAG>`/`<VERSION>` with the release you are installing. The versioned asset is only needed for installs directly from a local tarball; on Helm 3, extract the archive and install from the extracted directory as described above.)
+(Replace `VERSION` and `TAG` with the release you are installing. The versioned asset is only needed for installs directly from a local tarball; on Helm 3, extract the archive and install from the extracted directory as described above.)
 
 For offline/airgapped environments, download the public key from the maintainer's GitHub profile on a connected machine, transfer it, and import it locally:
 
